@@ -11,20 +11,27 @@ export async function GET() {
 
   // Действующие требования (утратившие силу не считаем)
   const ACTIVE = "rr.is_canonical AND (rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')";
-  const [ministries, spheres, totals] = await Promise.all([
+  const [ministries, spheres, stages, totals] = await Promise.all([
     query(`SELECT rr.ministry, COUNT(*) AS n FROM requirement_registry rr
-           WHERE ${ACTIVE} AND rr.ministry IS NOT NULL
+           WHERE ${ACTIVE} AND rr.ministry IS NOT NULL AND rr.ministry NOT LIKE '%|%'
            GROUP BY rr.ministry ORDER BY n DESC`),
     query(`SELECT rr.sphere_code, COALESCE(s.name_ru, rr.sphere_code) AS name, COUNT(*) AS n
            FROM requirement_registry rr LEFT JOIN spheres s ON s.code = rr.sphere_code
-           WHERE ${ACTIVE} AND rr.sphere_code IS NOT NULL
+           WHERE ${ACTIVE} AND rr.sphere_code IS NOT NULL AND rr.sphere_code NOT LIKE '%;%'
            GROUP BY rr.sphere_code, s.name_ru ORDER BY n DESC`),
-    query(`SELECT COUNT(*) FILTER (WHERE ${ACTIVE}) AS active FROM requirement_registry rr`),
+    query(`SELECT st AS stage, COUNT(*) AS n
+           FROM requirement_registry rr, unnest(rr.stages) st
+           WHERE ${ACTIVE}
+           GROUP BY st ORDER BY n DESC`),
+    query(`SELECT COUNT(*) FILTER (WHERE ${ACTIVE}) AS active,
+                  COUNT(DISTINCT rr.ngr) FILTER (WHERE ${ACTIVE}) AS npa
+           FROM requirement_registry rr`),
   ]);
 
   return NextResponse.json({
     ministries: ministries.rows,
     spheres: spheres.rows,
+    stages: stages.rows,
     totals: totals.rows[0],
   });
 }
