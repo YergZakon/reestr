@@ -57,29 +57,44 @@ export async function POST(req: NextRequest) {
     if (T.length) { params.push(T); return `(rr.triggers IS NULL OR cardinality(rr.triggers)=0 OR rr.triggers && $${params.length}::text[])`; }
     return `(rr.triggers IS NULL OR cardinality(rr.triggers)=0)`;
   };
-  const relevant = section ? `(rr.scope='horizontal' OR $REL=ANY(rr.sections))` : `rr.scope='horizontal'`;
   const expandCut = String(body.path || "") === "expand" ? " AND NOT ('registration' = ANY(rr.stages) AND rr.scope='horizontal')" : "";
+
+  // релевантные отраслевые сферы по ОКЭД-охвату (карта сфера→ОКЭД)
+  let relSpheres: string[] = [];
+  if (oked) {
+    const r = await query(`SELECT code FROM spheres WHERE NOT COALESCE(is_horizontal,false) AND oked_prefixes IS NOT NULL
+       AND EXISTS (SELECT 1 FROM unnest(oked_prefixes) p WHERE $1 LIKE p || '%')`, [oked]);
+    relSpheres = r.rows.map((x: { code: string }) => x.code);
+  }
+  const useSpheres = !!oked && relSpheres.length > 0;
+  const sectoralRel = (params: unknown[]) => {
+    if (useSpheres) { params.push(relSpheres); return `rr.sphere_code = ANY($${params.length}::text[])`; }
+    if (section) { params.push(section); return `$${params.length} = ANY(rr.sections)`; }
+    return "false";
+  };
 
   // permits
   const pParams: unknown[] = [];
-  let rel = relevant;
-  if (section) { pParams.push(section); rel = rel.replace("$REL", `$${pParams.length}`); }
+  const pSr = sectoralRel(pParams);
   const pAp = applic(pParams);
   const permits = (await query(
     `SELECT DISTINCT COALESCE(NULLIF(rr.title,''), rr.action) AS t, rr.ministry
      FROM requirement_registry rr
-     WHERE ${ACTIVE} AND COALESCE(rr.is_permit,false)=true AND ${rel} AND ${pAp}${expandCut}
+     WHERE ${ACTIVE} AND COALESCE(rr.is_permit,false)=true AND (rr.scope='horizontal' OR ${pSr}) AND ${pAp}${expandCut}
      ORDER BY 1 LIMIT 50`, pParams)).rows;
 
   // sectoral по стадиям (только названия, компактно)
-  const sParams: unknown[] = section ? [section] : [];
-  const sAp = applic(sParams);
-  const sectoral = section ? (await query(
-    `SELECT COALESCE(NULLIF(rr.title,''), rr.action) AS t, rr.stages, rr.ministry
-     FROM requirement_registry rr
-     WHERE ${ACTIVE} AND rr.scope='sectoral' AND COALESCE(rr.is_permit,false)=false
-       AND $1=ANY(rr.sections) AND ${sAp}${expandCut}
-     ORDER BY rr.ministry NULLS LAST LIMIT 140`, sParams)).rows : [];
+  const sectoral = (useSpheres || section) ? (await (async () => {
+    const sParams: unknown[] = [];
+    const sSr = sectoralRel(sParams);
+    const sAp = applic(sParams);
+    return query(
+      `SELECT COALESCE(NULLIF(rr.title,''), rr.action) AS t, rr.stages, rr.ministry
+       FROM requirement_registry rr
+       WHERE ${ACTIVE} AND rr.scope='sectoral' AND COALESCE(rr.is_permit,false)=false
+         AND ${sSr} AND ${sAp}${expandCut}
+       ORDER BY rr.ministry NULLS LAST LIMIT 140`, sParams);
+  })()).rows : [];
 
   // общие — сводка по сферам
   const hParams: unknown[] = [];

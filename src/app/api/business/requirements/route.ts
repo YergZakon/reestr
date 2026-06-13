@@ -77,45 +77,62 @@ export async function GET(req: NextRequest) {
     ? (await query(`SELECT name_ru FROM oked_section WHERE section = $1`, [section])).rows[0]?.name_ru ?? null
     : null;
 
-  // Релевантность виду деятельности: горизонтальное ИЛИ его секция = выбранной
-  const relevant = section ? `(rr.scope = 'horizontal' OR $REL = ANY(rr.sections))` : `rr.scope = 'horizontal'`;
+  // Релевантные ОТРАСЛЕВЫЕ сферы для выбранного ОКЭД (карта сфера→ОКЭД-охват в spheres).
+  // Точнее буквы-секции: детсад 8510→education_general, ВУЗ 8542→mnvo.
+  let relSpheres: string[] = [];
+  if (oked) {
+    const r = await query(
+      `SELECT code FROM spheres WHERE NOT COALESCE(is_horizontal,false) AND oked_prefixes IS NOT NULL
+         AND EXISTS (SELECT 1 FROM unnest(oked_prefixes) p WHERE $1 LIKE p || '%')`, [oked]);
+    relSpheres = r.rows.map((x: { code: string }) => x.code);
+  }
+  const useSpheres = !!oked && relSpheres.length > 0;
+
+  // условие «относится к выбранному виду деятельности» (для отраслевых):
+  // по карте сфер (если выбран ОКЭД) либо по букве-секции (если выбрана секция-плитка).
+  const sectoralRel = (params: unknown[]) => {
+    if (useSpheres) { params.push(relSpheres); return `rr.sphere_code = ANY($${params.length}::text[])`; }
+    if (section) { params.push(section); return `$${params.length} = ANY(rr.sections)`; }
+    return "false";
+  };
 
   // ── Что оформить (permits): разрешительные, релевантные, применимые ──
   let permits: unknown[] = [];
   {
     const params: unknown[] = [];
-    let rel = relevant;
-    if (section) { params.push(section); rel = rel.replace("$REL", `$${params.length}`); }
+    const sr = sectoralRel(params);
     const ap = applic(params);
     const r = await query(
       `SELECT ${FIELDS} FROM requirement_registry rr
        LEFT JOIN spheres s ON s.code = rr.sphere_code
-       WHERE ${ACTIVE} AND COALESCE(rr.is_permit,false) = true AND ${rel} AND ${ap}${expandCut}
+       WHERE ${ACTIVE} AND COALESCE(rr.is_permit,false) = true AND (rr.scope = 'horizontal' OR ${sr}) AND ${ap}${expandCut}
        ORDER BY rr.ministry NULLS LAST, rr.id LIMIT 400`,
       params
     );
     permits = r.rows;
   }
 
-  // ── Отраслевой чек-лист (non-permit sectoral по секции) ──
+  // ── Отраслевой чек-лист (non-permit sectoral) ──
   let sectoral: unknown[] = [];
   let sectoralTotal = 0;
-  if (section) {
-    const cParams: unknown[] = [section];
+  if (useSpheres || section) {
+    const cParams: unknown[] = [];
+    const cSr = sectoralRel(cParams);
     const cAp = applic(cParams);
     const cnt = await query(
       `SELECT count(*) AS n FROM requirement_registry rr
        WHERE ${ACTIVE} AND rr.scope = 'sectoral' AND COALESCE(rr.is_permit,false) = false
-         AND $1 = ANY(rr.sections) AND ${cAp}${expandCut}`, cParams);
+         AND ${cSr} AND ${cAp}${expandCut}`, cParams);
     sectoralTotal = parseInt(cnt.rows[0].n, 10);
 
-    const params: unknown[] = [section];
+    const params: unknown[] = [];
+    const sr = sectoralRel(params);
     const ap = applic(params);
     const r = await query(
       `SELECT ${FIELDS} FROM requirement_registry rr
        LEFT JOIN spheres s ON s.code = rr.sphere_code
        WHERE ${ACTIVE} AND rr.scope = 'sectoral' AND COALESCE(rr.is_permit,false) = false
-         AND $1 = ANY(rr.sections) AND ${ap}${expandCut}
+         AND ${sr} AND ${ap}${expandCut}
        ORDER BY rr.ministry NULLS LAST, rr.id LIMIT 2000`, params);
     sectoral = r.rows;
   }
