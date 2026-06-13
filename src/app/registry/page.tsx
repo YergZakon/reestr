@@ -14,6 +14,7 @@ const I = {
   scale: (p: any) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M12 3v18M7 21h10M5 7h14M5 7l-2.5 6a3 3 0 0 0 5 0L5 7Zm14 0-2.5 6a3 3 0 0 0 5 0L19 7ZM8 7l4-2 4 2"/></svg>,
   gov: (p: any) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M3 21h18M5 21V10M19 21V10M3 10l9-6 9 6M9 21v-6h6v6"/></svg>,
   briefcase: (p: any) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>,
+  building: (p: any) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M9 6h.01M15 6h.01M9 10h.01M15 10h.01M9 14h.01M15 14h.01"/></svg>,
 };
 
 /* ——— Маппинги под наши данные ——— */
@@ -186,8 +187,15 @@ function OptRow({ on, onClick, label, count }: any) {
   );
 }
 
+interface Organ { ministry: string; npa_count: number; npa_active: number; req_count: number; overdue: number; }
+interface Npa {
+  ngr: string; title: string; ministry: string; npa_status: string;
+  date_adopted: string | null; date_revision: string | null; review_deadline: string | null;
+  overdue: boolean; req_count: number; adilet_url: string;
+}
+
 export default function RegistryPage() {
-  const [mode, setMode] = useState<"gov" | "biz">("gov");
+  const [mode, setMode] = useState<"gov" | "biz" | "organs">("gov");
   const [lang, setLang] = useState<"ru" | "kz">("ru");
   const [items, setItems] = useState<Req[]>([]);
   const [filtersData, setFiltersData] = useState<{ ministries: Opt[]; spheres: Opt[]; stages: Opt[]; totals: { active: number; npa: number } } | null>(null);
@@ -204,6 +212,25 @@ export default function RegistryPage() {
   // бизнес-режим
   const [scenario, setScenario] = useState<typeof SCENARIOS[0] | null>(null);
   const [bizStage, setBizStage] = useState<string | null>(null);
+
+  // режим «Органы и НПА»
+  const [organs, setOrgans] = useState<Organ[]>([]);
+  const [selOrg, setSelOrg] = useState<string | null>(null);
+  const [npaList, setNpaList] = useState<Npa[]>([]);
+  const [npaLoading, setNpaLoading] = useState(false);
+  useEffect(() => {
+    if (mode === "organs" && organs.length === 0)
+      fetch("/api/registry/organs").then((r) => r.json()).then((d) => {
+        setOrgans(d.organs || []);
+        if (d.organs?.length) setSelOrg(d.organs[0].ministry);
+      });
+  }, [mode, organs.length]);
+  useEffect(() => {
+    if (!selOrg) return;
+    setNpaLoading(true);
+    fetch(`/api/registry/npa?ministry=${encodeURIComponent(selOrg)}`).then((r) => r.json())
+      .then((d) => setNpaList(d.npa || [])).finally(() => setNpaLoading(false));
+  }, [selOrg]);
 
   useEffect(() => { fetch("/api/registry/filters").then((r) => r.json()).then(setFiltersData).catch(() => {}); }, []);
   useEffect(() => { const t = setTimeout(() => setQd(f.q), 400); return () => clearTimeout(t); }, [f.q]);
@@ -264,7 +291,8 @@ export default function RegistryPage() {
         </div>
         <div className="reg-spacer" />
         <div className="reg-mode">
-          <button className={mode === "gov" ? "on" : ""} onClick={() => setMode("gov")}><I.gov />Госорган</button>
+          <button className={mode === "gov" ? "on" : ""} onClick={() => setMode("gov")}><I.gov />Каталог</button>
+          <button className={mode === "organs" ? "on" : ""} onClick={() => setMode("organs")}><I.building />Органы и НПА</button>
           <button className={mode === "biz" ? "on" : ""} onClick={() => { setMode("biz"); setScenario(null); setBizStage(null); }}><I.briefcase />Бизнес</button>
         </div>
         <div className="reg-lang">
@@ -351,6 +379,49 @@ export default function RegistryPage() {
                   <button disabled={page === pages} onClick={() => setPage(page + 1)}><I.chevRight /></button>
                 </div>
               )}
+            </div>
+          </main>
+        </div>
+      ) : mode === "organs" ? (
+        /* ——— Органы и НПА ——— */
+        <div className="reg-shell">
+          <aside className="reg-sidebar">
+            <div className="reg-filters">
+              <div className="reg-filters-head"><span className="reg-filters-title">Государственные органы</span></div>
+              {organs.map((o) => (
+                <div key={o.ministry} className={"reg-org-item" + (selOrg === o.ministry ? " on" : "")} onClick={() => setSelOrg(o.ministry)}>
+                  <span className="reg-org-name">{minShort(o.ministry)}</span>
+                  <span className="reg-org-count">{o.npa_count} НПА</span>
+                </div>
+              ))}
+            </div>
+          </aside>
+          <main className="reg-content">
+            <div className="reg-catalog">
+              <h1 className="reg-cat-h1">{selOrg || "Органы и НПА"}</h1>
+              {selOrg && (() => {
+                const o = organs.find((x) => x.ministry === selOrg);
+                return o ? <div className="reg-cat-sub">{o.npa_count} НПА · {Number(o.req_count).toLocaleString("ru")} требований{o.overdue ? ` · ${o.overdue} с истёкшим сроком пересмотра` : ""}</div> : null;
+              })()}
+              <div style={{ marginTop: 18 }} className="reg-npa-list">
+                {npaLoading ? <div className="reg-empty">Загрузка…</div> : npaList.map((n) => (
+                  <div key={n.ngr} className="reg-npa-card">
+                    <div className="reg-npa-top">
+                      <div className="reg-npa-title">{n.title}</div>
+                      <span className="reg-npa-req">{n.req_count} треб.</span>
+                    </div>
+                    <div className="reg-npa-meta">
+                      <span>Госрегномер: <b>{n.ngr}</b></span>
+                      {n.date_revision && <span>Ред.: <b>{n.date_revision}</b></span>}
+                      {n.review_deadline && <span>Пересмотр: <b>{n.review_deadline}</b></span>}
+                      {n.npa_status === "утратил силу" && <span className="reg-npa-dead">утратил силу</span>}
+                      {n.overdue && n.npa_status !== "утратил силу" && <span className="reg-npa-overdue">срок пересмотра истёк</span>}
+                      <a className="reg-npa-link" href={n.adilet_url} target="_blank" rel="noreferrer">Открыть в adilet.zan.kz →</a>
+                    </div>
+                  </div>
+                ))}
+                {!npaLoading && npaList.length === 0 && <div className="reg-empty"><h3>Нет НПА</h3></div>}
+              </div>
             </div>
           </main>
         </div>
