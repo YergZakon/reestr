@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import "./registry.css";
 
 /* ——— Иконки ——— */
@@ -188,7 +187,6 @@ function OptRow({ on, onClick, label, count }: any) {
 }
 
 export default function RegistryPage() {
-  const router = useRouter();
   const [mode, setMode] = useState<"gov" | "biz">("gov");
   const [lang, setLang] = useState<"ru" | "kz">("ru");
   const [items, setItems] = useState<Req[]>([]);
@@ -232,7 +230,7 @@ export default function RegistryPage() {
   useEffect(() => { setPage(1); }, [f.spheres, f.ministries, f.stages, qd, sort]);
 
   const toggle = (key: "spheres" | "ministries" | "stages", v: string) =>
-    setF((p) => { const s = new Set(p[key]); s.has(v) ? s.delete(v) : s.add(v); return { ...p, [key]: Array.from(s) }; });
+    setF((p) => { const s = new Set(p[key]); if (s.has(v)) s.delete(v); else s.add(v); return { ...p, [key]: Array.from(s) }; });
   const activeCount = f.spheres.length + f.ministries.length + f.stages.length;
   const chips = [
     ...f.spheres.map((v) => ({ key: "spheres" as const, v, label: filtersData?.spheres.find((s) => s.sphere_code === v)?.name || v })),
