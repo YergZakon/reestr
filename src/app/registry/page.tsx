@@ -83,10 +83,21 @@ function Card({ r, onOpen }: { r: Req; onOpen: (r: Req) => void }) {
   );
 }
 
+/* Куда подавать заявку: eLicense (лицензии/разрешения) или eGov (регистрация/налоги/уведомления). */
+function applyTarget(r: Req): { url: string; label: string } {
+  const t = `${r.title || ""} ${r.action || ""} ${r.object || ""} ${r.legal_text || ""}`.toLowerCase();
+  if (/лиценз|разрешени|аккредит|аттестац|сертификат|патент|допуск/.test(t))
+    return { url: "https://elicense.kz/", label: "Оформить · eLicense.kz" };
+  if (/регистрац|налог|на учёт|на учет|постанов|статист|деклар|уведомлен/.test(t) || r.scope === "horizontal")
+    return { url: "https://egov.kz/", label: "Оформить · eGov.kz" };
+  return { url: "https://elicense.kz/", label: "Оформить · eLicense.kz" };
+}
+
 /* ——— Permit-карточка («Что оформить») ——— */
 function PermitCard({ r, onOpen }: { r: Req; onOpen: (r: Req) => void }) {
   const name = r.title || `${r.subject || ""}${r.action ? " → " + r.action : ""}`.trim() || "—";
-  const apply = r.ngr ? `https://adilet.zan.kz/rus/docs/${r.ngr}` : "https://egov.kz";
+  const ap = applyTarget(r);
+  const adilet = r.ngr ? `https://adilet.zan.kz/rus/docs/${r.ngr}` : null;
   return (
     <div className="reg-permit">
       <div className="reg-permit-main" onClick={() => onOpen(r)}>
@@ -96,8 +107,8 @@ function PermitCard({ r, onOpen }: { r: Req; onOpen: (r: Req) => void }) {
         {(r.stages || []).length > 0 && <div className="reg-permit-meta">{(r.stages || []).slice(0, 3).map((s) => <span key={s} className="reg-permit-stage">{STAGE_LABEL[s] || s}</span>)}</div>}
       </div>
       <div className="reg-permit-side">
-        <a className="reg-apply-btn" href={apply} target="_blank" rel="noreferrer">Подать заявку<I.chevRight /></a>
-        <button className="reg-permit-more" onClick={() => onOpen(r)}>Подробнее</button>
+        <a className="reg-apply-btn" href={ap.url} target="_blank" rel="noreferrer">{ap.label}<I.chevRight /></a>
+        {adilet && <a className="reg-permit-npalink" href={adilet} target="_blank" rel="noreferrer">Текст НПА</a>}
       </div>
     </div>
   );

@@ -326,6 +326,8 @@
 .reg-apply-btn:hover{background:var(--accent-700);}
 .reg-permit-more{background:transparent;border:0;color:var(--ink-3);font-size:12px;font-weight:600;cursor:pointer;}
 .reg-permit-more:hover{color:var(--accent-700);}
+.reg-permit-npalink{font-size:11.5px;color:var(--ink-3);text-decoration:none;border-bottom:1px dotted var(--line);white-space:nowrap;}
+.reg-permit-npalink:hover{color:var(--accent-700);border-color:var(--accent-100);}
 
 @media (max-width:980px){.reg-path-grid{grid-template-columns:1fr;}}
 
