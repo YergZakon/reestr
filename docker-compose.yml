@@ -1,0 +1,40 @@
+# Локальный PostgreSQL для разработки MVP портала требований РК.
+# Поднимает контейнер с Postgres 16; данные сохраняются в volume `pgdata`.
+#
+# Запуск:
+#   docker compose up -d
+#   export DATABASE_URL="postgresql://postgres:dev_password@localhost:5433/ochistka"
+#   psql "$DATABASE_URL" -f scripts/init-db.sql
+#   psql "$DATABASE_URL" -f scripts/migrations/001_canonical_cards.sql
+#   psql "$DATABASE_URL" -f scripts/migrations/002_ml_expert_votes.sql
+#
+# Остановка (данные сохраняются):
+#   docker compose stop
+#
+# Полный сброс (УДАЛЯЕТ ДАННЫЕ):
+#   docker compose down -v
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ochistka_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ochistka
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: dev_password
+      # Перфоманс-настройки для импорта 11K фрагментов
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
+    ports:
+      - "5433:5432"   # 5433 чтобы не конфликтовать с локальным Postgres на 5432
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ochistka"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:
+    name: ochistka_pgdata

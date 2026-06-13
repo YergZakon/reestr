@@ -1,0 +1,127 @@
+import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
+import { cookies } from "next/headers";
+import { query } from "./db";
+
+const JWT_SECRET = process.env.JWT_SECRET || "npa-expert-secret-2026";
+
+export interface UserPayload {
+  id: number;
+  username: string;
+  role: "admin" | "expert";
+}
+
+export async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 10);
+}
+
+export async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  return bcrypt.compare(password, hash);
+}
+
+export function signToken(user: UserPayload): string {
+  return jwt.sign(user, JWT_SECRET, { expiresIn: "7d" });
+}
+
+export function verifyToken(token: string): UserPayload | null {
+  try {
+    return jwt.verify(token, JWT_SECRET) as UserPayload;
+  } catch {
+    return null;
+  }
+}
+
+export async function getCurrentUser(): Promise<UserPayload | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("auth_token")?.value;
+  if (!token) return null;
+  return verifyToken(token);
+}
+
+export interface UserPayloadWithSpheres extends UserPayload {
+  /** Назначенные сферы. Для admin всегда [] (= нет ограничений). */
+  assigned_spheres: string[];
+}
+
+export interface UserPayloadWithAccess extends UserPayload {
+  /** Назначенные сферы. Для admin всегда [] (= нет ограничений). */
+  assigned_spheres: string[];
+  /** Назначенные органы. Для admin всегда [] (= нет ограничений). */
+  assigned_authorities: string[];
+}
+
+/**
+ * @deprecated используй getCurrentUserWithAccess() — она отдаёт обе оси (сферы + органы).
+ * Оставлена для обратной совместимости.
+ */
+export async function getCurrentUserWithSpheres(): Promise<UserPayloadWithSpheres | null> {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  if (user.role === "admin") {
+    return { ...user, assigned_spheres: [] };
+  }
+  const result = await query(
+    "SELECT sphere_code FROM user_spheres WHERE user_id = $1",
+    [user.id],
+  );
+  return {
+    ...user,
+    assigned_spheres: result.rows.map((r) => r.sphere_code as string),
+  };
+}
+
+/**
+ * Полный access-context: пользователь + назначенные сферы + назначенные органы.
+ *
+ * Логика доступа эксперта к карточке:
+ *   sphere_code ∈ assigned_spheres  AND  controller_authority ∈ assigned_authorities
+ *
+ * Для admin обе оси пусты ([]) — означает нет ограничений.
+ *
+ * Используется в:
+ *   - /api/cards/list (двойной фильтр)
+ *   - /api/cards/vote (двойная проверка перед UPSERT)
+ *   - /api/auth/me (отдать клиенту для UI)
+ *
+ * JWT не содержит сферы/органы намеренно — иначе при смене админом юзер
+ * должен перелогиниться чтобы изменения вступили в силу.
+ */
+export async function getCurrentUserWithAccess(): Promise<UserPayloadWithAccess | null> {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  if (user.role === "admin") {
+    return { ...user, assigned_spheres: [], assigned_authorities: [] };
+  }
+  const [s, a] = await Promise.all([
+    query("SELECT sphere_code FROM user_spheres WHERE user_id = $1", [user.id]),
+    query("SELECT authority_code FROM user_authorities WHERE user_id = $1", [user.id]),
+  ]);
+  return {
+    ...user,
+    assigned_spheres: s.rows.map((r) => r.sphere_code as string),
+    assigned_authorities: a.rows.map((r) => r.authority_code as string),
+  };
+}
+
+export async function authenticateUser(
+  username: string,
+  password: string
+): Promise<UserPayload | null> {
+  const result = await query(
+    "SELECT id, username, password_hash, role FROM users WHERE username = $1 AND is_active = true",
+    [username]
+  );
+  if (result.rows.length === 0) return null;
+
+  const user = result.rows[0];
+  const valid = await verifyPassword(password, user.password_hash);
+  if (!valid) return null;
+
+  // Log activity
+  await query(
+    "INSERT INTO activity_log (user_id, action, details) VALUES ($1, $2, $3)",
+    [user.id, "login", JSON.stringify({ ip: "server" })]
+  );
+
+  return { id: user.id, username: user.username, role: user.role };
+}
