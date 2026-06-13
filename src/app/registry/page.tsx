@@ -34,16 +34,10 @@ function minShort(m: string | null): string {
   if (!m) return "—";
   return m.replace("Министерство ", "Мин").replace(" Республики Казахстан", "").replace(" РК", "").slice(0, 28);
 }
-const SCENARIOS = [
-  { id: "sto", title: "Открыть СТО", oked: "45.20", icon: "🔧", desc: "Техобслуживание и ремонт автомобилей" },
-  { id: "bakery", title: "Запустить пекарню", oked: "10.71", icon: "🥖", desc: "Производство хлеба и кондитерских изделий" },
-  { id: "cafe", title: "Открыть кафе", oked: "56.10", icon: "🍽️", desc: "Рестораны, кафе, доставка питания" },
-  { id: "shop", title: "Открыть магазин", oked: "47.11", icon: "🛒", desc: "Розничная торговля" },
-  { id: "clinic", title: "Открыть клинику", oked: "86.21", icon: "🩺", desc: "Врачебная практика" },
-  { id: "quarry", title: "Карьер / добыча", oked: "08.11", icon: "⛏️", desc: "Добыча камня, песка, глины" },
-  { id: "farm", title: "Молочная ферма", oked: "01.41", icon: "🐄", desc: "Разведение КРС" },
-  { id: "build", title: "Строительство", oked: "41.20", icon: "🏗️", desc: "Строительство зданий" },
-];
+const SECTION_ICON: Record<string, string> = {
+  A: "🌾", B: "⛏️", C: "🏭", D: "⚡", E: "💧", F: "🏗️", G: "🛒", H: "🚚", I: "🏨",
+  J: "📡", K: "🏦", L: "🏢", M: "💼", N: "🗂️", P: "🎓", Q: "🩺", R: "🎭", S: "🛠️",
+};
 
 interface Req {
   id: number; ngr: string | null; npa_title: string | null; article: string | null;
@@ -51,7 +45,14 @@ interface Req {
   okeds: string[] | null; stages: string[] | null;
   title: string | null; legal_text: string | null; canon_text: string | null;
   subject: string | null; action: string | null; object: string | null; condition: string | null;
+  scope?: string | null; sections?: string[] | null;
 }
+interface Scenario { id: string; title: string; oked: string; section: string; icon: string; desc: string; }
+interface SectionRow { section: string; name_ru: string; biz_total: number | null; workers_thousands: number | null; req_count: number; }
+interface OkedRow { code: string; name_ru: string; section: string; section_name: string; }
+interface BizProfile { kind: "section" | "scenario" | "oked"; oked?: string; section?: string; title: string; icon?: string; desc?: string; }
+interface HorizGroup { sphere_code: string | null; name_ru: string | null; n: number; }
+interface BizData { oked: string | null; okedName: string | null; section: string | null; sectionName: string | null; sectoral: Req[]; sectoralTotal: number; horizontalGroups: HorizGroup[]; }
 interface Opt { ministry?: string; sphere_code?: string; stage?: string; name?: string; n: number; }
 
 function MetaChip({ children, color, stage }: { children: React.ReactNode; color?: string; stage?: boolean }) {
@@ -210,8 +211,16 @@ export default function RegistryPage() {
   const [qd, setQd] = useState("");
 
   // бизнес-режим
-  const [scenario, setScenario] = useState<typeof SCENARIOS[0] | null>(null);
-  const [bizStage, setBizStage] = useState<string | null>(null);
+  const [bizProfile, setBizProfile] = useState<BizProfile | null>(null);
+  const [bizData, setBizData] = useState<BizData | null>(null);
+  const [bizLoading, setBizLoading] = useState(false);
+  const [sections, setSections] = useState<SectionRow[]>([]);
+  const [scenariosList, setScenariosList] = useState<Scenario[]>([]);
+  const [okedQ, setOkedQ] = useState("");
+  const [okedResults, setOkedResults] = useState<OkedRow[]>([]);
+  const [showHoriz, setShowHoriz] = useState(false);
+  const [horizItems, setHorizItems] = useState<Record<string, Req[]>>({});
+  const [horizOpen, setHorizOpen] = useState<Record<string, boolean>>({});
 
   // режим «Органы и НПА»
   const [organs, setOrgans] = useState<Organ[]>([]);
@@ -265,18 +274,48 @@ export default function RegistryPage() {
     ...f.stages.map((v) => ({ key: "stages" as const, v, label: STAGE_LABEL[v] || v })),
   ];
 
-  // бизнес: требования по сценарию
-  const [bizItems, setBizItems] = useState<Req[]>([]);
+  // бизнес: справочники входа (секции + сценарии)
   useEffect(() => {
-    if (mode === "biz" && scenario) {
-      fetch(`/api/registry/list?oked=${scenario.oked}&limit=100`).then((r) => r.json()).then((d) => setBizItems(d.items || []));
-    }
-  }, [mode, scenario]);
-  const bizStages = useMemo(() => {
-    const set = new Set<string>(); bizItems.forEach((r) => (r.stages || []).forEach((s) => set.add(s)));
-    return STAGE_ORDER.filter((s) => set.has(s));
-  }, [bizItems]);
-  const bizShown = bizStage ? bizItems.filter((r) => (r.stages || []).includes(bizStage)) : bizItems;
+    if (mode === "biz" && sections.length === 0)
+      fetch("/api/business/sections").then((r) => r.json()).then((d) => setSections(d.sections || []));
+    if (mode === "biz" && scenariosList.length === 0)
+      fetch("/api/business/scenarios").then((r) => r.json()).then((d) => setScenariosList(d.scenarios || []));
+  }, [mode, sections.length, scenariosList.length]);
+
+  // автокомплит ОКЭД
+  useEffect(() => {
+    const q = okedQ.trim();
+    if (q.length < 2) { setOkedResults([]); return; }
+    const t = setTimeout(() => {
+      fetch(`/api/business/okved?q=${encodeURIComponent(q)}`).then((r) => r.json()).then((d) => setOkedResults(d.okveds || []));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [okedQ]);
+
+  // загрузка требований по выбранному профилю
+  useEffect(() => {
+    if (mode !== "biz" || !bizProfile) return;
+    setBizLoading(true); setShowHoriz(false); setHorizItems({}); setHorizOpen({});
+    const qs = bizProfile.oked
+      ? `oked=${encodeURIComponent(bizProfile.oked)}`
+      : `section=${encodeURIComponent(bizProfile.section || "")}`;
+    fetch(`/api/business/requirements?${qs}`).then((r) => r.json()).then(setBizData).finally(() => setBizLoading(false));
+  }, [mode, bizProfile]);
+
+  const toggleHoriz = (code: string) => {
+    setHorizOpen((p) => ({ ...p, [code]: !p[code] }));
+    if (!horizItems[code])
+      fetch(`/api/business/requirements?horizontalSphere=${encodeURIComponent(code)}`)
+        .then((r) => r.json()).then((d) => setHorizItems((p) => ({ ...p, [code]: d.items || [] })));
+  };
+
+  const sectoralByStage = useMemo(() => {
+    const sec = bizData?.sectoral || [];
+    const byStage = STAGE_ORDER.map((st) => ({ st, reqs: sec.filter((r) => (r.stages || []).includes(st)) })).filter((x) => x.reqs.length);
+    const noStage = sec.filter((r) => !(r.stages || []).length);
+    return { byStage, noStage };
+  }, [bizData]);
+  const horizTotal = useMemo(() => (bizData?.horizontalGroups || []).reduce((a, g) => a + g.n, 0), [bizData]);
 
   return (
     <div className="reg">
@@ -293,7 +332,7 @@ export default function RegistryPage() {
         <div className="reg-mode">
           <button className={mode === "gov" ? "on" : ""} onClick={() => setMode("gov")}><I.gov />Каталог</button>
           <button className={mode === "organs" ? "on" : ""} onClick={() => setMode("organs")}><I.building />Органы и НПА</button>
-          <button className={mode === "biz" ? "on" : ""} onClick={() => { setMode("biz"); setScenario(null); setBizStage(null); }}><I.briefcase />Бизнес</button>
+          <button className={mode === "biz" ? "on" : ""} onClick={() => { setMode("biz"); setBizProfile(null); }}><I.briefcase />Бизнес</button>
         </div>
         <div className="reg-lang">
           <button className={lang === "ru" ? "on" : ""} onClick={() => setLang("ru")}>РУС</button>
@@ -427,43 +466,142 @@ export default function RegistryPage() {
       ) : (
         /* ——— Бизнес ——— */
         <div className="reg-biz">
-          {!scenario ? (
+          {!bizProfile ? (
             <>
               <div className="reg-biz-hero">
-                <h1>Что вы планируете открыть?</h1>
-                <p>Выберите сценарий — система покажет требования к вашему виду деятельности по стадиям жизненного цикла бизнеса.</p>
+                <h1>Чем вы занимаетесь?</h1>
+                <p>Найдите свой вид деятельности — система покажет, что нужно сделать и когда: общие требования для всех и отраслевые по стадиям жизненного цикла.</p>
               </div>
-              <div className="reg-scenario-grid">
-                {SCENARIOS.map((s) => (
-                  <button key={s.id} className="reg-scenario" onClick={() => { setScenario(s); setBizStage(null); }}>
-                    <div className="reg-scenario-icon">{s.icon}</div>
-                    <div className="reg-scenario-title">{s.title}</div>
-                    <div className="reg-scenario-desc">{s.desc}</div>
-                    <div className="reg-scenario-oked">ОКЭД {s.oked}</div>
-                  </button>
-                ))}
+
+              {/* Поиск ОКЭД */}
+              <div className="reg-oked-search">
+                <div className="reg-search">
+                  <I.search />
+                  <input value={okedQ} onChange={(e) => setOkedQ(e.target.value)} placeholder="Найти вид деятельности или код ОКЭД (напр. «ремонт» или 4520)…" />
+                </div>
+                {okedResults.length > 0 && (
+                  <div className="reg-oked-results">
+                    {okedResults.map((o) => (
+                      <button key={o.code} className="reg-oked-row" onClick={() => { setBizProfile({ kind: "oked", oked: o.code, section: o.section, title: o.name_ru, icon: SECTION_ICON[o.section], desc: `ОКЭД ${o.code} · ${o.section_name}` }); setOkedQ(""); setOkedResults([]); }}>
+                        <span className="reg-oked-code">{o.code}</span>
+                        <span className="reg-oked-name">{o.name_ru}</span>
+                        <span className="reg-oked-sec">{o.section_name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
+
+              {/* Популярные сценарии */}
+              {scenariosList.length > 0 && <>
+                <div className="reg-biz-blockh">Популярные виды бизнеса</div>
+                <div className="reg-scenario-grid">
+                  {scenariosList.map((s) => (
+                    <button key={s.id} className="reg-scenario" onClick={() => setBizProfile({ kind: "scenario", oked: s.oked, section: s.section, title: s.title, icon: s.icon, desc: s.desc })}>
+                      <div className="reg-scenario-icon">{s.icon}</div>
+                      <div className="reg-scenario-title">{s.title}</div>
+                      <div className="reg-scenario-desc">{s.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </>}
+
+              {/* Отрасли (секции) */}
+              {sections.length > 0 && <>
+                <div className="reg-biz-blockh">Все отрасли</div>
+                <div className="reg-section-grid">
+                  {sections.map((s) => (
+                    <button key={s.section} className="reg-section-tile" onClick={() => setBizProfile({ kind: "section", section: s.section, title: s.name_ru, icon: SECTION_ICON[s.section], desc: `${s.req_count.toLocaleString("ru")} отраслевых требований` })}>
+                      <span className="reg-section-ic">{SECTION_ICON[s.section]}</span>
+                      <span className="reg-section-body">
+                        <span className="reg-section-name">{s.name_ru}</span>
+                        <span className="reg-section-meta">{s.biz_total ? `${Number(s.biz_total).toLocaleString("ru")} субъектов` : ""}{s.req_count ? ` · ${s.req_count} треб.` : ""}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </>}
             </>
           ) : (
             <>
-              <button className="reg-biz-back" onClick={() => { setScenario(null); setBizStage(null); }}><I.chevLeft />Все сценарии</button>
-              <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 8 }}>
-                <span style={{ fontSize: 30 }}>{scenario.icon}</span>
+              <button className="reg-biz-back" onClick={() => { setBizProfile(null); setBizData(null); }}><I.chevLeft />Назад к выбору</button>
+              <div className="reg-biz-profileh">
+                <span className="reg-biz-profile-ic">{bizProfile.icon || "🏢"}</span>
                 <div>
-                  <h1 style={{ fontSize: 24, fontWeight: 750, letterSpacing: "-.02em" }}>{scenario.title}</h1>
-                  <div style={{ fontSize: 13, color: "var(--ink-3)" }}>{scenario.desc} · ОКЭД {scenario.oked}</div>
+                  <h1>{bizProfile.title}</h1>
+                  <div className="reg-biz-profile-sub">{bizProfile.desc}{bizData?.sectionName ? ` · отрасль: ${bizData.sectionName}` : ""}</div>
                 </div>
               </div>
-              <p style={{ fontSize: 14, color: "var(--ink-2)" }}>Найдено <b>{bizItems.length}</b> применимых требований. Выберите стадию.</p>
-              <div className="reg-stages">
-                <button className={"reg-stage-pill" + (bizStage === null ? " on" : "")} onClick={() => setBizStage(null)}>Все <span className="cnt">{bizItems.length}</span></button>
-                {bizStages.map((s) => {
-                  const c = bizItems.filter((r) => (r.stages || []).includes(s)).length;
-                  return <button key={s} className={"reg-stage-pill" + (bizStage === s ? " on" : "")} onClick={() => setBizStage(s)}>{STAGE_LABEL[s]} <span className="cnt">{c}</span></button>;
-                })}
-              </div>
-              <div className="reg-cards">{bizShown.map((r) => <Card key={r.id} r={r} onOpen={setActive} />)}</div>
-              {bizItems.length === 0 && <div className="reg-empty"><h3>Требования не найдены</h3><p>Для этого вида деятельности в реестре пока нет привязанных требований.</p></div>}
+
+              {bizLoading ? <div className="reg-empty">Загрузка…</div> : bizData && (
+                <>
+                  {/* Общие для всех */}
+                  {horizTotal > 0 && (
+                    <div className="reg-biz-common">
+                      <button className="reg-biz-common-head" onClick={() => setShowHoriz((v) => !v)}>
+                        <span className="reg-biz-common-ic">📋</span>
+                        <span className="reg-biz-common-t">Общие требования для всех видов бизнеса</span>
+                        <span className="reg-biz-common-n">{horizTotal.toLocaleString("ru")}</span>
+                        <span className={"reg-biz-common-chev" + (showHoriz ? " open" : "")}><I.chevDown /></span>
+                      </button>
+                      {showHoriz && (
+                        <div className="reg-biz-common-body">
+                          {bizData.horizontalGroups.filter((g) => g.sphere_code).map((g) => (
+                            <div key={g.sphere_code} className="reg-biz-group">
+                              <button className="reg-biz-group-h" onClick={() => toggleHoriz(g.sphere_code!)}>
+                                <span className={"chev2" + (horizOpen[g.sphere_code!] ? " open" : "")}><I.chevRight /></span>
+                                {g.name_ru || g.sphere_code} <span>{g.n}</span>
+                              </button>
+                              {horizOpen[g.sphere_code!] && (
+                                <div className="reg-cards" style={{ marginTop: 10 }}>
+                                  {horizItems[g.sphere_code!]
+                                    ? horizItems[g.sphere_code!].map((r) => <Card key={r.id} r={r} onOpen={setActive} />)
+                                    : <div className="reg-empty">Загрузка…</div>}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Отраслевой чек-лист по стадиям */}
+                  <div className="reg-biz-blockh reg-biz-blockh-lg">
+                    Что нужно для вашей деятельности
+                    <span className="reg-biz-blockh-cnt">
+                      {bizData.sectoralTotal.toLocaleString("ru")} отраслевых требований
+                      {bizData.sectoralTotal > bizData.sectoral.length ? ` · показаны первые ${bizData.sectoral.length.toLocaleString("ru")}` : ""}
+                    </span>
+                  </div>
+                  {bizData.sectoral.length === 0 ? (
+                    <div className="reg-empty"><h3>Отраслевых требований не найдено</h3><p>Для этого вида деятельности специфических требований в реестре нет — ориентируйтесь на блок «Общие требования».</p></div>
+                  ) : (
+                    <div className="reg-checklist">
+                      {sectoralByStage.byStage.map(({ st, reqs }, idx) => (
+                        <div key={st} className="reg-stage-block">
+                          <div className="reg-stage-block-h">
+                            <span className="reg-stage-num">{idx + 1}</span>
+                            <span className="reg-stage-ttl">{STAGE_LABEL[st]}</span>
+                            <span className="reg-stage-cnt">{reqs.length}</span>
+                          </div>
+                          <div className="reg-cards">{reqs.map((r) => <Card key={r.id} r={r} onOpen={setActive} />)}</div>
+                        </div>
+                      ))}
+                      {sectoralByStage.noStage.length > 0 && (
+                        <div className="reg-stage-block">
+                          <div className="reg-stage-block-h">
+                            <span className="reg-stage-num">•</span>
+                            <span className="reg-stage-ttl">Постоянные требования</span>
+                            <span className="reg-stage-cnt">{sectoralByStage.noStage.length}</span>
+                          </div>
+                          <div className="reg-cards">{sectoralByStage.noStage.map((r) => <Card key={r.id} r={r} onOpen={setActive} />)}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
             </>
           )}
         </div>
