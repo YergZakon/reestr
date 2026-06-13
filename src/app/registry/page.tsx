@@ -15,6 +15,7 @@ const I = {
   gov: (p: any) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M3 21h18M5 21V10M19 21V10M3 10l9-6 9 6M9 21v-6h6v6"/></svg>,
   briefcase: (p: any) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>,
   building: (p: any) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M9 6h.01M15 6h.01M9 10h.01M15 10h.01M9 14h.01M15 14h.01"/></svg>,
+  layers: (p: any) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5M3 17l9 5 9-5"/></svg>,
 };
 
 /* ——— Маппинги под наши данные ——— */
@@ -53,7 +54,8 @@ interface OkedRow { code: string; name_ru: string; section: string; section_name
 interface BizProfile { kind: "section" | "scenario" | "oked"; oked?: string; section?: string; title: string; icon?: string; desc?: string; }
 interface HorizGroup { sphere_code: string | null; name_ru: string | null; n: number; }
 interface BizData { oked: string | null; okedName: string | null; section: string | null; sectionName: string | null; permits: Req[]; sectoral: Req[]; sectoralTotal: number; horizontalGroups: HorizGroup[]; }
-interface Question { tag: string; q: string; def: boolean; }
+interface Question { tag: string; q: string; hint?: string; def: boolean; }
+type BizPath = "new" | "expand";
 interface Opt { ministry?: string; sphere_code?: string; stage?: string; name?: string; n: number; }
 
 function MetaChip({ children, color, stage }: { children: React.ReactNode; color?: string; stage?: boolean }) {
@@ -78,6 +80,26 @@ function Card({ r, onOpen }: { r: Req; onOpen: (r: Req) => void }) {
         {(r.stages || []).length > 3 && <MetaChip stage>+{(r.stages || []).length - 3}</MetaChip>}
       </div>
     </article>
+  );
+}
+
+/* ——— Permit-карточка («Что оформить») ——— */
+function PermitCard({ r, onOpen }: { r: Req; onOpen: (r: Req) => void }) {
+  const name = r.title || `${r.subject || ""}${r.action ? " → " + r.action : ""}`.trim() || "—";
+  const apply = r.ngr ? `https://adilet.zan.kz/rus/docs/${r.ngr}` : "https://egov.kz";
+  return (
+    <div className="reg-permit">
+      <div className="reg-permit-main" onClick={() => onOpen(r)}>
+        <div className="reg-permit-name">{name}</div>
+        {r.ministry && <div className="reg-permit-issuer">Выдаёт: {minShort(r.ministry)}</div>}
+        {r.npa_title && <div className="reg-permit-npa">{r.npa_title}{r.article ? `, ${r.article}` : ""}</div>}
+        {(r.stages || []).length > 0 && <div className="reg-permit-meta">{(r.stages || []).slice(0, 3).map((s) => <span key={s} className="reg-permit-stage">{STAGE_LABEL[s] || s}</span>)}</div>}
+      </div>
+      <div className="reg-permit-side">
+        <a className="reg-apply-btn" href={apply} target="_blank" rel="noreferrer">Подать заявку<I.chevRight /></a>
+        <button className="reg-permit-more" onClick={() => onOpen(r)}>Подробнее</button>
+      </div>
+    </div>
   );
 }
 
@@ -229,7 +251,8 @@ export default function RegistryPage() {
   const [f, setF] = useState<{ spheres: string[]; ministries: string[]; stages: string[]; q: string }>({ spheres: [], ministries: [], stages: [], q: "" });
   const [qd, setQd] = useState("");
 
-  // бизнес-режим (Guided Search: select → survey → report)
+  // бизнес-режим (Guided Search: путь → select → survey → report)
+  const [bizPath, setBizPath] = useState<BizPath | null>(null);
   const [bizStep, setBizStep] = useState<"select" | "survey" | "report">("select");
   const [bizProfile, setBizProfile] = useState<BizProfile | null>(null);
   const [bizData, setBizData] = useState<BizData | null>(null);
@@ -341,14 +364,16 @@ export default function RegistryPage() {
     setShowHoriz(false); setHorizItems({}); setHorizOpen({}); setConclusion(null); setConclErr(null);
     const base = bizProfile.oked ? `oked=${encodeURIComponent(bizProfile.oked)}` : `section=${encodeURIComponent(bizProfile.section || "")}`;
     const tg = activeTriggers.length ? `&triggers=${activeTriggers.join(",")}` : "";
-    fetch(`/api/business/requirements?${base}${tg}`).then((r) => r.json()).then(setBizData).finally(() => setBizLoading(false));
+    const pp = bizPath ? `&path=${bizPath}` : "";
+    fetch(`/api/business/requirements?${base}${tg}${pp}`).then((r) => r.json()).then(setBizData).finally(() => setBizLoading(false));
   };
 
   const toggleHoriz = (code: string) => {
     setHorizOpen((p) => ({ ...p, [code]: !p[code] }));
     if (!horizItems[code]) {
       const tg = activeTriggers.length ? `&triggers=${activeTriggers.join(",")}` : "";
-      fetch(`/api/business/requirements?horizontalSphere=${encodeURIComponent(code)}${tg}`)
+      const pp = bizPath ? `&path=${bizPath}` : "";
+      fetch(`/api/business/requirements?horizontalSphere=${encodeURIComponent(code)}${tg}${pp}`)
         .then((r) => r.json()).then((d) => setHorizItems((p) => ({ ...p, [code]: d.items || [] })));
     }
   };
@@ -359,7 +384,7 @@ export default function RegistryPage() {
     setConclLoading(true); setConclErr(null); setConclusion(null);
     fetch("/api/business/conclusion", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ oked: bizProfile.oked, section: bizProfile.section, title: bizProfile.title, triggers: activeTriggers }),
+      body: JSON.stringify({ oked: bizProfile.oked, section: bizProfile.section, title: bizProfile.title, triggers: activeTriggers, path: bizPath }),
     }).then((r) => r.json()).then((d) => { if (d.conclusion) setConclusion(d.conclusion); else setConclErr(d.error || "Не удалось сгенерировать"); })
       .catch(() => setConclErr("Ошибка сети")).finally(() => setConclLoading(false));
   };
@@ -387,7 +412,7 @@ export default function RegistryPage() {
         <div className="reg-mode">
           <button className={mode === "gov" ? "on" : ""} onClick={() => setMode("gov")}><I.gov />Каталог</button>
           <button className={mode === "organs" ? "on" : ""} onClick={() => setMode("organs")}><I.building />Органы и НПА</button>
-          <button className={mode === "biz" ? "on" : ""} onClick={() => { setMode("biz"); setBizProfile(null); setBizStep("select"); }}><I.briefcase />Бизнес</button>
+          <button className={mode === "biz" ? "on" : ""} onClick={() => { setMode("biz"); setBizProfile(null); setBizStep("select"); setBizPath(null); }}><I.briefcase />Бизнес</button>
         </div>
         <div className="reg-lang">
           <button className={lang === "ru" ? "on" : ""} onClick={() => setLang("ru")}>РУС</button>
@@ -521,19 +546,48 @@ export default function RegistryPage() {
       ) : (
         /* ——— Бизнес ——— */
         <div className="reg-biz">
-          {bizProfile && bizStep !== "select" && (
-            <div className="reg-wizard-steps">
-              <span className="reg-wstep done">1 · Вид деятельности</span>
-              <span className={"reg-wstep" + (bizStep === "survey" ? " on" : " done")}>2 · Уточнение</span>
-              <span className={"reg-wstep" + (bizStep === "report" ? " on" : "")}>3 · Отчёт</span>
-            </div>
-          )}
-          {bizStep === "select" ? (
+          {!bizPath ? (
             <>
               <div className="reg-biz-hero">
-                <h1>Чем вы занимаетесь?</h1>
-                <p>Найдите свой вид деятельности, ответьте на несколько вопросов — и получите персональный список требований и ИИ-заключение.</p>
+                <h1>Запустите бизнес легально — без поиска по тысячам НПА</h1>
+                <p>Ответьте на несколько вопросов — система соберёт персональный список разрешений, лицензий и требований и подготовит ИИ-заключение с экспортом в PDF.</p>
               </div>
+              <div className="reg-path-grid">
+                <button className="reg-path-card" onClick={() => { setBizPath("new"); setBizStep("select"); }}>
+                  <div className="reg-path-ic"><I.briefcase /></div>
+                  <h3>Запуск нового бизнеса</h3>
+                  <p>Вы начинаете с нуля и хотите понять полный перечень того, что нужно оформить для законного старта.</p>
+                  <span className="reg-path-go">Начать подбор <I.chevRight /></span>
+                </button>
+                <button className="reg-path-card" onClick={() => { setBizPath("expand"); setBizStep("select"); }}>
+                  <div className="reg-path-ic"><I.layers /></div>
+                  <h3>Расширение действующего</h3>
+                  <p>У вас уже есть бизнес. Добавляете новый вид деятельности или услугу — покажем только дополнительные требования.</p>
+                  <span className="reg-path-go">Подобрать дополнительно <I.chevRight /></span>
+                </button>
+              </div>
+            </>
+          ) : (
+          <>
+          <button className="reg-biz-back" onClick={() => { setBizPath(null); setBizProfile(null); setBizStep("select"); }}><I.chevLeft />{bizPath === "new" ? "Запуск нового бизнеса" : "Расширение действующего"} · начать заново</button>
+          <div className="reg-wiz">
+            {["Вид деятельности", "Уточнение", "Отчёт"].map((s, i) => {
+              const cur = bizStep === "select" ? 0 : bizStep === "survey" ? 1 : 2;
+              return (
+                <div key={i} className="reg-wiz-item">
+                  <div className={"reg-wiz-step" + (i === cur ? " on" : i < cur ? " done" : "")}>
+                    <span className="num">{i < cur ? <I.check /> : i + 1}</span>
+                    <span className="lbl">{s}</span>
+                  </div>
+                  {i < 2 && <span className={"reg-wiz-line" + (i < cur ? " done" : "")} />}
+                </div>
+              );
+            })}
+          </div>
+          {bizStep === "select" ? (
+            <>
+              <h2 className="reg-wiz-h">{bizPath === "expand" ? "Какой вид деятельности добавляете?" : "Чем будет заниматься бизнес?"}</h2>
+              <p className="reg-wiz-sub">Найдите вид деятельности по названию или коду ОКЭД, либо выберите популярный сценарий или отрасль.</p>
 
               {/* Поиск ОКЭД */}
               <div className="reg-oked-search">
@@ -592,17 +646,21 @@ export default function RegistryPage() {
                 <div><h1>{bizProfile?.title}</h1><div className="reg-biz-profile-sub">{bizProfile?.desc}</div></div>
               </div>
               <div className="reg-survey">
-                <h2 className="reg-survey-h">Уточните детали вашего бизнеса</h2>
-                <p className="reg-survey-sub">Отметьте, что относится к вам — покажем только применимые требования и не завалим лишним.</p>
-                <div className="reg-survey-list">
+                <h2 className="reg-wiz-h">Уточняющие вопросы</h2>
+                <p className="reg-wiz-sub">Ответы определяют, какие лицензии и требования войдут в отчёт. Отвечайте «Нет», если пункт к вам не относится.</p>
+                <div className="reg-q-list">
                   {questions.map((q) => (
-                    <button key={q.tag} className={"reg-q" + (answers[q.tag] ? " on" : "")} onClick={() => setAnswers((p) => ({ ...p, [q.tag]: !p[q.tag] }))}>
-                      <span className="reg-q-text">{q.q}</span>
-                      <span className={"reg-q-toggle" + (answers[q.tag] ? " on" : "")}><span className="knob" /></span>
-                    </button>
+                    <div key={q.tag} className={"reg-q-card" + (answers[q.tag] !== undefined ? " answered" : "")}>
+                      <div className="reg-q-text">{q.q}</div>
+                      {q.hint && <div className="reg-q-hint">{q.hint}</div>}
+                      <div className="reg-q-btns">
+                        <button className={"reg-q-btn yes" + (answers[q.tag] === true ? " on" : "")} onClick={() => setAnswers((p) => ({ ...p, [q.tag]: true }))}><I.check />Да</button>
+                        <button className={"reg-q-btn no" + (answers[q.tag] === false ? " on" : "")} onClick={() => setAnswers((p) => ({ ...p, [q.tag]: false }))}>Нет</button>
+                      </div>
+                    </div>
                   ))}
                 </div>
-                <button className="reg-survey-go" onClick={loadReport}>Показать требования<I.chevRight /></button>
+                <button className="reg-survey-go" onClick={loadReport}>Сформировать отчёт<I.chevRight /></button>
               </div>
             </>
           ) : (
@@ -618,6 +676,20 @@ export default function RegistryPage() {
 
               {bizLoading ? <div className="reg-empty">Подбираю требования…</div> : bizData && (
                 <>
+                  {/* Сводка отчёта */}
+                  <div className="reg-report-head">
+                    <div className="reg-report-ic"><I.check /></div>
+                    <div style={{ flex: 1 }}>
+                      <h2>{bizPath === "expand" ? "Дополнительные требования готовы" : "Персональный отчёт готов"}</h2>
+                      <p>{bizPath === "expand" ? "Для расширения" : "Для законного ведения"} «{bizProfile?.title}»{bizData.sectionName ? ` (${bizData.sectionName})` : ""} применимо:{bizPath === "expand" ? " базовая регистрация исключена." : ""}</p>
+                      <div className="reg-report-summary">
+                        <span className="reg-rs"><b>{bizData.permits.length}</b> к оформлению</span>
+                        <span className="reg-rs"><b>{bizData.sectoralTotal.toLocaleString("ru")}</b> отраслевых</span>
+                        <span className="reg-rs"><b>{horizTotal.toLocaleString("ru")}</b> общих</span>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* ИИ-заключение */}
                   <div className="reg-concl">
                     {!conclusion && !conclLoading && !conclErr && (
@@ -647,7 +719,7 @@ export default function RegistryPage() {
                   {bizData.permits.length > 0 && (
                     <>
                       <div className="reg-biz-blockh reg-biz-blockh-lg">Что оформить<span className="reg-biz-blockh-cnt">{bizData.permits.length} разрешений и лицензий</span></div>
-                      <div className="reg-cards reg-permits">{bizData.permits.map((r) => <Card key={r.id} r={r} onOpen={setActive} />)}</div>
+                      <div className="reg-permit-list">{bizData.permits.map((r) => <PermitCard key={r.id} r={r} onOpen={setActive} />)}</div>
                     </>
                   )}
 
@@ -707,6 +779,8 @@ export default function RegistryPage() {
                 </>
               )}
             </>
+          )}
+          </>
           )}
         </div>
       )}

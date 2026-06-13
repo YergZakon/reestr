@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
     return `(rr.triggers IS NULL OR cardinality(rr.triggers)=0)`;
   };
   const relevant = section ? `(rr.scope='horizontal' OR $REL=ANY(rr.sections))` : `rr.scope='horizontal'`;
+  const expandCut = String(body.path || "") === "expand" ? " AND NOT ('registration' = ANY(rr.stages) AND rr.scope='horizontal')" : "";
 
   // permits
   const pParams: unknown[] = [];
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest) {
   const permits = (await query(
     `SELECT DISTINCT COALESCE(NULLIF(rr.title,''), rr.action) AS t, rr.ministry
      FROM requirement_registry rr
-     WHERE ${ACTIVE} AND COALESCE(rr.is_permit,false)=true AND ${rel} AND ${pAp}
+     WHERE ${ACTIVE} AND COALESCE(rr.is_permit,false)=true AND ${rel} AND ${pAp}${expandCut}
      ORDER BY 1 LIMIT 50`, pParams)).rows;
 
   // sectoral по стадиям (только названия, компактно)
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
     `SELECT COALESCE(NULLIF(rr.title,''), rr.action) AS t, rr.stages, rr.ministry
      FROM requirement_registry rr
      WHERE ${ACTIVE} AND rr.scope='sectoral' AND COALESCE(rr.is_permit,false)=false
-       AND $1=ANY(rr.sections) AND ${sAp}
+       AND $1=ANY(rr.sections) AND ${sAp}${expandCut}
      ORDER BY rr.ministry NULLS LAST LIMIT 140`, sParams)).rows : [];
 
   // общие — сводка по сферам
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest) {
   const hAp = applic(hParams);
   const horiz = (await query(
     `SELECT s.name_ru, count(*)::int n FROM requirement_registry rr LEFT JOIN spheres s ON s.code=rr.sphere_code
-     WHERE ${ACTIVE} AND rr.scope='horizontal' AND COALESCE(rr.is_permit,false)=false AND ${hAp}
+     WHERE ${ACTIVE} AND rr.scope='horizontal' AND COALESCE(rr.is_permit,false)=false AND ${hAp}${expandCut}
      GROUP BY s.name_ru ORDER BY n DESC LIMIT 20`, hParams)).rows;
 
   // компактный контекст

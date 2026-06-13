@@ -265,6 +265,70 @@
   .reg-concl-actions{display:none !important;}
 }
 
+/* ——— Guided Search (дизайн Claude Design) ——— */
+/* Два пути */
+.reg-path-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:30px;}
+.reg-path-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px;text-align:left;box-shadow:var(--sh-1);transition:all .16s;}
+.reg-path-card:hover{border-color:var(--accent-100);box-shadow:var(--sh-2);transform:translateY(-2px);}
+.reg-path-ic{width:46px;height:46px;border-radius:12px;background:var(--accent-50);color:var(--accent-700);display:grid;place-items:center;margin-bottom:16px;}
+.reg-path-card h3{font-size:18px;font-weight:700;letter-spacing:-.015em;}
+.reg-path-card p{font-size:13.5px;color:var(--ink-2);margin:7px 0 0;line-height:1.5;}
+.reg-path-go{margin-top:16px;display:inline-flex;align-items:center;gap:7px;color:var(--accent-700);font-size:13.5px;font-weight:650;}
+
+/* Степпер с галочками */
+.reg-wiz{display:flex;align-items:center;margin:8px 0 26px;}
+.reg-wiz-item{display:flex;align-items:center;}
+.reg-wiz-item:not(:last-child){flex:1;}
+.reg-wiz-step{display:flex;align-items:center;gap:9px;flex-shrink:0;}
+.reg-wiz-step .num{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--line);background:var(--surface);color:var(--ink-3);font-size:13px;font-weight:700;display:grid;place-items:center;transition:all .18s;}
+.reg-wiz-step .lbl{font-size:13px;font-weight:600;color:var(--ink-3);white-space:nowrap;}
+.reg-wiz-step.on .num{background:var(--accent);border-color:var(--accent);color:#fff;}
+.reg-wiz-step.on .lbl{color:var(--ink);}
+.reg-wiz-step.done .num{background:var(--accent-50);border-color:var(--accent-100);color:var(--accent-700);}
+.reg-wiz-step.done .lbl{color:var(--ink-2);}
+.reg-wiz-line{flex:1;height:1.5px;background:var(--line);margin:0 12px;min-width:18px;}
+.reg-wiz-line.done{background:var(--accent-100);}
+.reg-wiz-h{font-size:23px;font-weight:750;letter-spacing:-.02em;}
+.reg-wiz-sub{font-size:14px;color:var(--ink-2);margin:6px 0 22px;line-height:1.5;}
+
+/* Опросник Да/Нет */
+.reg-q-list{display:flex;flex-direction:column;gap:12px;max-width:680px;}
+.reg-q-card{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:18px 20px;}
+.reg-q-card.answered{border-color:var(--accent-100);}
+.reg-q-text{font-size:15.5px;font-weight:600;letter-spacing:-.01em;}
+.reg-q-hint{font-size:12.5px;color:var(--ink-3);margin-top:4px;line-height:1.4;}
+.reg-q-btns{display:flex;gap:9px;margin-top:14px;}
+.reg-q-btn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 18px;border-radius:9px;border:1px solid var(--line);background:var(--surface);font-size:13px;font-weight:600;color:var(--ink-2);}
+.reg-q-btn:hover{border-color:#C9D4CE;}
+.reg-q-btn.yes.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.reg-q-btn.no.on{background:var(--ink);border-color:var(--ink);color:#fff;}
+
+/* Сводка отчёта */
+.reg-report-head{display:flex;align-items:flex-start;gap:16px;padding:20px 22px;background:var(--accent-50);border:1px solid var(--accent-100);border-radius:14px;margin-bottom:22px;}
+.reg-report-ic{width:44px;height:44px;border-radius:12px;background:var(--accent);color:#fff;display:grid;place-items:center;flex-shrink:0;}
+.reg-report-head h2{font-size:18px;font-weight:700;letter-spacing:-.015em;}
+.reg-report-head p{font-size:13px;color:var(--ink-2);margin:5px 0 0;line-height:1.45;}
+.reg-report-summary{display:flex;gap:22px;margin-top:12px;flex-wrap:wrap;}
+.reg-rs{font-size:12.5px;color:var(--ink-2);}
+.reg-rs b{display:block;font-size:20px;font-weight:750;color:var(--ink);letter-spacing:-.02em;}
+
+/* Permit-карточки «Что оформить» */
+.reg-permit-list{display:flex;flex-direction:column;gap:10px;}
+.reg-permit{display:flex;gap:16px;background:linear-gradient(180deg,var(--accent-50),var(--surface));border:1px solid var(--accent-100);border-radius:13px;padding:16px 18px;box-shadow:var(--sh-1);}
+.reg-permit-main{flex:1;min-width:0;cursor:pointer;}
+.reg-permit-name{font-size:15px;font-weight:650;letter-spacing:-.01em;line-height:1.3;}
+.reg-permit-issuer{font-size:12.5px;color:var(--ink-2);margin-top:5px;font-weight:550;}
+.reg-permit-npa{font-size:12px;color:var(--ink-3);margin-top:3px;}
+.reg-permit-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;}
+.reg-permit-stage{font-size:11px;color:var(--ink-3);background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:2px 9px;}
+.reg-permit-side{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0;}
+.reg-apply-btn{height:38px;padding:0 16px;border-radius:9px;background:var(--accent);color:#fff;border:0;font-size:13px;font-weight:650;display:flex;align-items:center;gap:6px;text-decoration:none;white-space:nowrap;}
+.reg-apply-btn:hover{background:var(--accent-700);}
+.reg-permit-more{background:transparent;border:0;color:var(--ink-3);font-size:12px;font-weight:600;cursor:pointer;}
+.reg-permit-more:hover{color:var(--accent-700);}
+
+@media (max-width:980px){.reg-path-grid{grid-template-columns:1fr;}}
+
 /* Органы и НПА */
 .reg-org-item{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:8px;cursor:pointer;transition:background .12s;}
 .reg-org-item:hover{background:var(--surface-3);}

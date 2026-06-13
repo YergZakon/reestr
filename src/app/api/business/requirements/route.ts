@@ -37,6 +37,10 @@ export async function GET(req: NextRequest) {
     return `(rr.triggers IS NULL OR cardinality(rr.triggers) = 0)`;
   };
 
+  // path=expand (расширение действующего бизнеса) — исключаем уже пройденную базовую регистрацию
+  const path = sp.get("path");
+  const expandCut = path === "expand" ? " AND NOT ('registration' = ANY(rr.stages) AND rr.scope = 'horizontal')" : "";
+
   // ── Ленивая подгрузка общих требований одной сферы ──
   const horizontalSphere = sp.get("horizontalSphere");
   if (horizontalSphere) {
@@ -46,7 +50,7 @@ export async function GET(req: NextRequest) {
       `SELECT ${FIELDS} FROM requirement_registry rr
        LEFT JOIN spheres s ON s.code = rr.sphere_code
        WHERE ${ACTIVE} AND rr.scope = 'horizontal' AND COALESCE(rr.is_permit,false) = false
-         AND rr.sphere_code = $1 AND ${ap}
+         AND rr.sphere_code = $1 AND ${ap}${expandCut}
        ORDER BY rr.id LIMIT 800`,
       params
     );
@@ -86,7 +90,7 @@ export async function GET(req: NextRequest) {
     const r = await query(
       `SELECT ${FIELDS} FROM requirement_registry rr
        LEFT JOIN spheres s ON s.code = rr.sphere_code
-       WHERE ${ACTIVE} AND COALESCE(rr.is_permit,false) = true AND ${rel} AND ${ap}
+       WHERE ${ACTIVE} AND COALESCE(rr.is_permit,false) = true AND ${rel} AND ${ap}${expandCut}
        ORDER BY rr.ministry NULLS LAST, rr.id LIMIT 400`,
       params
     );
@@ -102,7 +106,7 @@ export async function GET(req: NextRequest) {
     const cnt = await query(
       `SELECT count(*) AS n FROM requirement_registry rr
        WHERE ${ACTIVE} AND rr.scope = 'sectoral' AND COALESCE(rr.is_permit,false) = false
-         AND $1 = ANY(rr.sections) AND ${cAp}`, cParams);
+         AND $1 = ANY(rr.sections) AND ${cAp}${expandCut}`, cParams);
     sectoralTotal = parseInt(cnt.rows[0].n, 10);
 
     const params: unknown[] = [section];
@@ -111,7 +115,7 @@ export async function GET(req: NextRequest) {
       `SELECT ${FIELDS} FROM requirement_registry rr
        LEFT JOIN spheres s ON s.code = rr.sphere_code
        WHERE ${ACTIVE} AND rr.scope = 'sectoral' AND COALESCE(rr.is_permit,false) = false
-         AND $1 = ANY(rr.sections) AND ${ap}
+         AND $1 = ANY(rr.sections) AND ${ap}${expandCut}
        ORDER BY rr.ministry NULLS LAST, rr.id LIMIT 2000`, params);
     sectoral = r.rows;
   }
@@ -122,7 +126,7 @@ export async function GET(req: NextRequest) {
   const hg = await query(
     `SELECT rr.sphere_code, s.name_ru, count(*)::int AS n
      FROM requirement_registry rr LEFT JOIN spheres s ON s.code = rr.sphere_code
-     WHERE ${ACTIVE} AND rr.scope = 'horizontal' AND COALESCE(rr.is_permit,false) = false AND ${hgAp}
+     WHERE ${ACTIVE} AND rr.scope = 'horizontal' AND COALESCE(rr.is_permit,false) = false AND ${hgAp}${expandCut}
      GROUP BY rr.sphere_code, s.name_ru ORDER BY n DESC`,
     hgParams
   );
