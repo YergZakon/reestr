@@ -401,7 +401,7 @@ export default function RegistryPage() {
               <h1 className="reg-cat-h1">{selOrg || "Органы и НПА"}</h1>
               {selOrg && (() => {
                 const o = organs.find((x) => x.ministry === selOrg);
-                return o ? <div className="reg-cat-sub">{o.npa_count} НПА · {Number(o.req_count).toLocaleString("ru")} требований{o.overdue ? ` · ${o.overdue} с истёкшим сроком пересмотра` : ""}</div> : null;
+                return o ? <div className="reg-cat-sub">{o.npa_count} НПА · {Number(o.req_count).toLocaleString("ru")} требований</div> : null;
               })()}
               <div style={{ marginTop: 18 }} className="reg-npa-list">
                 {npaLoading ? <div className="reg-empty">Загрузка…</div> : npaList.map((n) => (
@@ -412,10 +412,9 @@ export default function RegistryPage() {
                     </div>
                     <div className="reg-npa-meta">
                       <span>Госрегномер: <b>{n.ngr}</b></span>
-                      {n.date_revision && <span>Ред.: <b>{n.date_revision}</b></span>}
-                      {n.review_deadline && <span>Пересмотр: <b>{n.review_deadline}</b></span>}
+                      {n.date_revision && <span>Редакция: <b>{n.date_revision}</b></span>}
+                      {n.review_deadline && <span title="Плановая дата анализа по реестру Минфина">План. анализ: <b>{n.review_deadline}</b></span>}
                       {n.npa_status === "утратил силу" && <span className="reg-npa-dead">утратил силу</span>}
-                      {n.overdue && n.npa_status !== "утратил силу" && <span className="reg-npa-overdue">срок пересмотра истёк</span>}
                       <a className="reg-npa-link" href={n.adilet_url} target="_blank" rel="noreferrer">Открыть в adilet.zan.kz →</a>
                     </div>
                   </div>
