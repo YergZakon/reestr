@@ -29,7 +29,7 @@ export default function Header() {
 
   if (!user) return null;
 
-  const homeUrl = user.role === "admin" ? "/cards/admin" : "/cards/review";
+  const homeUrl = "/registry";
 
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
@@ -44,38 +44,18 @@ export default function Header() {
             </h1>
             <nav className="flex gap-1">
               <button
-                onClick={() => router.push("/cards/review")}
-                className="px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
-              >
-                Оценка
-              </button>
-              <button
                 onClick={() => router.push("/registry")}
                 className="px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
               >
                 Реестр
               </button>
               {user.role === "admin" && (
-                <>
-                  <button
-                    onClick={() => router.push("/cards/admin")}
-                    className="px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
-                  >
-                    Дашборд
-                  </button>
-                  <button
-                    onClick={() => router.push("/cards/quality")}
-                    className="px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
-                  >
-                    Качество
-                  </button>
-                  <button
-                    onClick={() => router.push("/cards/admin/users")}
-                    className="px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
-                  >
-                    Юзеры
-                  </button>
-                </>
+                <button
+                  onClick={() => router.push("/cards/admin/users")}
+                  className="px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
+                >
+                  Пользователи
+                </button>
               )}
             </nav>
           </div>

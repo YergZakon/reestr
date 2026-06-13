@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const conds: string[] = ["rr.is_canonical = true"];
+  const conds: string[] = ["rr.is_canonical = true", "(rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')"];
   const params: unknown[] = [];
   const eq = (col: string, val: string | null) => {
     if (val) { params.push(val); conds.push(`rr.${col} = $${params.length}`); }
@@ -31,19 +31,18 @@ export async function GET(req: NextRequest) {
   }
 
   const res = await query(
-    `SELECT rr.ngr, rr.npa_title, rr.article, rr.npa_status, rr.ministry,
-            rr.sphere_code, rr.trust, rr.ersop_confirmed, rr.review_status,
-            rr.subject, rr.action, rr.object, rr.condition,
+    `SELECT rr.ministry, s.name_ru AS sphere, rr.npa_title, rr.ngr, rr.article,
             COALESCE(rr.canon_text, rr.legal_text, rr.title) AS text,
+            rr.subject, rr.action, rr.object, rr.condition,
             array_to_string(rr.stages, '|') AS stages,
             array_to_string(rr.okeds, '|') AS okeds
-     FROM requirement_registry rr WHERE ${conds.join(" AND ")} ORDER BY rr.ministry, rr.ngr`,
+     FROM requirement_registry rr LEFT JOIN spheres s ON s.code = rr.sphere_code
+     WHERE ${conds.join(" AND ")} ORDER BY rr.ministry, rr.ngr`,
     params,
   );
 
-  const cols = ["ngr", "npa_title", "article", "npa_status", "ministry", "sphere_code",
-    "trust", "ersop_confirmed", "review_status", "subject", "action", "object",
-    "condition", "text", "stages", "okeds"];
+  const cols = ["ministry", "sphere", "npa_title", "ngr", "article",
+    "text", "subject", "action", "object", "condition", "stages", "okeds"];
   const esc = (v: unknown) => {
     const s = v == null ? "" : String(v);
     return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;

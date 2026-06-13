@@ -4,13 +4,11 @@ import Header from "@/components/Header";
 import Pagination from "@/components/Pagination";
 import RegistryCard, { RegistryItem } from "@/components/RegistryCard";
 
-interface FilterOpt { ministry?: string; sphere_code?: string; name?: string; trust?: string; review_status?: string; n: number; }
+interface FilterOpt { ministry?: string; sphere_code?: string; name?: string; n: number; }
 interface Filters {
   ministries: FilterOpt[];
   spheres: FilterOpt[];
-  trusts: FilterOpt[];
-  review_statuses: FilterOpt[];
-  totals: { canonical: number; all_rows: number; ersop_confirmed: number; stale: number };
+  totals: { active: number };
 }
 
 export default function RegistryPage() {
@@ -23,10 +21,6 @@ export default function RegistryPage() {
 
   const [ministry, setMinistry] = useState("");
   const [sphere, setSphere] = useState("");
-  const [trust, setTrust] = useState("");
-  const [reviewStatus, setReviewStatus] = useState("");
-  const [npaStatus, setNpaStatus] = useState("");
-  const [ersopOnly, setErsopOnly] = useState(false);
   const [q, setQ] = useState("");
   const [qDebounced, setQDebounced] = useState("");
 
@@ -43,13 +37,9 @@ export default function RegistryPage() {
     const p = new URLSearchParams({ page: String(page), limit: "15" });
     if (ministry) p.set("ministry", ministry);
     if (sphere) p.set("sphere", sphere);
-    if (trust) p.set("trust", trust);
-    if (reviewStatus) p.set("review_status", reviewStatus);
-    if (npaStatus) p.set("npa_status", npaStatus);
-    if (ersopOnly) p.set("ersop_confirmed", "1");
     if (qDebounced) p.set("q", qDebounced);
     return p;
-  }, [page, ministry, sphere, trust, reviewStatus, npaStatus, ersopOnly, qDebounced]);
+  }, [page, ministry, sphere, qDebounced]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -60,7 +50,7 @@ export default function RegistryPage() {
   }, [buildParams]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [ministry, sphere, trust, reviewStatus, npaStatus, ersopOnly, qDebounced]);
+  useEffect(() => { setPage(1); }, [ministry, sphere, qDebounced]);
 
   const sel = "px-2 py-1.5 text-sm border border-slate-300 rounded-md bg-white outline-none focus:ring-1 focus:ring-blue-500";
 
@@ -72,7 +62,7 @@ export default function RegistryPage() {
           <h2 className="text-xl font-bold text-slate-800">Реестр требований к бизнесу</h2>
           {filters?.totals && (
             <span className="text-sm text-slate-500">
-              {filters.totals.canonical.toLocaleString("ru")} уникальных · {filters.totals.ersop_confirmed.toLocaleString("ru")} проверяется ЕРСОП · {filters.totals.stale.toLocaleString("ru")} из утративших силу
+              {Number(filters.totals.active).toLocaleString("ru")} действующих требований
             </span>
           )}
         </div>
@@ -91,29 +81,8 @@ export default function RegistryPage() {
               <option key={s.sphere_code} value={s.sphere_code}>{s.name} ({s.n})</option>
             ))}
           </select>
-          <select className={sel} value={trust} onChange={(e) => setTrust(e.target.value)}>
-            <option value="">Любой источник</option>
-            {filters?.trusts.map((t) => (
-              <option key={t.trust} value={t.trust}>{t.trust} ({t.n})</option>
-            ))}
-          </select>
-          <select className={sel} value={npaStatus} onChange={(e) => setNpaStatus(e.target.value)}>
-            <option value="">Любой статус НПА</option>
-            <option value="действующий">действующий</option>
-            <option value="утратил силу">утратил силу</option>
-          </select>
-          <select className={sel} value={reviewStatus} onChange={(e) => setReviewStatus(e.target.value)}>
-            <option value="">Любой статус ревью</option>
-            {filters?.review_statuses.map((r) => (
-              <option key={r.review_status} value={r.review_status}>{r.review_status} ({r.n})</option>
-            ))}
-          </select>
-          <label className="flex items-center gap-1.5 text-sm text-slate-600">
-            <input type="checkbox" checked={ersopOnly} onChange={(e) => setErsopOnly(e.target.checked)} />
-            ✓ ЕРСОП
-          </label>
           <input
-            className={`${sel} flex-1 min-w-[200px]`}
+            className={`${sel} flex-1 min-w-[220px]`}
             placeholder="Поиск по тексту требования…"
             value={q} onChange={(e) => setQ(e.target.value)}
           />

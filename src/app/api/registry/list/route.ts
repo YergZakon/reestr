@@ -27,6 +27,9 @@ export async function GET(req: NextRequest) {
     conds.push("rr.is_canonical = true");
   }
 
+  // Реестр действующих требований: утратившие силу НПА не показываем
+  conds.push("(rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')");
+
   const eq = (col: string, val: string | null) => {
     if (val) {
       params.push(val);
