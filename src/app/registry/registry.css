@@ -331,6 +331,48 @@
 
 @media (max-width:980px){.reg-path-grid{grid-template-columns:1fr;}}
 
+/* ——— Нагрузка (cost-management) ——— */
+.reg-cost-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:8px 0 22px;}
+.reg-cost-stat{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:18px 20px;box-shadow:var(--sh-1);}
+.reg-cost-stat b{display:block;font-size:24px;font-weight:750;letter-spacing:-.02em;color:var(--accent-700);}
+.reg-cost-stat span{font-size:12.5px;color:var(--ink-3);margin-top:4px;display:block;}
+.reg-cost-tariff{display:flex;align-items:center;gap:11px;flex-wrap:wrap;background:var(--accent-50);border:1px solid var(--accent-100);border-radius:12px;padding:14px 18px;}
+.reg-cost-tariff-l{font-size:13.5px;font-weight:650;color:var(--accent-700);}
+.reg-cost-tariff input{width:130px;height:38px;border:1px solid var(--line);border-radius:9px;padding:0 12px;font-size:14px;font-variant-numeric:tabular-nums;}
+.reg-cost-tariff button{height:38px;padding:0 18px;border:0;border-radius:9px;background:var(--accent);color:#fff;font-size:13px;font-weight:650;}
+.reg-cost-hint{font-size:12px;color:var(--ink-3);}
+.reg-cost-bars{display:flex;flex-direction:column;gap:7px;}
+.reg-cost-bar{display:flex;align-items:center;gap:12px;font-size:12.5px;}
+.reg-cost-bar-l{width:210px;flex-shrink:0;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.reg-cost-bar-track{flex:1;height:14px;background:var(--surface-3);border-radius:7px;overflow:hidden;}
+.reg-cost-bar-fill{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-700));border-radius:7px;}
+.reg-cost-bar-v{width:110px;flex-shrink:0;text-align:right;font-weight:650;color:var(--ink);font-variant-numeric:tabular-nums;}
+.reg-cost-table{display:flex;flex-direction:column;gap:2px;}
+.reg-cost-row{display:flex;align-items:center;gap:14px;padding:11px 14px;border-radius:9px;cursor:pointer;transition:background .12s;border:1px solid transparent;}
+.reg-cost-row:hover{background:var(--surface);border-color:var(--line);}
+.reg-cost-row-t{flex:1;font-size:13.5px;color:var(--ink);line-height:1.35;min-width:0;}
+.reg-cost-row-meta{font-size:11.5px;color:var(--ink-3);flex-shrink:0;max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.reg-cost-row-v{width:120px;flex-shrink:0;text-align:right;font-weight:700;color:var(--accent-700);font-variant-numeric:tabular-nums;}
+
+/* ——— Дубли ——— */
+.reg-dupe-toolbar{display:flex;align-items:center;gap:8px;margin:6px 0 16px;flex-wrap:wrap;}
+.reg-dupe-list{display:flex;flex-direction:column;gap:8px;}
+.reg-dupe-group{background:var(--surface);border:1px solid var(--line);border-radius:11px;overflow:hidden;}
+.reg-dupe-head{display:flex;align-items:center;gap:11px;width:100%;background:transparent;border:0;text-align:left;padding:13px 16px;cursor:pointer;}
+.reg-dupe-head:hover{background:var(--surface-3);}
+.reg-dupe-head .chev2{display:inline-flex;color:var(--ink-3);transition:transform .15s;flex-shrink:0;}
+.reg-dupe-head .chev2.open{transform:rotate(90deg);}
+.reg-dupe-title{flex:1;font-size:13.5px;font-weight:600;color:var(--ink);line-height:1.35;min-width:0;}
+.reg-dupe-badge{font-size:11.5px;font-weight:600;color:var(--ink-3);background:var(--surface-3);border-radius:20px;padding:2px 9px;flex-shrink:0;}
+.reg-dupe-save{font-size:11.5px;font-weight:700;color:var(--accent-700);background:var(--accent-50);border:1px solid var(--accent-100);border-radius:20px;padding:2px 9px;flex-shrink:0;}
+.reg-dupe-body{padding:4px 16px 14px 40px;display:flex;flex-direction:column;gap:5px;}
+.reg-dupe-item{padding:9px 12px;border-radius:8px;border-left:3px solid var(--line);background:var(--surface-2);cursor:pointer;}
+.reg-dupe-item:hover{background:var(--surface-3);}
+.reg-dupe-item.canon{border-left-color:var(--accent);}
+.reg-dupe-item-t{display:block;font-size:13px;color:var(--ink);line-height:1.35;}
+.reg-dupe-item-m{display:block;font-size:11px;color:var(--ink-3);margin-top:3px;}
+@media (max-width:980px){.reg-cost-summary{grid-template-columns:1fr;}.reg-cost-bar-l{width:120px;}.reg-cost-row-meta{display:none;}}
+
 /* Органы и НПА */
 .reg-org-item{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:8px;cursor:pointer;transition:background .12s;}
 .reg-org-item:hover{background:var(--surface-3);}

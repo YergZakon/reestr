@@ -16,6 +16,14 @@ const I = {
   briefcase: (p: any) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>,
   building: (p: any) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M9 6h.01M15 6h.01M9 10h.01M15 10h.01M9 14h.01M15 14h.01"/></svg>,
   layers: (p: any) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5M3 17l9 5 9-5"/></svg>,
+  coins: (p: any) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18M7 6h1v4M16.71 13.88l.7.71-2.82 2.82"/></svg>,
+  copy: (p: any) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>,
+};
+const fmtKzt = (n: number): string => {
+  if (n >= 1e9) return (n / 1e9).toFixed(1) + " млрд ₸";
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + " млн ₸";
+  if (n >= 1e3) return (n / 1e3).toFixed(0) + " тыс ₸";
+  return Math.round(n).toLocaleString("ru") + " ₸";
 };
 
 /* ——— Маппинги под наши данные ——— */
@@ -47,6 +55,8 @@ interface Req {
   title: string | null; legal_text: string | null; canon_text: string | null;
   subject: string | null; action: string | null; object: string | null; condition: string | null;
   scope?: string | null; sections?: string[] | null; triggers?: string[] | null; is_permit?: boolean | null;
+  action_type?: string | null; time_hours?: number | null; frequency_per_year?: number | null;
+  external_cost_kzt?: number | null; cost_per_entity_kzt?: number | null; staff_role?: string | null;
 }
 interface Scenario { id: string; title: string; oked: string; section: string; icon: string; desc: string; }
 interface SectionRow { section: string; name_ru: string; biz_total: number | null; workers_thousands: number | null; req_count: number; }
@@ -159,6 +169,17 @@ function Drawer({ r, onClose, onSaved }: { r: Req; onClose: () => void; onSaved:
               {r.ministry && <><dt>Орган</dt><dd>{r.ministry}</dd></>}
             </dl>
           </div>
+          {r.cost_per_entity_kzt != null && (
+            <div className="reg-d-section">
+              <div className="reg-d-section-h">Оценка нагрузки (Standard Cost Model)</div>
+              <dl className="reg-d-grid">
+                <dt>Стоимость</dt><dd><b>{fmtKzt(Number(r.cost_per_entity_kzt))}</b> / субъект / год</dd>
+                {r.time_hours != null && <><dt>Трудозатраты</dt><dd>{Number(r.time_hours)} ч × {Number(r.frequency_per_year)}/год{r.staff_role ? ` · ${r.staff_role}` : ""}</dd></>}
+                {Number(r.external_cost_kzt) > 0 && <><dt>Внешние расходы</dt><dd>{fmtKzt(Number(r.external_cost_kzt))} (пошлины/услуги)</dd></>}
+              </dl>
+              <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 6 }}>Предварительная ИИ-оценка; госорган может уточнить.</div>
+            </div>
+          )}
           {r.ngr && (
             <div className="reg-d-section">
               <div className="reg-d-section-h">Нормативно-правовой источник</div>
@@ -248,7 +269,7 @@ interface Npa {
 }
 
 export default function RegistryPage() {
-  const [mode, setMode] = useState<"gov" | "biz" | "organs">("gov");
+  const [mode, setMode] = useState<"gov" | "biz" | "organs" | "cost" | "dupes">("gov");
   const [lang, setLang] = useState<"ru" | "kz">("ru");
   const [items, setItems] = useState<Req[]>([]);
   const [filtersData, setFiltersData] = useState<{ ministries: Opt[]; spheres: Opt[]; stages: Opt[]; totals: { active: number; npa: number } } | null>(null);
@@ -282,6 +303,14 @@ export default function RegistryPage() {
   const [conclusion, setConclusion] = useState<string | null>(null);
   const [conclLoading, setConclLoading] = useState(false);
   const [conclErr, setConclErr] = useState<string | null>(null);
+  // cost-management (Нагрузка)
+  const [costData, setCostData] = useState<any>(null);
+  const [inspRate, setInspRate] = useState<string>("");
+  // дубли
+  const [dupes, setDupes] = useState<{ groups: any[]; totalDuplicates: number; totalGroups: number } | null>(null);
+  const [dupeCross, setDupeCross] = useState(true);
+  const [openDupe, setOpenDupe] = useState<string | null>(null);
+  const [dupeItems, setDupeItems] = useState<Record<string, Req[]>>({});
 
   // режим «Органы и НПА»
   const [organs, setOrgans] = useState<Organ[]>([]);
@@ -303,6 +332,24 @@ export default function RegistryPage() {
   }, [selOrg]);
 
   useEffect(() => { fetch("/api/registry/filters").then((r) => r.json()).then(setFiltersData).catch(() => {}); }, []);
+  // Нагрузка
+  useEffect(() => {
+    if (mode === "cost" && !costData)
+      fetch("/api/registry/cost").then((r) => r.json()).then((d) => { setCostData(d); setInspRate(String(d.inspectorRate || "")); });
+  }, [mode, costData]);
+  // Дубли
+  useEffect(() => {
+    if (mode === "dupes")
+      fetch(`/api/registry/duplicates?cross=${dupeCross ? "1" : "0"}`).then((r) => r.json()).then(setDupes);
+  }, [mode, dupeCross]);
+  const toggleDupe = (gid: string) => {
+    setOpenDupe((o) => (o === gid ? null : gid));
+    if (!dupeItems[gid]) fetch(`/api/registry/duplicates?group=${gid}`).then((r) => r.json()).then((d) => setDupeItems((p) => ({ ...p, [gid]: d.items || [] })));
+  };
+  const saveInspRate = () => {
+    fetch("/api/registry/cost/params", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ inspector_rate_kzt: Number(inspRate) }) })
+      .then((r) => r.json()).then(() => setCostData((d: any) => d ? { ...d, inspectorRate: Number(inspRate) } : d));
+  };
   useEffect(() => { const t = setTimeout(() => setQd(f.q), 400); return () => clearTimeout(t); }, [f.q]);
 
   const params = useCallback((forExport = false) => {
@@ -423,6 +470,8 @@ export default function RegistryPage() {
         <div className="reg-mode">
           <button className={mode === "gov" ? "on" : ""} onClick={() => setMode("gov")}><I.gov />Каталог</button>
           <button className={mode === "organs" ? "on" : ""} onClick={() => setMode("organs")}><I.building />Органы и НПА</button>
+          <button className={mode === "cost" ? "on" : ""} onClick={() => setMode("cost")}><I.coins />Нагрузка</button>
+          <button className={mode === "dupes" ? "on" : ""} onClick={() => setMode("dupes")}><I.copy />Дубли</button>
           <button className={mode === "biz" ? "on" : ""} onClick={() => { setMode("biz"); setBizProfile(null); setBizStep("select"); setBizPath(null); }}><I.briefcase />Бизнес</button>
         </div>
         <div className="reg-lang">
@@ -553,6 +602,90 @@ export default function RegistryPage() {
               </div>
             </div>
           </main>
+        </div>
+      ) : mode === "cost" ? (
+        /* ——— Нагрузка (cost-management, SCM) ——— */
+        <div className="reg-biz">
+          <div className="reg-biz-hero">
+            <h1>Регуляторная нагрузка на бизнес</h1>
+            <p>Оценка стоимости выполнения требований по модели Standard Cost Model (₸/год). Параметры настраиваемые; время и частота — предварительная ИИ-оценка.</p>
+          </div>
+          {!costData ? <div className="reg-empty">Загрузка…</div> : (
+            <>
+              <div className="reg-cost-summary">
+                <div className="reg-cost-stat"><b>{fmtKzt(costData.medianPerEntity)}</b><span>медианная стоимость требования (₸/субъект/год)</span></div>
+                <div className="reg-cost-stat"><b>{Number(costData.count).toLocaleString("ru")}</b><span>оценённых требований</span></div>
+                <div className="reg-cost-stat"><b>{Number(costData.withExternal).toLocaleString("ru")}</b><span>с пошлинами / внешними расходами</span></div>
+              </div>
+              <div className="reg-cost-tariff">
+                <span className="reg-cost-tariff-l">Стоимость часа проверки, ₸</span>
+                <input type="number" value={inspRate} onChange={(e) => setInspRate(e.target.value)} />
+                <button onClick={saveInspRate}>Сохранить</button>
+                <span className="reg-cost-hint">Применяется к расчёту стоимости сопровождения проверок бизнесом и государством.</span>
+              </div>
+
+              <div className="reg-biz-blockh reg-biz-blockh-lg">Средняя стоимость требования по органам<span className="reg-biz-blockh-cnt">₸/субъект/год</span></div>
+              <div className="reg-cost-bars">
+                {costData.byMinistry.map((m: any, i: number) => (
+                  <div key={i} className="reg-cost-bar">
+                    <span className="reg-cost-bar-l" title={m.ministry}>{minShort(m.ministry)}</span>
+                    <span className="reg-cost-bar-track"><span className="reg-cost-bar-fill" style={{ width: (Number(m.burden) / Number(costData.byMinistry[0]?.burden || 1) * 100).toFixed(1) + "%" }} /></span>
+                    <span className="reg-cost-bar-v">{fmtKzt(Number(m.burden))}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="reg-biz-blockh reg-biz-blockh-lg">Топ-50 самых дорогих требований<span className="reg-biz-blockh-cnt">₸ на субъект / год</span></div>
+              <div className="reg-cost-table">
+                {costData.top.map((r: any) => (
+                  <div key={r.id} className="reg-cost-row" onClick={() => setActive(r)}>
+                    <span className="reg-cost-row-t">{r.title}</span>
+                    <span className="reg-cost-row-meta">{minShort(r.ministry)} · {r.action_type} · {Number(r.time_hours)}ч ×{Number(r.frequency_per_year)}/год{Number(r.external_cost_kzt) > 0 ? ` · пошлина ${fmtKzt(Number(r.external_cost_kzt))}` : ""}</span>
+                    <span className="reg-cost-row-v">{fmtKzt(Number(r.cost_per_entity_kzt))}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      ) : mode === "dupes" ? (
+        /* ——— Дубли и избыточность ——— */
+        <div className="reg-biz">
+          <div className="reg-biz-hero">
+            <h1>Дублирующие и избыточные требования</h1>
+            <p>Группы похожих требований. «Кросс-орган» — одну норму контролируют разные органы (приоритет для регуляторной гильотины и правила «1 вошло — 2 вышло»).</p>
+          </div>
+          <div className="reg-dupe-toolbar">
+            <button className={"reg-stage-pill" + (dupeCross ? " on" : "")} onClick={() => setDupeCross(true)}>Кросс-орган</button>
+            <button className={"reg-stage-pill" + (!dupeCross ? " on" : "")} onClick={() => setDupeCross(false)}>Все группы</button>
+            {dupes && <span className="reg-cost-hint">{Number(dupes.totalDuplicates).toLocaleString("ru")} дублей в {Number(dupes.totalGroups).toLocaleString("ru")} группах</span>}
+          </div>
+          {!dupes ? <div className="reg-empty">Загрузка…</div> : (
+            <div className="reg-dupe-list">
+              {dupes.groups.map((g: any) => (
+                <div key={g.gid} className="reg-dupe-group">
+                  <button className="reg-dupe-head" onClick={() => toggleDupe(String(g.gid))}>
+                    <span className={"chev2" + (openDupe === String(g.gid) ? " open" : "")}><I.chevRight /></span>
+                    <span className="reg-dupe-title">{g.canon_title || "(группа дублей)"}</span>
+                    <span className="reg-dupe-badge">{g.size}× · {g.organs} орг.</span>
+                    {Number(g.potential_saving) > 0 && <span className="reg-dupe-save">~{fmtKzt(Number(g.potential_saving))}</span>}
+                  </button>
+                  {openDupe === String(g.gid) && (
+                    <div className="reg-dupe-body">
+                      {dupeItems[String(g.gid)]
+                        ? dupeItems[String(g.gid)].map((r: any) => (
+                          <div key={r.id} className={"reg-dupe-item" + (r.is_canonical ? " canon" : "")} onClick={() => setActive(r)}>
+                            <span className="reg-dupe-item-t">{r.title || r.action}{r.is_canonical ? " · канон" : ""}</span>
+                            <span className="reg-dupe-item-m">{minShort(r.ministry)}{r.npa_title ? ` · ${minShort(r.npa_title)}` : ""}</span>
+                          </div>
+                        ))
+                        : <div className="reg-empty">Загрузка…</div>}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         /* ——— Бизнес ——— */
