@@ -48,6 +48,35 @@ const SECTION_ICON: Record<string, string> = {
   J: "📡", K: "🏦", L: "🏢", M: "💼", N: "🗂️", P: "🎓", Q: "🩺", R: "🎭", S: "🛠️",
 };
 
+// Настраиваемые параметры расчёта нагрузки (cost_params). pct — хранится долей (0.30), показываем %.
+const PARAM_FIELDS: { k: string; label: string; unit: string; pct?: boolean; step?: string }[] = [
+  { k: "inspector_rate_kzt", label: "Час проверки (государство)", unit: "₸/ч" },
+  { k: "overhead", label: "Накладные расходы", unit: "%", pct: true, step: "0.1" },
+  { k: "on_costs", label: "Соц. отчисления работодателя", unit: "%", pct: true, step: "0.1" },
+  { k: "hours_per_month", label: "Рабочих часов в месяце", unit: "ч" },
+  { k: "mult_clerical", label: "Множитель: делопроизводитель", unit: "×", step: "0.1" },
+  { k: "mult_specialist", label: "Множитель: специалист", unit: "×", step: "0.1" },
+  { k: "mult_manager", label: "Множитель: руководитель", unit: "×", step: "0.1" },
+  { k: "avg_wage_month", label: "Средняя зарплата (резерв)", unit: "₸/мес" },
+];
+const paramsToForm = (p: Record<string, unknown> | null): Record<string, string> => {
+  const f: Record<string, string> = {};
+  if (!p) return f;
+  for (const fld of PARAM_FIELDS) {
+    const v = Number(p[fld.k]);
+    f[fld.k] = fld.pct ? String(Math.round(v * 1000) / 10) : String(v);
+  }
+  return f;
+};
+const formToParams = (f: Record<string, string>): Record<string, number> => {
+  const out: Record<string, number> = {};
+  for (const fld of PARAM_FIELDS) {
+    const n = Number(f[fld.k]);
+    if (!isNaN(n) && f[fld.k] !== "") out[fld.k] = fld.pct ? n / 100 : n;
+  }
+  return out;
+};
+
 interface Req {
   id: number; ngr: string | null; npa_title: string | null; article: string | null;
   ministry: string | null; sphere_code: string | null; sphere_name: string | null;
@@ -57,6 +86,7 @@ interface Req {
   scope?: string | null; sections?: string[] | null; triggers?: string[] | null; is_permit?: boolean | null;
   action_type?: string | null; time_hours?: number | null; frequency_per_year?: number | null;
   external_cost_kzt?: number | null; cost_per_entity_kzt?: number | null; staff_role?: string | null;
+  inspection_hours_biz?: number | null; inspection_cost_biz?: number | null; inspection_cost_gov?: number | null;
 }
 interface Scenario { id: string; title: string; oked: string; section: string; icon: string; desc: string; }
 interface SectionRow { section: string; name_ru: string; biz_total: number | null; workers_thousands: number | null; req_count: number; }
@@ -176,6 +206,7 @@ function Drawer({ r, onClose, onSaved }: { r: Req; onClose: () => void; onSaved:
                 <dt>Стоимость</dt><dd><b>{fmtKzt(Number(r.cost_per_entity_kzt))}</b> / субъект / год</dd>
                 {r.time_hours != null && <><dt>Трудозатраты</dt><dd>{Number(r.time_hours)} ч × {Number(r.frequency_per_year)}/год{r.staff_role ? ` · ${r.staff_role}` : ""}</dd></>}
                 {Number(r.external_cost_kzt) > 0 && <><dt>Внешние расходы</dt><dd>{fmtKzt(Number(r.external_cost_kzt))} (пошлины/услуги)</dd></>}
+                {Number(r.inspection_cost_gov) > 0 && <><dt>Стоимость проверки</dt><dd>государству {fmtKzt(Number(r.inspection_cost_gov))} · бизнесу {fmtKzt(Number(r.inspection_cost_biz))}{r.inspection_hours_biz ? ` (${Number(r.inspection_hours_biz)} ч)` : ""}</dd></>}
               </dl>
               <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 6 }}>Предварительная ИИ-оценка; госорган может уточнить.</div>
             </div>
@@ -305,7 +336,8 @@ export default function RegistryPage() {
   const [conclErr, setConclErr] = useState<string | null>(null);
   // cost-management (Нагрузка)
   const [costData, setCostData] = useState<any>(null);
-  const [inspRate, setInspRate] = useState<string>("");
+  const [costParams, setCostParams] = useState<Record<string, string>>({});
+  const [paramsSaving, setParamsSaving] = useState(false);
   // дубли
   const [dupes, setDupes] = useState<{ groups: any[]; totalDuplicates: number; totalGroups: number } | null>(null);
   const [dupeCross, setDupeCross] = useState(true);
@@ -335,7 +367,7 @@ export default function RegistryPage() {
   // Нагрузка
   useEffect(() => {
     if (mode === "cost" && !costData)
-      fetch("/api/registry/cost").then((r) => r.json()).then((d) => { setCostData(d); setInspRate(String(d.inspectorRate || "")); });
+      fetch("/api/registry/cost").then((r) => r.json()).then((d) => { setCostData(d); setCostParams(paramsToForm(d.params)); });
   }, [mode, costData]);
   // Дубли
   useEffect(() => {
@@ -346,9 +378,13 @@ export default function RegistryPage() {
     setOpenDupe((o) => (o === gid ? null : gid));
     if (!dupeItems[gid]) fetch(`/api/registry/duplicates?group=${gid}`).then((r) => r.json()).then((d) => setDupeItems((p) => ({ ...p, [gid]: d.items || [] })));
   };
-  const saveInspRate = () => {
-    fetch("/api/registry/cost/params", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ inspector_rate_kzt: Number(inspRate) }) })
-      .then((r) => r.json()).then(() => setCostData((d: any) => d ? { ...d, inspectorRate: Number(inspRate) } : d));
+  const saveCostParams = () => {
+    setParamsSaving(true);
+    fetch("/api/registry/cost/params", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(formToParams(costParams)) })
+      .then((r) => r.json())
+      .then(() => fetch("/api/registry/cost").then((r) => r.json()))
+      .then((d) => { setCostData(d); setCostParams(paramsToForm(d.params)); })
+      .finally(() => setParamsSaving(false));
   };
   useEffect(() => { const t = setTimeout(() => setQd(f.q), 400); return () => clearTimeout(t); }, [f.q]);
 
@@ -613,16 +649,45 @@ export default function RegistryPage() {
           {!costData ? <div className="reg-empty">Загрузка…</div> : (
             <>
               <div className="reg-cost-summary">
-                <div className="reg-cost-stat"><b>{fmtKzt(costData.medianPerEntity)}</b><span>медианная стоимость требования (₸/субъект/год)</span></div>
+                <div className="reg-cost-stat"><b>{fmtKzt(costData.medianPerEntity)}</b><span>медианная стоимость выполнения требования (₸/субъект/год)</span></div>
                 <div className="reg-cost-stat"><b>{Number(costData.count).toLocaleString("ru")}</b><span>оценённых требований</span></div>
                 <div className="reg-cost-stat"><b>{Number(costData.withExternal).toLocaleString("ru")}</b><span>с пошлинами / внешними расходами</span></div>
               </div>
-              <div className="reg-cost-tariff">
-                <span className="reg-cost-tariff-l">Стоимость часа проверки, ₸</span>
-                <input type="number" value={inspRate} onChange={(e) => setInspRate(e.target.value)} />
-                <button onClick={saveInspRate}>Сохранить</button>
-                <span className="reg-cost-hint">Применяется к расчёту стоимости сопровождения проверок бизнесом и государством.</span>
+
+              {/* Настраиваемые параметры расчёта — смена пересчитывает всё мгновенно (view) */}
+              <div className="reg-cost-params">
+                <div className="reg-cost-params-h">
+                  <span>Параметры расчёта</span>
+                  <span className="reg-cost-hint">Значения по умолчанию — БНС / Standard Cost Model. Измените любой — стоимость пересчитается для всех требований.</span>
+                </div>
+                <div className="reg-cost-params-grid">
+                  {PARAM_FIELDS.map((fld) => (
+                    <label key={fld.k} className="reg-cost-param">
+                      <span className="reg-cost-param-l">{fld.label}</span>
+                      <span className="reg-cost-param-in">
+                        <input type="number" step={fld.step || "1"} value={costParams[fld.k] ?? ""}
+                          onChange={(e) => setCostParams((p) => ({ ...p, [fld.k]: e.target.value }))} />
+                        <i>{fld.unit}</i>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                <button className="reg-cost-apply" onClick={saveCostParams} disabled={paramsSaving}>
+                  {paramsSaving ? "Пересчёт…" : "Применить и пересчитать"}
+                </button>
               </div>
+
+              {/* Стоимость проверок — зависит от «часа проверки» и трудозатрат на сопровождение */}
+              {Number(costData.withInspection) > 0 && (
+                <>
+                  <div className="reg-biz-blockh reg-biz-blockh-lg">Стоимость проверок<span className="reg-biz-blockh-cnt">{Number(costData.withInspection).toLocaleString("ru")} требований с выездной проверкой</span></div>
+                  <div className="reg-cost-summary">
+                    <div className="reg-cost-stat"><b>{fmtKzt(costData.medianInspGov)}</b><span>стоимость проверки государству — медиана (₸)</span></div>
+                    <div className="reg-cost-stat"><b>{fmtKzt(costData.avgInspGov)}</b><span>стоимость проверки государству — средняя (₸)</span></div>
+                    <div className="reg-cost-stat"><b>{fmtKzt(costData.avgInspBiz)}</b><span>сопровождение проверки бизнесом — средняя (₸)</span></div>
+                  </div>
+                </>
+              )}
 
               <div className="reg-biz-blockh reg-biz-blockh-lg">Средняя стоимость требования по органам<span className="reg-biz-blockh-cnt">₸/субъект/год</span></div>
               <div className="reg-cost-bars">

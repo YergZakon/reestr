@@ -31,5 +31,5 @@ export async function POST(req: NextRequest) {
   await query(`UPDATE cost_params SET ${sets.join(", ")}, updated_at=now() WHERE id=1`, params);
   const r = await query(`SELECT hours_per_month, on_costs, overhead, mult_clerical, mult_specialist,
     mult_manager, inspector_rate_kzt, avg_wage_month FROM cost_params WHERE id=1`);
-  return NextResponse.json({ params: r.rows[0], note: "Параметры сохранены. Пересчёт суммарной нагрузки — скриптом compute_cost.py." });
+  return NextResponse.json({ params: r.rows[0], note: "Параметры сохранены. Стоимость пересчитана." });
 }
