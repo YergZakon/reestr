@@ -18,6 +18,7 @@ const I = {
   layers: (p: any) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5M3 17l9 5 9-5"/></svg>,
   coins: (p: any) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18M7 6h1v4M16.71 13.88l.7.71-2.82 2.82"/></svg>,
   copy: (p: any) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>,
+  calc: (p: any) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01M8 18h4"/></svg>,
 };
 const fmtKzt = (n: number): string => {
   if (n >= 1e9) return (n / 1e9).toFixed(1) + " млрд ₸";
@@ -300,7 +301,7 @@ interface Npa {
 }
 
 export default function RegistryPage() {
-  const [mode, setMode] = useState<"gov" | "biz" | "organs" | "cost" | "dupes">("gov");
+  const [mode, setMode] = useState<"gov" | "biz" | "organs" | "cost" | "dupes" | "method">("gov");
   const [lang, setLang] = useState<"ru" | "kz">("ru");
   const [items, setItems] = useState<Req[]>([]);
   const [filtersData, setFiltersData] = useState<{ ministries: Opt[]; spheres: Opt[]; stages: Opt[]; totals: { active: number; npa: number } } | null>(null);
@@ -338,6 +339,11 @@ export default function RegistryPage() {
   const [costData, setCostData] = useState<any>(null);
   const [costParams, setCostParams] = useState<Record<string, string>>({});
   const [paramsSaving, setParamsSaving] = useState(false);
+  // методика — параметры интерактивного калькулятора
+  const [mWage, setMWage] = useState(441998);
+  const [mTime, setMTime] = useState(2);
+  const [mFreq, setMFreq] = useState(12);
+  const [mRole, setMRole] = useState("specialist");
   // дубли
   const [dupes, setDupes] = useState<{ groups: any[]; totalDuplicates: number; totalGroups: number } | null>(null);
   const [dupeCross, setDupeCross] = useState(true);
@@ -366,7 +372,7 @@ export default function RegistryPage() {
   useEffect(() => { fetch("/api/registry/filters").then((r) => r.json()).then(setFiltersData).catch(() => {}); }, []);
   // Нагрузка
   useEffect(() => {
-    if (mode === "cost" && !costData)
+    if ((mode === "cost" || mode === "method") && !costData)
       fetch("/api/registry/cost").then((r) => r.json()).then((d) => { setCostData(d); setCostParams(paramsToForm(d.params)); });
   }, [mode, costData]);
   // Дубли
@@ -507,6 +513,7 @@ export default function RegistryPage() {
           <button className={mode === "gov" ? "on" : ""} onClick={() => setMode("gov")}><I.gov />Каталог</button>
           <button className={mode === "organs" ? "on" : ""} onClick={() => setMode("organs")}><I.building />Органы и НПА</button>
           <button className={mode === "cost" ? "on" : ""} onClick={() => setMode("cost")}><I.coins />Нагрузка</button>
+          <button className={mode === "method" ? "on" : ""} onClick={() => setMode("method")}><I.calc />Методика</button>
           <button className={mode === "dupes" ? "on" : ""} onClick={() => setMode("dupes")}><I.copy />Дубли</button>
           <button className={mode === "biz" ? "on" : ""} onClick={() => { setMode("biz"); setBizProfile(null); setBizStep("select"); setBizPath(null); }}><I.briefcase />Бизнес</button>
         </div>
@@ -752,6 +759,108 @@ export default function RegistryPage() {
             </div>
           )}
         </div>
+      ) : mode === "method" ? (
+        /* ——— Методика расчёта ——— */
+        (() => {
+          const P: any = costData?.params || {};
+          const HRS = Number(P.hours_per_month ?? 160);
+          const ONC = 1 + Number(P.on_costs ?? 0.175);
+          const OVH = 1 + Number(P.overhead ?? 0.30);
+          const RM: Record<string, number> = { clerical: Number(P.mult_clerical ?? 0.8), specialist: Number(P.mult_specialist ?? 1), manager: Number(P.mult_manager ?? 1.4) };
+          const SUBJ = 2181112;
+          const rmv = RM[mRole] ?? 1;
+          const tariff = (mWage / HRS) * ONC * OVH * rmv;
+          const perEntity = tariff * mTime * mFreq;
+          const total = perEntity * SUBJ;
+          const ru = (n: number) => Math.round(n).toLocaleString("ru-RU");
+          const cf = (n: number, d: number) => n.toFixed(d).replace(".", ",");
+          return (
+            <div className="reg-biz">
+              <div className="reg-biz-hero">
+                <h1>Методика расчёта регуляторной нагрузки</h1>
+                <p>Стоимость каждого требования считается по международной модели Standard Cost Model. Покрутите параметры — видно, из чего складывается нагрузка. Коэффициенты берутся из живых настроек реестра (раздел «Нагрузка»).</p>
+              </div>
+
+              <div className="reg-mtd-f">
+                <div><span className="reg-mtd-lbl">Тариф часа труда (₸/ч) — полная стоимость часа специалиста</span>
+                  = (зарплата <span className="reg-mtd-v">{ru(mWage)}</span> ₸ <span className="reg-mtd-op">÷</span> <span className="reg-mtd-c">{HRS} ч</span>)
+                  <span className="reg-mtd-op">×</span> <span className="reg-mtd-c">{cf(ONC, 3)}</span> <span className="reg-mtd-x">соц.</span>
+                  <span className="reg-mtd-op">×</span> <span className="reg-mtd-c">{cf(OVH, 2)}</span> <span className="reg-mtd-x">накл.</span>
+                  <span className="reg-mtd-op">×</span> <span className="reg-mtd-v">{cf(rmv, 1)}</span> <span className="reg-mtd-x">роль</span>
+                  <span className="reg-mtd-op">=</span> <span className="reg-mtd-res">{ru(tariff)}</span> ₸/ч</div>
+                <div style={{ marginTop: 6 }}><span className="reg-mtd-lbl">Стоимость на 1 субъект (₸/год) — нагрузка на один бизнес</span>
+                  = (<span className="reg-mtd-res">{ru(tariff)}</span> ₸/ч <span className="reg-mtd-op">×</span> <span className="reg-mtd-v">{cf(mTime, 1)}</span> ч)
+                  <span className="reg-mtd-op">×</span> <span className="reg-mtd-v">{mFreq}</span> раз/год
+                  <span className="reg-mtd-op">=</span> <span className="reg-mtd-res">{ru(perEntity)}</span> ₸/год</div>
+              </div>
+
+              <div className="reg-mtd-controls">
+                <div className="reg-mtd-row"><label>Зарплата в отрасли, ₸/мес</label>
+                  <input type="range" min={200000} max={1200000} step={1000} value={mWage} onChange={(e) => setMWage(Number(e.target.value))} />
+                  <output>{ru(mWage)}</output></div>
+                <div className="reg-mtd-row"><label>Время на выполнение</label>
+                  <input type="range" min={0.5} max={40} step={0.5} value={mTime} onChange={(e) => setMTime(Number(e.target.value))} />
+                  <output>{cf(mTime, 1)} ч</output></div>
+                <div className="reg-mtd-row"><label>Частота</label>
+                  <input type="range" min={1} max={52} step={1} value={mFreq} onChange={(e) => setMFreq(Number(e.target.value))} />
+                  <output>{mFreq}/год</output></div>
+                <div className="reg-mtd-row"><label>Категория исполнителя</label>
+                  <select value={mRole} onChange={(e) => setMRole(e.target.value)}>
+                    <option value="clerical">Делопроизводитель (×{cf(RM.clerical, 1)})</option>
+                    <option value="specialist">Специалист (×{cf(RM.specialist, 1)})</option>
+                    <option value="manager">Руководитель (×{cf(RM.manager, 1)})</option>
+                  </select>
+                  <output>×{cf(rmv, 1)}</output></div>
+              </div>
+
+              <div className="reg-cost-summary" style={{ marginTop: 18 }}>
+                <div className="reg-cost-stat"><b>{ru(tariff)} ₸</b><span>тариф часа труда</span></div>
+                <div className="reg-cost-stat"><b>{ru(perEntity)} ₸</b><span>нагрузка на субъект / год</span></div>
+                <div className="reg-cost-stat"><b>{fmtKzt(total)}</b><span>суммарно по МСБ / год · одно требование × 2,18 млн</span></div>
+              </div>
+
+              <div className="reg-biz-blockh reg-biz-blockh-lg">На опыте каких стран построена методика<span className="reg-biz-blockh-cnt">международные практики</span></div>
+              <div className="reg-mtd-prov">
+                <div className="reg-mtd-card">
+                  <h4>Standard Cost Model</h4>
+                  <span className="reg-mtd-tag reg-mtd-t-core">Ядро формулы · Нидерланды, ЕС</span>
+                  <p>Само уравнение «Стоимость = Цена × Количество» и структура тарифа (зарплата + надбавки + накладные). Родина — Нидерланды, сеть SCM Network с 2003 г.</p>
+                  <div className="reg-mtd-fact">NL: админбремя €16,4 млрд/год ≈ 3,6% ВВП; применяют Дания, Норвегия, Швеция, Великобритания.</div>
+                </div>
+                <div className="reg-mtd-card">
+                  <h4>RBMF</h4>
+                  <span className="reg-mtd-tag reg-mtd-t-ext">Расширение · Австралия</span>
+                  <p>Деление издержек на 3 типа: административные, существенные (оборудование, обучение) и издержки задержки. Множитель надбавок к зарплате.</p>
+                  <div className="reg-mtd-fact">Office of Impact Analysis: $48,67/ч × 1,75 = $85,17/ч.</div>
+                </div>
+                <div className="reg-mtd-card">
+                  <h4>One-for-one rule</h4>
+                  <span className="reg-mtd-tag reg-mtd-t-ext">Расширение · Канада</span>
+                  <p>Дисконтированная SCM-формула (ставка 7%) и принцип «одно требование вошло — одно вышло» для сдерживания роста нагрузки.</p>
+                  <div className="reg-mtd-fact">Red Tape Reduction Act, 2015. В ЕС аналог «one-in-one-out» с 2022 г.</div>
+                </div>
+                <div className="reg-mtd-card">
+                  <h4>Bürokratiekostenindex</h4>
+                  <span className="reg-mtd-tag reg-mtd-t-ext">Расширение · Германия</span>
+                  <p>Индекс динамики бюрократических издержек на базе SCM — отслеживать рост или снижение совокупной нагрузки во времени.</p>
+                  <div className="reg-mtd-fact">Ведётся Statistisches Bundesamt; база для цели сокращения нагрузки.</div>
+                </div>
+                <div className="reg-mtd-card">
+                  <h4>Регуляторная гильотина</h4>
+                  <span className="reg-mtd-tag reg-mtd-t-cut">Поиск дублей · Корея, Хорватия</span>
+                  <p>Массовый пересмотр: каждое требование классифицируется «оставить / упростить / отменить» по чек-листу (законность, нужность, бизнес-дружелюбность).</p>
+                  <div className="reg-mtd-fact">Методология Jacobs, Cordova &amp; Associates. Корея 1998–99: 11 000+ норм за 11 мес, отменено ≈50%.</div>
+                </div>
+                <div className="reg-mtd-card">
+                  <h4>OECD</h4>
+                  <span className="reg-mtd-tag reg-mtd-t-fr">Рамка качества · международная</span>
+                  <p>Принципы: измерять и административные, и существенные издержки; пропорциональность (больше доказательств — для весомых норм) и риск-ориентированный контроль.</p>
+                  <div className="reg-mtd-fact">Regulatory Policy Outlook 2025, команда Measuring Regulatory Performance.</div>
+                </div>
+              </div>
+            </div>
+          );
+        })()
       ) : (
         /* ——— Бизнес ——— */
         <div className="reg-biz">

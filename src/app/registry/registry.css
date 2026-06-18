@@ -355,6 +355,31 @@
 .reg-cost-apply{margin-top:16px;height:40px;padding:0 22px;border:0;border-radius:10px;background:var(--accent);color:#fff;font-size:13.5px;font-weight:650;cursor:pointer;}
 .reg-cost-apply:disabled{opacity:.6;cursor:default;}
 @media (max-width:980px){.reg-cost-params-grid{grid-template-columns:repeat(2,1fr);}}
+/* Методика расчёта */
+.reg-mtd-f{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 20px;box-shadow:var(--sh-1);margin:8px 0 16px;line-height:2.3;font-size:15px;}
+.reg-mtd-lbl{display:block;font-size:12px;color:var(--ink-3);line-height:1.4;margin-bottom:2px;}
+.reg-mtd-v{font-weight:650;color:var(--accent-700);font-variant-numeric:tabular-nums;}
+.reg-mtd-c{font-weight:600;color:var(--ink-2);font-variant-numeric:tabular-nums;}
+.reg-mtd-op{color:var(--ink-3);margin:0 5px;}
+.reg-mtd-x{color:var(--ink-3);font-size:11.5px;margin-left:2px;}
+.reg-mtd-res{font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;}
+.reg-mtd-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px 24px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 20px;box-shadow:var(--sh-1);}
+.reg-mtd-row{display:flex;align-items:center;gap:13px;}
+.reg-mtd-row label{font-size:13px;color:var(--ink-2);min-width:152px;}
+.reg-mtd-row input[type=range]{flex:1;min-width:0;}
+.reg-mtd-row select{flex:1;min-width:0;height:34px;border:1px solid var(--line);border-radius:8px;padding:0 8px;font-size:13px;background:var(--surface);}
+.reg-mtd-row output{font-size:13.5px;font-weight:600;min-width:94px;text-align:right;font-variant-numeric:tabular-nums;color:var(--ink);}
+.reg-mtd-prov{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin-top:14px;}
+.reg-mtd-card{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:15px 17px;box-shadow:var(--sh-1);}
+.reg-mtd-card h4{margin:0;font-size:15px;font-weight:650;color:var(--ink);}
+.reg-mtd-tag{display:inline-block;font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:7px;margin:8px 0;}
+.reg-mtd-card p{margin:0;font-size:13px;color:var(--ink-2);line-height:1.55;}
+.reg-mtd-fact{margin-top:8px;font-size:12px;color:var(--ink-3);line-height:1.5;}
+.reg-mtd-t-core{background:var(--accent-50);color:var(--accent-700);}
+.reg-mtd-t-ext{background:#E6F1FB;color:#185FA5;}
+.reg-mtd-t-cut{background:#FAEEDA;color:#854F0B;}
+.reg-mtd-t-fr{background:#F1EFE8;color:#5F5E5A;}
+@media (max-width:880px){.reg-mtd-controls,.reg-mtd-prov{grid-template-columns:1fr;}}
 .reg-cost-bars{display:flex;flex-direction:column;gap:7px;}
 .reg-cost-bar{display:flex;align-items:center;gap:12px;font-size:12.5px;}
 .reg-cost-bar-l{width:210px;flex-shrink:0;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
