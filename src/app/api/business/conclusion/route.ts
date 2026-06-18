@@ -81,7 +81,8 @@ export async function POST(req: NextRequest) {
   const permits = (await query(
     `SELECT DISTINCT COALESCE(NULLIF(rr.title,''), rr.action) AS t, rr.ministry
      FROM requirement_registry rr LEFT JOIN spheres s ON s.code=rr.sphere_code
-     WHERE ${ACTIVE} AND COALESCE(rr.is_permit,false)=true AND (COALESCE(s.is_horizontal,false) OR ${pSr}) AND ${pAp}${expandCut}
+     WHERE ${ACTIVE} AND COALESCE(rr.is_permit,false)=true
+       AND ((COALESCE(s.is_horizontal,false) AND COALESCE(rr.audience,'any')='any') OR ${pSr}) AND ${pAp}${expandCut}
      ORDER BY 1 LIMIT 50`, pParams)).rows;
 
   // sectoral по стадиям (только названия, компактно)
@@ -102,7 +103,8 @@ export async function POST(req: NextRequest) {
   const hAp = applic(hParams);
   const horiz = (await query(
     `SELECT s.name_ru, count(*)::int n FROM requirement_registry rr LEFT JOIN spheres s ON s.code=rr.sphere_code
-     WHERE ${ACTIVE} AND rr.scope='horizontal' AND COALESCE(rr.is_permit,false)=false AND ${hAp}${expandCut}
+     WHERE ${ACTIVE} AND COALESCE(s.is_horizontal,false) AND COALESCE(rr.is_permit,false)=false
+       AND COALESCE(rr.audience,'any')='any' AND ${hAp}${expandCut}
      GROUP BY s.name_ru ORDER BY n DESC LIMIT 20`, hParams)).rows;
 
   // компактный контекст

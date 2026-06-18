@@ -50,6 +50,7 @@ export async function GET(req: NextRequest) {
       `SELECT ${FIELDS} FROM requirement_registry rr
        LEFT JOIN spheres s ON s.code = rr.sphere_code
        WHERE ${ACTIVE} AND COALESCE(s.is_horizontal,false) AND COALESCE(rr.is_permit,false) = false
+         AND COALESCE(rr.audience,'any') = 'any'
          AND rr.sphere_code = $1 AND ${ap}${expandCut}
        ORDER BY rr.id LIMIT 800`,
       params
@@ -105,7 +106,8 @@ export async function GET(req: NextRequest) {
     const r = await query(
       `SELECT ${FIELDS} FROM requirement_registry rr
        LEFT JOIN spheres s ON s.code = rr.sphere_code
-       WHERE ${ACTIVE} AND COALESCE(rr.is_permit,false) = true AND (COALESCE(s.is_horizontal,false) OR ${sr}) AND ${ap}${expandCut}
+       WHERE ${ACTIVE} AND COALESCE(rr.is_permit,false) = true
+         AND ((COALESCE(s.is_horizontal,false) AND COALESCE(rr.audience,'any')='any') OR ${sr}) AND ${ap}${expandCut}
        ORDER BY rr.ministry NULLS LAST, rr.id LIMIT 400`,
       params
     );
@@ -144,7 +146,8 @@ export async function GET(req: NextRequest) {
   const hg = await query(
     `SELECT rr.sphere_code, s.name_ru, count(*)::int AS n
      FROM requirement_registry rr LEFT JOIN spheres s ON s.code = rr.sphere_code
-     WHERE ${ACTIVE} AND COALESCE(s.is_horizontal,false) AND COALESCE(rr.is_permit,false) = false AND ${hgAp}${expandCut}
+     WHERE ${ACTIVE} AND COALESCE(s.is_horizontal,false) AND COALESCE(rr.is_permit,false) = false
+       AND COALESCE(rr.audience,'any') = 'any' AND ${hgAp}${expandCut}
      GROUP BY rr.sphere_code, s.name_ru ORDER BY n DESC`,
     hgParams
   );
