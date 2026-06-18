@@ -345,7 +345,7 @@ export default function RegistryPage() {
   const [mFreq, setMFreq] = useState(12);
   const [mRole, setMRole] = useState("specialist");
   // дубли
-  const [dupes, setDupes] = useState<{ groups: any[]; totalDuplicates: number; totalGroups: number } | null>(null);
+  const [dupes, setDupes] = useState<{ groups: any[]; totalDuplicates: number; totalGroups: number; crossGroups?: number; rawCrossGroups?: number } | null>(null);
   const [dupeCross, setDupeCross] = useState(true);
   const [openDupe, setOpenDupe] = useState<string | null>(null);
   const [dupeItems, setDupeItems] = useState<Record<string, Req[]>>({});
@@ -382,7 +382,7 @@ export default function RegistryPage() {
   }, [mode, dupeCross]);
   const toggleDupe = (gid: string) => {
     setOpenDupe((o) => (o === gid ? null : gid));
-    if (!dupeItems[gid]) fetch(`/api/registry/duplicates?group=${gid}`).then((r) => r.json()).then((d) => setDupeItems((p) => ({ ...p, [gid]: d.items || [] })));
+    if (!dupeItems[gid]) fetch(`/api/registry/duplicates?group=${encodeURIComponent(gid)}`).then((r) => r.json()).then((d) => setDupeItems((p) => ({ ...p, [gid]: d.items || [] })));
   };
   const saveCostParams = () => {
     setParamsSaving(true);
@@ -725,12 +725,12 @@ export default function RegistryPage() {
         <div className="reg-biz">
           <div className="reg-biz-hero">
             <h1>Дублирующие и избыточные требования</h1>
-            <p>Группы похожих требований. «Кросс-орган» — одну норму контролируют разные органы (приоритет для регуляторной гильотины и правила «1 вошло — 2 вышло»).</p>
+            <p>Группы уточнены по сектору: процедурно похожие действия из разных сфер (например, заявления на разные лицензии) разведены и не считаются дублем. «Кросс-орган» — одно обязательство в одном секторе контролируют разные органы (приоритет для гильотины и правила «1 вошло — 2 вышло»).</p>
           </div>
           <div className="reg-dupe-toolbar">
             <button className={"reg-stage-pill" + (dupeCross ? " on" : "")} onClick={() => setDupeCross(true)}>Кросс-орган</button>
             <button className={"reg-stage-pill" + (!dupeCross ? " on" : "")} onClick={() => setDupeCross(false)}>Все группы</button>
-            {dupes && <span className="reg-cost-hint">{Number(dupes.totalDuplicates).toLocaleString("ru")} дублей в {Number(dupes.totalGroups).toLocaleString("ru")} группах</span>}
+            {dupes && <span className="reg-cost-hint">{Number(dupes.totalDuplicates).toLocaleString("ru")} дублей в {Number(dupes.totalGroups).toLocaleString("ru")} группах{dupeCross && dupes.rawCrossGroups ? ` · разведено по сферам ${(Number(dupes.rawCrossGroups) - Number(dupes.crossGroups)).toLocaleString("ru")} ложных склеек` : ""}</span>}
           </div>
           {!dupes ? <div className="reg-empty">Загрузка…</div> : (
             <div className="reg-dupe-list">
@@ -739,6 +739,7 @@ export default function RegistryPage() {
                   <button className="reg-dupe-head" onClick={() => toggleDupe(String(g.gid))}>
                     <span className={"chev2" + (openDupe === String(g.gid) ? " open" : "")}><I.chevRight /></span>
                     <span className="reg-dupe-title">{g.canon_title || "(группа дублей)"}</span>
+                    {g.sphere_code && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 6, background: (SPHERE_COLOR[g.sphere_code] || "#6B7A73") + "22", color: SPHERE_COLOR[g.sphere_code] || "#6B7A73", whiteSpace: "nowrap" }}>{g.sphere_name || g.sphere_code}</span>}
                     <span className="reg-dupe-badge">{g.size}× · {g.organs} орг.</span>
                     {Number(g.potential_saving) > 0 && <span className="reg-dupe-save">~{fmtKzt(Number(g.potential_saving))}</span>}
                   </button>
@@ -858,6 +859,27 @@ export default function RegistryPage() {
                   <div className="reg-mtd-fact">Regulatory Policy Outlook 2025, команда Measuring Regulatory Performance.</div>
                 </div>
               </div>
+
+              <div className="reg-biz-blockh reg-biz-blockh-lg">Как реестр находит дубли<span className="reg-biz-blockh-cnt">три уровня</span></div>
+              <div className="reg-mtd-steps">
+                <div className="reg-mtd-step">
+                  <div className="reg-mtd-step-n">1</div>
+                  <h4>Структурный фильтр</h4>
+                  <p>Сравнение по полям карточки: сектор (сфера), орган, ОКЭД, тип обязательства, ссылка на НПА. Разводит процедурно похожие действия из разных секторов.</p>
+                </div>
+                <div className="reg-mtd-step">
+                  <div className="reg-mtd-step-n">2</div>
+                  <h4>Семантический</h4>
+                  <p>Эмбеддинги bge-m3 + косинусное сходство (порог ≈0,93) — ловит совпадения по смыслу даже при разной формулировке, внутри одного сектора.</p>
+                </div>
+                <div className="reg-mtd-step">
+                  <div className="reg-mtd-step-n">3</div>
+                  <h4>Гильотина</h4>
+                  <p>Совпадения классифицируются по чек-листу (законность, нужность, бизнес-дружелюбность). Приоритет — кросс-орган.</p>
+                  <div className="reg-mtd-guill"><span className="g-keep">оставить</span><span className="g-simpl">упростить</span><span className="g-cut">отменить</span></div>
+                </div>
+              </div>
+              <div className="reg-mtd-effect">Структурный фильтр по сектору развёл <b>648 ложных кросс-секторных склеек</b> (заявления на разные лицензии в разных отраслях) — настоящих кросс-орган групп осталось <b>300</b> вместо 958.</div>
             </div>
           );
         })()

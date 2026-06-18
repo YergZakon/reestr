@@ -380,6 +380,20 @@
 .reg-mtd-t-cut{background:#FAEEDA;color:#854F0B;}
 .reg-mtd-t-fr{background:#F1EFE8;color:#5F5E5A;}
 @media (max-width:880px){.reg-mtd-controls,.reg-mtd-prov{grid-template-columns:1fr;}}
+/* Методика — поиск дублей (3 уровня) */
+.reg-mtd-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin-top:14px;}
+.reg-mtd-step{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:16px 17px;box-shadow:var(--sh-1);}
+.reg-mtd-step-n{width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;margin-bottom:9px;}
+.reg-mtd-step h4{margin:0 0 5px;font-size:14.5px;font-weight:650;color:var(--ink);}
+.reg-mtd-step p{margin:0;font-size:12.5px;color:var(--ink-2);line-height:1.5;}
+.reg-mtd-guill{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+.reg-mtd-guill span{font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:7px;}
+.reg-mtd-guill .g-keep{background:#E6F4EF;color:#0B6650;}
+.reg-mtd-guill .g-simpl{background:#FAEEDA;color:#854F0B;}
+.reg-mtd-guill .g-cut{background:#FCEBEB;color:#A32D2D;}
+.reg-mtd-effect{margin-top:13px;background:var(--accent-50);border:1px solid var(--accent-100);border-radius:11px;padding:12px 16px;font-size:13px;color:var(--ink-2);line-height:1.5;}
+.reg-mtd-effect b{color:var(--accent-700);font-weight:700;}
+@media (max-width:880px){.reg-mtd-steps{grid-template-columns:1fr;}}
 .reg-cost-bars{display:flex;flex-direction:column;gap:7px;}
 .reg-cost-bar{display:flex;align-items:center;gap:12px;font-size:12.5px;}
 .reg-cost-bar-l{width:210px;flex-shrink:0;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
