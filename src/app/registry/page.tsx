@@ -88,7 +88,12 @@ interface Req {
   action_type?: string | null; time_hours?: number | null; frequency_per_year?: number | null;
   external_cost_kzt?: number | null; cost_per_entity_kzt?: number | null; staff_role?: string | null;
   inspection_hours_biz?: number | null; inspection_cost_biz?: number | null; inspection_cost_gov?: number | null;
+  authority_code?: string | null; review_status?: string | null; ara_status?: string | null;
+  ara_deadline?: string | null; review_comment?: string | null; norm_url?: string | null;
 }
+const REVIEW_LABEL: Record<string, string> = {
+  pending: "на подтверждении", confirmed: "подтверждено", rejected: "отклонено", edited: "отредактировано",
+};
 interface Scenario { id: string; title: string; oked: string; section: string; icon: string; desc: string; }
 interface SectionRow { section: string; name_ru: string; biz_total: number | null; workers_thousands: number | null; req_count: number; }
 interface OkedRow { code: string; name_ru: string; section: string; section_name: string; }
@@ -115,6 +120,9 @@ function Card({ r, onOpen }: { r: Req; onOpen: (r: Req) => void }) {
       </div>
       {body && <p className="reg-card-snippet">{body}</p>}
       <div className="reg-card-facets">
+        {r.review_status === "confirmed" && <span className="reg-rb reg-rb-confirmed">подтверждено госорганом</span>}
+        {(!r.review_status || r.review_status === "pending" || r.review_status === "edited") && <span className="reg-rb reg-rb-pending">на подтверждении</span>}
+        {r.ara_status === "исключён" && <span className="reg-rb reg-rb-rejected">исключён</span>}
         {r.sphere_name && <MetaChip color={SPHERE_COLOR[r.sphere_code || ""]}>{r.sphere_name}</MetaChip>}
         {r.ministry && <MetaChip>{minShort(r.ministry)}</MetaChip>}
         {(r.stages || []).slice(0, 3).map((s) => <MetaChip key={s} stage>{STAGE_LABEL[s] || s}</MetaChip>)}
@@ -138,7 +146,7 @@ function applyTarget(r: Req): { url: string; label: string } {
 function PermitCard({ r, onOpen }: { r: Req; onOpen: (r: Req) => void }) {
   const name = r.title || `${r.subject || ""}${r.action ? " → " + r.action : ""}`.trim() || "—";
   const ap = applyTarget(r);
-  const adilet = r.ngr ? `https://adilet.zan.kz/rus/docs/${r.ngr}` : null;
+  const adilet = r.norm_url || (r.ngr ? `https://adilet.zan.kz/rus/docs/${r.ngr}` : null);
   return (
     <div className="reg-permit">
       <div className="reg-permit-main" onClick={() => onOpen(r)}>
@@ -156,16 +164,22 @@ function PermitCard({ r, onOpen }: { r: Req; onOpen: (r: Req) => void }) {
 }
 
 /* ——— Drawer ——— */
-function Drawer({ r, onClose, onSaved }: { r: Req; onClose: () => void; onSaved: () => void }) {
+function Drawer({ r, onClose, onSaved, role }: { r: Req; onClose: () => void; onSaved: () => void; role?: string }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(r.canon_text || r.legal_text || "");
   const [busy, setBusy] = useState(false);
+  const [rbusy, setRbusy] = useState(false);
+  const [araDate, setAraDate] = useState<string>(() => {
+    if (r.ara_deadline) return String(r.ara_deadline).slice(0, 10);
+    const d = new Date(); d.setFullYear(d.getFullYear() + (/^[KZ]/i.test(r.ngr || "") ? 3 : 2));
+    return d.toISOString().slice(0, 10);
+  });
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h);
   }, [onClose]);
   const heading = r.title || `${r.subject || ""}${r.action ? " → " + r.action : ""}`.trim();
-  const adilet = r.ngr ? `https://adilet.zan.kz/rus/docs/${r.ngr}` : null;
+  const adilet = r.norm_url || (r.ngr ? `https://adilet.zan.kz/rus/docs/${r.ngr}` : null);
   async function save() {
     setBusy(true);
     try {
@@ -173,6 +187,15 @@ function Drawer({ r, onClose, onSaved }: { r: Req; onClose: () => void; onSaved:
         body: JSON.stringify({ id: r.id, action: "edit", fields: { canon_text: text } }) });
       onSaved(); setEditing(false);
     } finally { setBusy(false); }
+  }
+  async function review(action: string, extra: Record<string, unknown> = {}) {
+    setRbusy(true);
+    try {
+      const res = await fetch("/api/registry/review", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: r.id, action, ...extra }) });
+      if (res.ok) { onSaved(); onClose(); }
+      else { const e = await res.json().catch(() => ({})); alert(e.error || "Ошибка"); }
+    } finally { setRbusy(false); }
   }
   return (
     <>
@@ -183,6 +206,26 @@ function Drawer({ r, onClose, onSaved }: { r: Req; onClose: () => void; onSaved:
           <button className="reg-drawer-close" onClick={onClose}><I.x /></button>
         </div>
         <div className="reg-drawer-body">
+          {r.review_status && (role === "expert" || role === "admin") && (
+            <div className="reg-d-section reg-review-box">
+              <div className="reg-d-section-h">Ревью госоргана</div>
+              <div className="reg-review-status">
+                Статус: <b className={"reg-rb reg-rb-" + r.review_status}>{REVIEW_LABEL[r.review_status] || r.review_status}</b>
+                {r.ara_status && <span className="reg-rb reg-rb-ara">{r.ara_status}</span>}
+              </div>
+              {r.review_comment && <div className="reg-review-comment">Комментарий: {r.review_comment}</div>}
+              <label className="reg-review-ara">Срок проведения АРА
+                <input type="date" value={araDate} onChange={(e) => setAraDate(e.target.value)} />
+              </label>
+              <div className="reg-review-acts">
+                <button className="reg-rev-confirm" disabled={rbusy} onClick={() => review("confirm", { ara_deadline: araDate })}>Подтвердить</button>
+                <button className="reg-rev-reject" disabled={rbusy} onClick={() => review("reject")}>Отклонить</button>
+                {role === "admin" && r.review_status === "confirmed" && (
+                  <button className="reg-rev-include" disabled={rbusy} onClick={() => review("include")}>Включить в реестр</button>
+                )}
+              </div>
+            </div>
+          )}
           <div className="reg-d-section">
             <div className="reg-d-section-h">Текст требования</div>
             {editing
@@ -301,7 +344,7 @@ interface Npa {
 }
 
 export default function RegistryPage() {
-  const [mode, setMode] = useState<"gov" | "biz" | "organs" | "cost" | "dupes" | "method">("gov");
+  const [mode, setMode] = useState<"gov" | "biz" | "organs" | "cost" | "dupes" | "method" | "review">("gov");
   const [lang, setLang] = useState<"ru" | "kz">("ru");
   const [items, setItems] = useState<Req[]>([]);
   const [filtersData, setFiltersData] = useState<{ ministries: Opt[]; spheres: Opt[]; stages: Opt[]; totals: { active: number; npa: number } } | null>(null);
@@ -314,6 +357,35 @@ export default function RegistryPage() {
   const [openF, setOpenF] = useState({ sphere: true, ministry: false, stage: false });
   const [f, setF] = useState<{ spheres: string[]; ministries: string[]; stages: string[]; q: string }>({ spheres: [], ministries: [], stages: [], q: "" });
   const [qd, setQd] = useState("");
+
+  // Ревью госоргана (очередь апрува по органам)
+  const [me, setMe] = useState<{ id: number; username: string; role: string; assigned_authorities: string[] } | null>(null);
+  const [rq, setRq] = useState<any>(null);
+  const [rqStatus, setRqStatus] = useState("pending");
+  const [rqPage, setRqPage] = useState(1);
+  const [rqQ, setRqQ] = useState("");
+  const [rqQd, setRqQd] = useState("");
+  const [rqSel, setRqSel] = useState<number[]>([]);
+  const [rqAra, setRqAra] = useState<string>(() => { const d = new Date(); d.setFullYear(d.getFullYear() + 2); return d.toISOString().slice(0, 10); });
+  const [rqBusy, setRqBusy] = useState(false);
+  useEffect(() => { fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null)).then((d) => setMe(d?.user || null)).catch(() => {}); }, []);
+  useEffect(() => { const t = setTimeout(() => setRqQd(rqQ), 400); return () => clearTimeout(t); }, [rqQ]);
+  const loadReviewQueue = useCallback(() => {
+    const p = new URLSearchParams({ status: rqStatus, page: String(rqPage), limit: "20" });
+    if (rqQd) p.set("q", rqQd);
+    fetch(`/api/registry/review-queue?${p}`).then((r) => r.json()).then((d) => { setRq(d); setRqSel([]); }).catch(() => {});
+  }, [rqStatus, rqPage, rqQd]);
+  useEffect(() => { if (mode === "review") loadReviewQueue(); }, [mode, loadReviewQueue]);
+  const reviewBulk = (action: string) => {
+    if (!rqSel.length) return;
+    setRqBusy(true);
+    const body: Record<string, unknown> = { ids: rqSel, action };
+    if (action === "confirm") body.ara_deadline = rqAra;
+    fetch("/api/registry/review", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
+      .then(({ ok, j }) => { if (!ok) alert(j.error || "Ошибка"); loadReviewQueue(); })
+      .finally(() => setRqBusy(false));
+  };
 
   // бизнес-режим (Guided Search: путь → select → survey → report)
   const [bizPath, setBizPath] = useState<BizPath | null>(null);
@@ -515,6 +587,7 @@ export default function RegistryPage() {
           <button className={mode === "cost" ? "on" : ""} onClick={() => setMode("cost")}><I.coins />Нагрузка</button>
           <button className={mode === "method" ? "on" : ""} onClick={() => setMode("method")}><I.calc />Методика</button>
           <button className={mode === "dupes" ? "on" : ""} onClick={() => setMode("dupes")}><I.copy />Дубли</button>
+          <button className={mode === "review" ? "on" : ""} onClick={() => setMode("review")}><I.check />Ревью</button>
           <button className={mode === "biz" ? "on" : ""} onClick={() => { setMode("biz"); setBizProfile(null); setBizStep("select"); setBizPath(null); }}><I.briefcase />Бизнес</button>
         </div>
         <div className="reg-lang">
@@ -883,6 +956,60 @@ export default function RegistryPage() {
             </div>
           );
         })()
+      ) : mode === "review" ? (
+        /* ——— Ревью госоргана (очередь апрува) ——— */
+        <div className="reg-biz">
+          <div className="reg-biz-hero">
+            <h1>Подтверждение требований госорганом</h1>
+            <p>Извлечённые требования вашего органа — подтвердите, отклоните или поправьте. Подтверждённые включаются в реестр после согласования с уполномоченным органом (МНЭ). Срок проведения АРА обязателен при подтверждении.</p>
+          </div>
+          {!rq ? <div className="reg-empty">Загрузка…</div> : rq.noAuthorities ? (
+            <div className="reg-empty">Вам не назначены органы. Обратитесь к администратору (МНЭ) для назначения.</div>
+          ) : (
+            <>
+              <div className="reg-cost-summary">
+                <div className="reg-cost-stat"><b>{Number(rq.counts?.pending || 0).toLocaleString("ru")}</b><span>на подтверждении</span></div>
+                <div className="reg-cost-stat"><b>{Number(rq.counts?.confirmed || 0).toLocaleString("ru")}</b><span>подтверждено</span></div>
+                <div className="reg-cost-stat"><b>{Number(rq.counts?.rejected || 0).toLocaleString("ru")}</b><span>отклонено</span></div>
+              </div>
+              <div className="reg-dupe-toolbar">
+                {([["pending", "На подтверждении"], ["confirmed", "Подтверждённые"], ["rejected", "Отклонённые"], ["all", "Все"]] as [string, string][]).map(([v, l]) => (
+                  <button key={v} className={"reg-stage-pill" + (rqStatus === v ? " on" : "")} onClick={() => { setRqStatus(v); setRqPage(1); }}>{l}</button>
+                ))}
+                <input className="reg-mtd-row" style={{ flex: 1, minWidth: 160, height: 34, border: "1px solid var(--line)", borderRadius: 8, padding: "0 11px", fontSize: 13 }} placeholder="Поиск по тексту / ngr…" value={rqQ} onChange={(e) => setRqQ(e.target.value)} />
+              </div>
+              {rqStatus === "pending" && (
+                <div className="reg-rev-bulk">
+                  <label>Срок АРА <input type="date" value={rqAra} onChange={(e) => setRqAra(e.target.value)} /></label>
+                  <span className="reg-cost-hint">Выбрано: {rqSel.length}</span>
+                  <button className="reg-rev-confirm" disabled={!rqSel.length || rqBusy} onClick={() => reviewBulk("confirm")}>Подтвердить выбранные</button>
+                  <button className="reg-rev-reject" disabled={!rqSel.length || rqBusy} onClick={() => reviewBulk("reject")}>Отклонить выбранные</button>
+                  <button className="reg-rev-all" onClick={() => setRqSel(rqSel.length === rq.items.length && rq.items.length ? [] : rq.items.map((x: Req) => x.id))}>{rqSel.length === rq.items.length && rq.items.length ? "Снять все" : "Выбрать страницу"}</button>
+                </div>
+              )}
+              <div className="reg-rev-list">
+                {rq.items.map((r: Req) => (
+                  <div key={r.id} className="reg-rev-row">
+                    {rqStatus === "pending" && <input type="checkbox" checked={rqSel.includes(r.id)} onChange={(e) => setRqSel(e.target.checked ? [...rqSel, r.id] : rqSel.filter((x) => x !== r.id))} />}
+                    <div className="reg-rev-main" onClick={() => setActive(r)}>
+                      <div className="reg-rev-t">{r.title || r.action}</div>
+                      <div className="reg-rev-m">{r.ngr}{r.article ? ` · ${r.article}` : ""} · {minShort(r.ministry)}{r.sphere_name ? ` · ${r.sphere_name}` : ""}</div>
+                    </div>
+                    <span className={"reg-rb reg-rb-" + (r.review_status || "")}>{REVIEW_LABEL[r.review_status || ""] || r.review_status}</span>
+                  </div>
+                ))}
+                {!rq.items.length && <div className="reg-empty">Нет требований в этом статусе.</div>}
+              </div>
+              {rq.pages > 1 && (
+                <div className="reg-rev-pager">
+                  <button disabled={rqPage <= 1} onClick={() => setRqPage(rqPage - 1)}>←</button>
+                  <span>{rqPage} / {rq.pages}</span>
+                  <button disabled={rqPage >= rq.pages} onClick={() => setRqPage(rqPage + 1)}>→</button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       ) : (
         /* ——— Бизнес ——— */
         <div className="reg-biz">
@@ -1125,7 +1252,7 @@ export default function RegistryPage() {
         </div>
       )}
 
-      {active && <Drawer r={active} onClose={() => setActive(null)} onSaved={load} />}
+      {active && <Drawer r={active} onClose={() => setActive(null)} onSaved={mode === "review" ? loadReviewQueue : load} role={me?.role} />}
     </div>
   );
 }

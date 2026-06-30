@@ -70,6 +70,7 @@ export async function GET(req: NextRequest) {
     SELECT rr.id, rr.ngr, rr.npa_title, rr.article, rr.ministry, rr.sphere_code,
       rr.okeds, rr.stages, rr.title, rr.legal_text, rr.canon_text,
       rr.subject, rr.action, rr.object, rr.condition,
+      rr.norm_url, rr.review_status, rr.ara_status,
       s.name_ru AS sphere_name
     FROM requirement_registry rr
     LEFT JOIN spheres s ON s.code = rr.sphere_code

@@ -5,7 +5,8 @@ import { getCurrentUser } from "@/lib/auth";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const ACTIVE = `rr.is_canonical AND (rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')`;
+const ACTIVE = `rr.is_canonical AND (rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')
+  AND COALESCE(rr.review_status,'pending') <> 'rejected'`;
 const STAGE_LABEL: Record<string, string> = {
   planning: "Планирование", registration: "Регистрация", pre_launch: "До запуска", launch: "Запуск",
   operation: "Деятельность", reporting: "Отчётность", inspection: "Проверки", expansion: "Расширение",
