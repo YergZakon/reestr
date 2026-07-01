@@ -92,14 +92,28 @@ export async function getCurrentUserWithAccess(): Promise<UserPayloadWithAccess 
   if (user.role === "admin") {
     return { ...user, assigned_spheres: [], assigned_authorities: [] };
   }
-  const [s, a] = await Promise.all([
+  const [s, a, o] = await Promise.all([
     query("SELECT sphere_code FROM user_spheres WHERE user_id = $1", [user.id]),
     query("SELECT authority_code FROM user_authorities WHERE user_id = $1", [user.id]),
+    // орг-скоуп: узлы органа пользователя + все потомки (рекурсивный CTE) → их коды.
+    // Коды министерств = requirement_registry.authority_code, поэтому объединяем с legacy user_authorities.
+    query(
+      `WITH RECURSIVE sub AS (
+         SELECT o.id, o.code FROM organizations o JOIN user_orgs uo ON uo.org_id = o.id WHERE uo.user_id = $1
+         UNION
+         SELECT c.id, c.code FROM organizations c JOIN sub ON c.parent_id = sub.id
+       ) SELECT code FROM sub`,
+      [user.id],
+    ).catch(() => ({ rows: [] as { code: string }[] })),
+  ]);
+  const authorities = new Set<string>([
+    ...a.rows.map((r) => r.authority_code as string),
+    ...o.rows.map((r) => r.code as string),
   ]);
   return {
     ...user,
     assigned_spheres: s.rows.map((r) => r.sphere_code as string),
-    assigned_authorities: a.rows.map((r) => r.authority_code as string),
+    assigned_authorities: Array.from(authorities),
   };
 }
 
