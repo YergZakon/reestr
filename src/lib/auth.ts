@@ -8,7 +8,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "npa-expert-secret-2026";
 export interface UserPayload {
   id: number;
   username: string;
-  role: "admin" | "expert";
+  role: "admin" | "moderator" | "expert";
 }
 
 export async function hashPassword(password: string): Promise<string> {

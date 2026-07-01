@@ -7,12 +7,29 @@ interface UserRow {
   id: number;
   username: string;
   full_name: string | null;
-  role: "admin" | "expert";
+  role: "admin" | "moderator" | "expert";
   is_active: boolean;
   created_at: string;
   assigned_spheres: string[];
   assigned_authorities: string[];
+  assigned_org_ids: number[];
 }
+
+interface Organization {
+  id: number;
+  code: string;
+  parent_id: number | null;
+  type: string;
+  name_ru: string;
+  short_name: string | null;
+  req_count: number;
+}
+const ORG_TYPES: [string, string][] = [
+  ["ministry", "Министерства"],
+  ["agency", "Агентства и Нацбанк"],
+  ["committee", "Комитеты"],
+  ["akimat", "Акиматы (местные)"],
+];
 
 interface Sphere {
   code: string;
@@ -36,6 +53,7 @@ export default function CardsAdminUsersPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [spheres, setSpheres] = useState<Sphere[]>([]);
   const [authorities, setAuthorities] = useState<Authority[]>([]);
+  const [orgs, setOrgs] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,10 +64,11 @@ export default function CardsAdminUsersPage() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [u, s, a] = await Promise.all([
+      const [u, s, a, o] = await Promise.all([
         fetch("/api/admin/users").then((r) => (r.ok ? r.json() : null)),
         fetch("/api/spheres").then((r) => (r.ok ? r.json() : null)),
         fetch("/api/authorities").then((r) => (r.ok ? r.json() : null)),
+        fetch("/api/organizations").then((r) => (r.ok ? r.json() : null)),
       ]);
       if (!u) {
         router.push("/login");
@@ -61,6 +80,7 @@ export default function CardsAdminUsersPage() {
       const allAuthorities: Authority[] = a?.authorities || [];
       setSpheres(allSpheres.filter((sp) => sp.card_count > 0));
       setAuthorities(allAuthorities.filter((au) => au.card_count > 0));
+      setOrgs(o?.organizations || []);
     } catch {
       router.push("/login");
     } finally {
@@ -162,10 +182,12 @@ export default function CardsAdminUsersPage() {
                         className={`px-2 py-0.5 text-xs rounded-full ${
                           u.role === "admin"
                             ? "bg-purple-100 text-purple-700"
+                            : u.role === "moderator"
+                            ? "bg-teal-100 text-teal-700"
                             : "bg-blue-100 text-blue-700"
                         }`}
                       >
-                        {u.role === "admin" ? "Админ" : "Эксперт"}
+                        {u.role === "admin" ? "Админ" : u.role === "moderator" ? "Модератор" : "Эксперт"}
                       </span>
                     </td>
                     <td className="px-3 py-2">
@@ -279,7 +301,7 @@ export default function CardsAdminUsersPage() {
         {showCreate && (
           <CreateUserModal
             spheres={spheres}
-            authorities={authorities}
+            orgs={orgs}
             onClose={() => setShowCreate(false)}
             onCreated={() => {
               setShowCreate(false);
@@ -320,21 +342,21 @@ export default function CardsAdminUsersPage() {
 
 function CreateUserModal({
   spheres,
-  authorities,
+  orgs,
   onClose,
   onCreated,
 }: {
   spheres: Sphere[];
-  authorities: Authority[];
+  orgs: Organization[];
   onClose: () => void;
   onCreated: () => void;
 }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState<"admin" | "expert">("expert");
+  const [role, setRole] = useState<"admin" | "moderator" | "expert">("expert");
   const [pickedSpheres, setPickedSpheres] = useState<Set<string>>(new Set());
-  const [pickedAuthorities, setPickedAuthorities] = useState<Set<string>>(new Set());
+  const [pickedOrgs, setPickedOrgs] = useState<Set<number>>(new Set());
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -344,11 +366,11 @@ function CreateUserModal({
     else next.add(code);
     setPickedSpheres(next);
   }
-  function toggleAuthority(code: string) {
-    const next = new Set(pickedAuthorities);
-    if (next.has(code)) next.delete(code);
-    else next.add(code);
-    setPickedAuthorities(next);
+  function toggleOrg(id: number) {
+    const next = new Set(pickedOrgs);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setPickedOrgs(next);
   }
 
   async function submit(e: React.FormEvent) {
@@ -364,8 +386,8 @@ function CreateUserModal({
           password,
           fullName: fullName || null,
           role,
-          assigned_spheres: role === "expert" ? Array.from(pickedSpheres) : [],
-          assigned_authorities: role === "expert" ? Array.from(pickedAuthorities) : [],
+          assigned_spheres: role !== "admin" ? Array.from(pickedSpheres) : [],
+          assigned_orgs: role !== "admin" ? Array.from(pickedOrgs) : [],
         }),
       });
       if (res.ok) onCreated();
@@ -429,16 +451,17 @@ function CreateUserModal({
               </label>
               <select
                 value={role}
-                onChange={(e) => setRole(e.target.value as "admin" | "expert")}
+                onChange={(e) => setRole(e.target.value as "admin" | "moderator" | "expert")}
                 className={inputClass}
               >
-                <option value="expert">Эксперт</option>
-                <option value="admin">Админ</option>
+                <option value="expert">Эксперт (рецензент)</option>
+                <option value="moderator">Модератор органа</option>
+                <option value="admin">Админ (МНЭ)</option>
               </select>
             </div>
           </div>
 
-          {role === "expert" && (
+          {role !== "admin" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-2">
@@ -465,25 +488,29 @@ function CreateUserModal({
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-2">
-                  Органы ({pickedAuthorities.size}/{authorities.length})
+                  Орган (узел иерархии) — {pickedOrgs.size} выбрано
+                  {role === "moderator" && <span className="text-teal-600"> · модератор управляет узлом + потомками</span>}
                 </label>
                 <div className="grid grid-cols-1 gap-1 max-h-64 overflow-y-auto border border-slate-200 rounded-lg p-2">
-                  {authorities.map((a) => (
-                    <label
-                      key={a.code}
-                      className="flex items-center gap-2 text-xs px-2 py-1 hover:bg-slate-50 rounded cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={pickedAuthorities.has(a.code)}
-                        onChange={() => toggleAuthority(a.code)}
-                      />
-                      <span className="flex-1 truncate" title={a.name}>
-                        {a.short_name || a.name}
-                      </span>
-                      <span className="text-slate-400">{a.card_count}</span>
-                    </label>
-                  ))}
+                  {ORG_TYPES.map(([typ, label]) => {
+                    const list = orgs.filter((o) => o.type === typ);
+                    if (!list.length) return null;
+                    return (
+                      <div key={typ}>
+                        <div className="text-[10px] uppercase tracking-wide text-slate-400 px-2 mt-1">{label}</div>
+                        {list.map((o) => (
+                          <label
+                            key={o.id}
+                            className="flex items-center gap-2 text-xs px-2 py-1 hover:bg-slate-50 rounded cursor-pointer"
+                          >
+                            <input type="checkbox" checked={pickedOrgs.has(o.id)} onChange={() => toggleOrg(o.id)} />
+                            <span className="flex-1 truncate" title={o.name_ru}>{o.short_name || o.name_ru}</span>
+                            {o.req_count > 0 && <span className="text-slate-400">{o.req_count}</span>}
+                          </label>
+                        ))}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>

@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 interface User {
   id: number;
   username: string;
-  role: "admin" | "expert";
+  role: "admin" | "moderator" | "expert";
 }
 
 export default function Header() {
@@ -49,7 +49,7 @@ export default function Header() {
               >
                 Реестр
               </button>
-              {user.role === "admin" && (
+              {(user.role === "admin" || user.role === "moderator") && (
                 <button
                   onClick={() => router.push("/cards/admin/users")}
                   className="px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
@@ -66,10 +66,12 @@ export default function Header() {
                 className={`inline-block px-1.5 py-0.5 text-xs rounded ${
                   user.role === "admin"
                     ? "bg-purple-100 text-purple-700"
+                    : user.role === "moderator"
+                    ? "bg-teal-100 text-teal-700"
                     : "bg-blue-100 text-blue-700"
                 }`}
               >
-                {user.role === "admin" ? "Админ" : "Эксперт"}
+                {user.role === "admin" ? "Админ" : user.role === "moderator" ? "Модератор" : "Эксперт"}
               </span>
             </span>
             <button
