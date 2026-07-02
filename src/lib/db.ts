@@ -136,19 +136,21 @@ export async function initDB() {
     const userCount = await client.query("SELECT COUNT(*) FROM users");
     if (parseInt(userCount.rows[0].count) === 0) {
       const bcrypt = await import("bcryptjs");
-      const users = [
-        { username: "admin", password: "admin_npa2026!", fullName: "Администратор", role: "admin" },
-        { username: "expert_1", password: "expert1_npa2026!", fullName: "Эксперт 1", role: "expert" },
-        { username: "expert_2", password: "expert2_npa2026!", fullName: "Эксперт 2", role: "expert" },
-        { username: "expert_3", password: "expert3_npa2026!", fullName: "Эксперт 3", role: "expert" },
-        { username: "expert_4", password: "expert4_npa2026!", fullName: "Эксперт 4", role: "expert" },
-      ];
-      for (const u of users) {
-        const hash = await bcrypt.hash(u.password, 10);
+      // Начальный admin создаётся ТОЛЬКО из переменной окружения (без паролей в коде).
+      // Экспертов и модераторов заводит admin через UI (/cards/admin/users).
+      const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+      if (!adminPassword) {
+        console.warn(
+          "SEED_ADMIN_PASSWORD не задан — начальный admin НЕ создан. " +
+          "Задайте переменную окружения и перезапустите для первичного сидирования."
+        );
+      } else {
+        const hash = await bcrypt.hash(adminPassword, 10);
         await client.query(
           "INSERT INTO users (username, password_hash, full_name, role) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING",
-          [u.username, hash, u.fullName, u.role]
+          ["admin", hash, "Администратор", "admin"]
         );
+        console.log("Начальный admin создан из SEED_ADMIN_PASSWORD");
       }
       // Create initial iteration
       await client.query(

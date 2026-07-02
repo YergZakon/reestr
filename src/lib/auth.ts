@@ -3,7 +3,13 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { query } from "./db";
 
-const JWT_SECRET = process.env.JWT_SECRET || "npa-expert-secret-2026";
+if (!process.env.JWT_SECRET) {
+  // Без секрета подписи токенов приложение не запускается (не откатываемся на общеизвестный ключ).
+  throw new Error(
+    "JWT_SECRET не задан. Установите переменную окружения JWT_SECRET (Railway → Variables)."
+  );
+}
+const JWT_SECRET: string = process.env.JWT_SECRET;
 
 export interface UserPayload {
   id: number;
