@@ -15,7 +15,7 @@ export async function GET() {
   const res = await query(`
     SELECT os.section, os.name_ru, os.biz_total, os.workers_thousands,
       (SELECT COUNT(*) FROM requirement_registry rr
-         WHERE rr.is_canonical
+         WHERE rr.is_canonical AND NOT COALESCE(rr.excluded, false)
            AND (rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')
            AND rr.scope = 'sectoral'
            AND os.section = ANY(rr.sections)) AS req_count

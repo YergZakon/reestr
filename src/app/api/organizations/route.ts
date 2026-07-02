@@ -16,7 +16,7 @@ export async function GET() {
     SELECT o.id, o.code, o.parent_id, o.type, o.name_ru, o.short_name, o.region_code,
            o.sphere_codes, o.is_regulator, o.active,
            (SELECT count(*) FROM requirement_registry rr
-             WHERE rr.authority_code = o.code AND rr.is_canonical
+             WHERE rr.authority_code = o.code AND rr.is_canonical AND NOT COALESCE(rr.excluded, false)
                AND (rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу'))::int AS req_count
     FROM organizations o
     WHERE o.active

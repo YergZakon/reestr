@@ -18,7 +18,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const res = await query(
     `SELECT id, source, trust, ngr, npa_title, article, ministry, sphere_code,
             COALESCE(canon_text, legal_text, title) AS text, is_canonical, ersop_confirmed
-     FROM requirement_registry WHERE dup_group_id = $1
+     FROM requirement_registry WHERE dup_group_id = $1 AND NOT COALESCE(excluded, false)
      ORDER BY is_canonical DESC, id`,
     [groupId],
   );

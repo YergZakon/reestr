@@ -10,6 +10,7 @@ const FIELDS = `
   rr.subject, rr.action, rr.object, rr.condition, rr.scope, rr.sections,
   rr.triggers, rr.is_permit, rr.norm_url, rr.review_status, rr.ara_status, s.name_ru AS sphere_name`;
 const ACTIVE = `rr.is_canonical AND (rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')
+  AND NOT COALESCE(rr.excluded, false)
   AND COALESCE(rr.review_status,'pending') <> 'rejected'`;
 
 /**

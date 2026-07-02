@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(100, Math.max(1, parseInt(sp.get("limit") || "12", 10)));
   const offset = (page - 1) * limit;
 
-  const conds: string[] = ["rr.is_canonical = true", "(rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')"];
+  const conds: string[] = ["rr.is_canonical = true", "NOT COALESCE(rr.excluded, false)", "(rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')"];
   const params: unknown[] = [];
 
   const multi = (key: string, col: string) => {

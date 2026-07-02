@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const conds: string[] = ["rr.is_canonical = true", "(rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')"];
+  const conds: string[] = ["rr.is_canonical = true", "NOT COALESCE(rr.excluded, false)", "(rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')"];
   const params: unknown[] = [];
   const eq = (col: string, val: string | null) => {
     if (val) { params.push(val); conds.push(`rr.${col} = $${params.length}`); }

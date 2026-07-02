@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 // стоимость считается на лету во вьюхе v_requirement_cost из cost_params + oked_section.wage_month,
 // поэтому смена параметров органом пересчитывает все цифры мгновенно (без compute_cost.py).
-const ACTIVE = `rr.is_canonical AND (rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу') AND rr.time_hours IS NOT NULL`;
+const ACTIVE = `rr.is_canonical AND NOT COALESCE(rr.excluded, false) AND (rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу') AND rr.time_hours IS NOT NULL`;
 const VC = `JOIN v_requirement_cost vc ON vc.id = rr.id`;
 
 /**

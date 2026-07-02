@@ -10,7 +10,7 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
 
   // Действующие требования (утратившие силу не считаем)
-  const ACTIVE = "rr.is_canonical AND (rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')";
+  const ACTIVE = "rr.is_canonical AND NOT COALESCE(rr.excluded, false) AND (rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')";
   const [ministries, spheres, stages, totals] = await Promise.all([
     query(`SELECT rr.ministry, COUNT(*) AS n FROM requirement_registry rr
            WHERE ${ACTIVE} AND rr.ministry IS NOT NULL AND rr.ministry NOT LIKE '%|%'
