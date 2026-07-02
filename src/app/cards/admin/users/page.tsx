@@ -24,13 +24,6 @@ interface Organization {
   short_name: string | null;
   req_count: number;
 }
-const ORG_TYPES: [string, string][] = [
-  ["ministry", "Министерства"],
-  ["agency", "Агентства и Нацбанк"],
-  ["committee", "Комитеты"],
-  ["akimat", "Акиматы (местные)"],
-];
-
 interface Sphere {
   code: string;
   name: string;
@@ -506,25 +499,46 @@ function CreateUserModal({
                   {role === "moderator" && <span className="text-teal-600"> · модератор управляет узлом + потомками</span>}
                 </label>
                 <div className="grid grid-cols-1 gap-1 max-h-64 overflow-y-auto border border-slate-200 rounded-lg p-2">
-                  {ORG_TYPES.map(([typ, label]) => {
-                    const list = orgs.filter((o) => o.type === typ);
-                    if (!list.length) return null;
-                    return (
-                      <div key={typ}>
-                        <div className="text-[10px] uppercase tracking-wide text-slate-400 px-2 mt-1">{label}</div>
-                        {list.map((o) => (
-                          <label
-                            key={o.id}
-                            className="flex items-center gap-2 text-xs px-2 py-1 hover:bg-slate-50 rounded cursor-pointer"
-                          >
-                            <input type="checkbox" checked={pickedOrgs.has(o.id)} onChange={() => toggleOrg(o.id)} />
-                            <span className="flex-1 truncate" title={o.name_ru}>{o.short_name || o.name_ru}</span>
-                            {o.req_count > 0 && <span className="text-slate-400">{o.req_count}</span>}
-                          </label>
-                        ))}
+                  {/* Дерево по parent_id: министерство → его комитеты (доступ модератора = узел + потомки) */}
+                  {(() => {
+                    const kids = new Map<number, Organization[]>();
+                    for (const o of orgs) {
+                      if (o.parent_id == null) continue;
+                      if (!kids.has(o.parent_id)) kids.set(o.parent_id, []);
+                      kids.get(o.parent_id)!.push(o);
+                    }
+                    const renderNode = (o: Organization, depth: number): React.ReactNode => (
+                      <div key={o.id}>
+                        <label
+                          className="flex items-center gap-2 text-xs px-2 py-1 hover:bg-slate-50 rounded cursor-pointer"
+                          style={{ paddingLeft: 8 + depth * 18 }}
+                        >
+                          <input type="checkbox" checked={pickedOrgs.has(o.id)} onChange={() => toggleOrg(o.id)} />
+                          {depth > 0 && <span className="text-slate-300">└</span>}
+                          <span className={"flex-1 truncate" + (depth === 0 ? " font-medium" : "")} title={o.name_ru}>
+                            {o.short_name || o.name_ru}
+                          </span>
+                          {o.req_count > 0 && <span className="text-slate-400">{o.req_count}</span>}
+                        </label>
+                        {(kids.get(o.id) || []).map((c) => renderNode(c, depth + 1))}
                       </div>
                     );
-                  })}
+                    const section = (label: string, roots: Organization[]) =>
+                      roots.length ? (
+                        <div key={label}>
+                          <div className="text-[10px] uppercase tracking-wide text-slate-400 px-2 mt-1">{label}</div>
+                          {roots.map((o) => renderNode(o, 0))}
+                        </div>
+                      ) : null;
+                    const rootsOf = (t: string) => orgs.filter((o) => o.type === t && o.parent_id == null);
+                    return (
+                      <>
+                        {section("Министерства и их комитеты", rootsOf("ministry"))}
+                        {section("Агентства и Нацбанк", rootsOf("agency"))}
+                        {section("Акиматы (местные)", rootsOf("akimat"))}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

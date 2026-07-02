@@ -74,7 +74,27 @@ export default function SubmitMode() {
             <div className="reg-cost-params-grid">
               <label className="reg-cost-param"><span className="reg-cost-param-l">Ответственный орган (узел)</span>
                 <span className="reg-cost-param-in"><select value={subOrgId} onChange={(e) => setSubOrgId(e.target.value)} style={{ width: "100%", height: 36, border: "1px solid var(--line)", borderRadius: 8 }}>
-                  <option value="">— выбрать —</option>{subOrgs.map((o: any) => <option key={o.id} value={o.id}>{o.short_name || o.name_ru}</option>)}</select></span></label>
+                  <option value="">— выбрать —</option>
+                  {/* иерархия: министерство → его комитеты; затем агентства и акиматы */}
+                  {subOrgs.filter((o: any) => o.type === "ministry" && o.parent_id == null).map((m: any) => (
+                    <optgroup key={m.id} label={m.short_name || m.name_ru}>
+                      <option value={m.id}>{m.short_name || m.name_ru} (само министерство)</option>
+                      {subOrgs.filter((c: any) => c.parent_id === m.id).map((c: any) => (
+                        <option key={c.id} value={c.id}>&nbsp;&nbsp;└ {c.short_name || c.name_ru}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                  <optgroup label="Агентства и Нацбанк">
+                    {subOrgs.filter((o: any) => o.type === "agency").map((o: any) => (
+                      <option key={o.id} value={o.id}>{o.short_name || o.name_ru}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Акиматы (местные)">
+                    {subOrgs.filter((o: any) => o.type === "akimat").map((o: any) => (
+                      <option key={o.id} value={o.id}>{o.short_name || o.name_ru}</option>
+                    ))}
+                  </optgroup>
+                </select></span></label>
               <label className="reg-cost-param"><span className="reg-cost-param-l">Сфера (код)</span>
                 <span className="reg-cost-param-in"><input value={subSphere} onChange={(e) => setSubSphere(e.target.value)} placeholder="напр. taxes / labor" /></span></label>
               <label className="reg-cost-param"><span className="reg-cost-param-l">Срок АРА</span>
