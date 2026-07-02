@@ -15,6 +15,7 @@ import MethodMode from "./components/MethodMode";
 import DupesMode from "./components/DupesMode";
 import ReviewMode from "./components/ReviewMode";
 import SubmitMode from "./components/SubmitMode";
+import AssignMode from "./components/AssignMode";
 
 interface Scenario { id: string; title: string; oked: string; section: string; icon: string; desc: string; }
 interface SectionRow { section: string; name_ru: string; biz_total: number | null; workers_thousands: number | null; req_count: number; }
@@ -27,7 +28,7 @@ type BizPath = "new" | "expand";
 interface Opt { ministry?: string; sphere_code?: string; stage?: string; name?: string; n: number; }
 
 export default function RegistryPage() {
-  const [mode, setMode] = useState<"gov" | "biz" | "organs" | "cost" | "dupes" | "method" | "review" | "submit">("gov");
+  const [mode, setMode] = useState<"gov" | "biz" | "organs" | "cost" | "dupes" | "method" | "review" | "submit" | "assign">("gov");
   const [lang, setLang] = useState<"ru" | "kz">("ru");
   const [items, setItems] = useState<Req[]>([]);
   const [filtersData, setFiltersData] = useState<{ ministries: Opt[]; spheres: Opt[]; stages: Opt[]; totals: { active: number; npa: number } } | null>(null);
@@ -194,6 +195,7 @@ export default function RegistryPage() {
           <button className={mode === "review" ? "on" : ""} onClick={() => setMode("review")}><I.check />Ревью</button>
           <button className={mode === "biz" ? "on" : ""} onClick={() => { setMode("biz"); setBizProfile(null); setBizStep("select"); setBizPath(null); }}><I.briefcase />Бизнес</button>
           {(me?.role === "admin" || me?.role === "moderator") && <button className={mode === "submit" ? "on" : ""} onClick={() => setMode("submit")}><I.download />Подача НПА</button>}
+          {(me?.role === "admin" || me?.role === "moderator") && <button className={mode === "assign" ? "on" : ""} onClick={() => setMode("assign")}><I.layers />Назначения</button>}
           {(me?.role === "admin" || me?.role === "moderator") && <button onClick={() => (window.location.href = "/cards/admin/users")}><I.building />Пользователи</button>}
         </div>
         {me && <NotificationsBell />}
@@ -294,6 +296,8 @@ export default function RegistryPage() {
         <MethodMode costData={costData} />
       ) : mode === "submit" ? (
         <SubmitMode />
+      ) : mode === "assign" ? (
+        <AssignMode />
       ) : mode === "review" ? (
         <ReviewMode onOpen={setActive} registerReload={registerReviewReload} />
       ) : (

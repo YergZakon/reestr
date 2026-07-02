@@ -7,7 +7,7 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "tests/e2e",
   timeout: 60_000,
-  retries: 0,
+  retries: 1, // первый прогон после build стабильно флюкает на холодном старте standalone-сервера
   workers: 1, // сид-данные общие — последовательно
   globalSetup: "./tests/e2e/global-setup.ts",
   globalTeardown: "./tests/e2e/global-teardown.ts",

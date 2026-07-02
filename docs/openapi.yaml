@@ -331,6 +331,48 @@ paths:
         "200": { description: "{ conclusion: markdown }" }
         "502": { description: Сбой DeepSeek }
 
+  /api/npa-assignment:
+    get:
+      tags: [Ревью и АРА]
+      summary: НПА органа с текущим назначением комитета (+комитеты, +журнал)
+      parameters:
+        - { name: org_id, in: query, required: true, schema: { type: integer }, description: Узел министерства }
+        - { name: q, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string, enum: [all, assigned, unassigned] } }
+        - { name: page, in: query, schema: { type: integer } }
+      responses:
+        "200": { description: "items[], committees[], log[]" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [Ревью и АРА]
+      summary: Назначить ответственный комитет за НПА (каскад на все требования)
+      description: Закрывает прежнее активное назначение; authority_code всех требований НПА переводится на код комитета; комитет получает уведомление.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ngr, org_id]
+              properties:
+                ngr: { type: string }
+                org_id: { type: integer, description: Узел комитета }
+                reason: { type: string, maxLength: 500, description: Основание назначения }
+      responses:
+        "200": { description: "{ ok, assignment_id, cascaded, committee }" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    delete:
+      tags: [Ревью и АРА]
+      summary: Отменить активное назначение (требования возвращаются министерству)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [ngr], properties: { ngr: { type: string } } }
+      responses:
+        "200": { description: "{ ok, cascaded, back_to }" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /api/notifications:
     get:
       tags: [Ревью и АРА]
