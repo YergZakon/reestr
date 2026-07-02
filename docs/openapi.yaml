@@ -331,6 +331,48 @@ paths:
         "200": { description: "{ conclusion: markdown }" }
         "502": { description: Сбой DeepSeek }
 
+  /api/notifications:
+    get:
+      tags: [Ревью и АРА]
+      summary: Уведомления органов пользователя (новые pending, приближение АРА)
+      description: Генерация — конвейер (generate_notifications.py). Лимит 50, admin видит все органы.
+      parameters:
+        - { name: unread, in: query, schema: { type: string, enum: ["1"] }, description: Только непрочитанные }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer }
+                        authority_code: { type: string }
+                        type: { type: string, enum: [new_pending, ara_soon] }
+                        title: { type: string }
+                        payload: { type: object }
+                        created_at: { type: string, format: date-time }
+                        is_read: { type: boolean }
+                  unread: { type: integer }
+    put:
+      tags: [Ревью и АРА]
+      summary: Отметить уведомления прочитанными
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids: { type: array, items: { type: integer }, maxItems: 100 }
+      responses:
+        "200": { description: "{ ok, marked }" }
+
   # ══════════════════ Справочники ══════════════════
   /api/spheres:
     get: { tags: [Справочники], summary: Сферы регулирования, responses: { "200": { description: OK } } }
