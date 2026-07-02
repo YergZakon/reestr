@@ -1,0 +1,33 @@
+-- 025: удаление мёртвых таблиц первого поколения (все 0 строк на 2026-07-02).
+-- СТАТУС: DRAFT — НЕ ПРИМЕНЯТЬ, пока не выполнены предусловия. Расширение .DRAFT
+-- намеренно исключает файл из apply_migrations.py; при активации переименовать в .sql
+-- и записать в schema_migrations.
+--
+-- ПРЕДУСЛОВИЯ (порядок обязателен):
+--   1. Архивный дамп существует и проверен: outputs/db_backups/railway_20260702_081217.json (есть).
+--   2. Из веб-приложения удалены/отключены легаси-потребители этих таблиц:
+--        API: /api/requirements, /api/votes, /api/export, /api/export/ml-dataset,
+--             /api/export/vote-matrix, /api/admin/{stats,reject,gold-labels,iterations,agreement}
+--        Страница: /admin (legacy-панель)
+--   3. Из src/lib/db.ts (initDB) удалён inline-DDL, создающий эти таблицы,
+--      иначе initDB создаст их заново при старте приложения.
+--   4. Прод задеплоен с п.2-3, смоук пройден.
+--
+-- ВНЕ этого дропа (решение отдельно, объём ~470 тыс. строк — НЕ мёртвые, а легаси-контур MVP):
+--   requirement_cards, card_votes, ml_expert_votes, card_embeddings, source_fragments,
+--   field_metadata, applicability_rules, burden_metrics, batch_log, duplicate_groups
+--   → целевой вариант: перенос в схему legacy (ALTER TABLE ... SET SCHEMA legacy)
+--     после вывода страниц /cards/*, /dashboard, /quality из эксплуатации.
+
+BEGIN;
+
+DROP TABLE IF EXISTS okved_links;      -- 0 строк; ссылалась на requirement_cards
+DROP TABLE IF EXISTS expert_votes;     -- 0 строк; голосование первой версии
+DROP TABLE IF EXISTS requirements;     -- 0 строк; реестр первой версии
+DROP TABLE IF EXISTS iterations;       -- 0 строк; итерации первой версии
+DROP TABLE IF EXISTS npa_documents;    -- 0 строк; документы первой версии
+
+COMMIT;
+
+-- После применения: INSERT INTO schema_migrations(version, filename, checksum, note)
+-- VALUES ('025','025_drop_dead_tables.sql','<md5>','мёртвые таблицы v1 удалены');
