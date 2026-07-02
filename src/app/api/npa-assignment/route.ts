@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
   const params: unknown[] = [codes];
   const conds = [
     `rr.authority_code = ANY($1::text[])`,
-    `rr.is_canonical`, `NOT COALESCE(rr.excluded,false)`,
+    `NOT COALESCE(rr.excluded,false)`,
     `(rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')`,
     `rr.ngr IS NOT NULL`,
   ];

@@ -32,7 +32,7 @@ export async function GET() {
      FROM organizations o
      LEFT JOIN organizations po ON po.id = o.parent_id
      JOIN requirement_registry rr ON rr.authority_code = o.code
-     WHERE o.active AND rr.is_canonical AND NOT COALESCE(rr.excluded, false) AND rr.ngr IS NOT NULL
+     WHERE o.active AND NOT COALESCE(rr.excluded, false) AND rr.ngr IS NOT NULL
        ${scopeCond}
      GROUP BY o.id, o.code, o.name_ru, o.short_name, o.type, po.code
      ORDER BY count(*) DESC`,

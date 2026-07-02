@@ -15,8 +15,8 @@ const FIELDS = `rr.id, rr.ngr, rr.npa_title, rr.article, rr.ministry, rr.authori
   s.name_ru AS sphere_name, rr.okeds, rr.stages, rr.title, rr.legal_text, rr.canon_text,
   rr.subject, rr.action, rr.object, rr.condition, rr.is_permit, rr.norm_url,
   rr.review_status, rr.ara_status, rr.ara_deadline, rr.review_comment, rr.reviewed_at,
-  rr.dup_suspect`;
-const ACTIVE = `rr.is_canonical AND NOT COALESCE(rr.excluded, false) AND (rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')`;
+  rr.dup_suspect, rr.is_canonical, rr.dup_group_id`;
+const ACTIVE = `NOT COALESCE(rr.excluded, false) AND (rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')`;
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUserWithAccess();

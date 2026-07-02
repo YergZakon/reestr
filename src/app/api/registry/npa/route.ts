@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Орган вне вашего доступа" }, { status: 403 });
 
   const conds: string[] = [
-    "rr.authority_code = $1", "rr.is_canonical",
+    "rr.authority_code = $1",
     "NOT COALESCE(rr.excluded, false)", "rr.ngr IS NOT NULL",
   ];
   const params: unknown[] = [authority];

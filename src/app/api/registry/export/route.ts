@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const conds: string[] = ["rr.is_canonical = true", "NOT COALESCE(rr.excluded, false)", "(rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')"];
+  const conds: string[] = ["NOT COALESCE(rr.excluded, false)", "(rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')"];
   const params: unknown[] = [];
   const eq = (col: string, val: string | null) => {
     if (val) { params.push(val); conds.push(`rr.${col} = $${params.length}`); }
@@ -36,7 +36,8 @@ export async function GET(req: NextRequest) {
             COALESCE(rr.canon_text, rr.legal_text, rr.title) AS text,
             rr.subject, rr.action, rr.object, rr.condition,
             array_to_string(rr.stages, '|') AS stages,
-            array_to_string(rr.okeds, '|') AS okeds
+            array_to_string(rr.okeds, '|') AS okeds,
+            CASE WHEN NOT rr.is_canonical THEN 'дубль группы ' || rr.dup_group_id ELSE '' END AS duplicate
      FROM requirement_registry rr LEFT JOIN spheres s ON s.code = rr.sphere_code
      WHERE ${conds.join(" AND ")} ORDER BY rr.ministry, rr.ngr`,
     params,

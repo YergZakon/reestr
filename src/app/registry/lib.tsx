@@ -93,6 +93,7 @@ export interface Req {
   inspection_hours_biz?: number | null; inspection_cost_biz?: number | null; inspection_cost_gov?: number | null;
   authority_code?: string | null; review_status?: string | null; ara_status?: string | null;
   ara_deadline?: string | null; review_comment?: string | null; norm_url?: string | null;
+  is_canonical?: boolean | null; dup_group_id?: number | null;
 }
 export const REVIEW_LABEL: Record<string, string> = {
   pending: "на подтверждении", confirmed: "подтверждено", rejected: "отклонено", edited: "отредактировано",
@@ -122,6 +123,7 @@ export function Card({ r, onOpen }: { r: Req; onOpen: (r: Req) => void }) {
         {r.review_status === "confirmed" && <span className="reg-rb reg-rb-confirmed">подтверждено госорганом</span>}
         {(!r.review_status || r.review_status === "pending" || r.review_status === "edited") && <span className="reg-rb reg-rb-pending">на подтверждении</span>}
         {r.ara_status === "исключён" && <span className="reg-rb reg-rb-rejected">исключён</span>}
+        {r.is_canonical === false && <span className="reg-rb reg-rb-pending" title="Требование дублирует норму другого акта — подлежит устранению госорганом в установленном порядке">дубль</span>}
         {r.sphere_name && <MetaChip color={SPHERE_COLOR[r.sphere_code || ""]}>{r.sphere_name}</MetaChip>}
         {r.ministry && <MetaChip>{minShort(r.ministry)}</MetaChip>}
         {(r.stages || []).slice(0, 3).map((s) => <MetaChip key={s} stage>{STAGE_LABEL[s] || s}</MetaChip>)}

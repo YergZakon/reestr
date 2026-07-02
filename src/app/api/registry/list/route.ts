@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(100, Math.max(1, parseInt(sp.get("limit") || "12", 10)));
   const offset = (page - 1) * limit;
 
-  const conds: string[] = ["rr.is_canonical = true", "NOT COALESCE(rr.excluded, false)", "(rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')"];
+  const conds: string[] = ["NOT COALESCE(rr.excluded, false)", "(rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')"];
   const params: unknown[] = [];
 
   const multi = (key: string, col: string) => {
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
     SELECT rr.id, rr.ngr, rr.npa_title, rr.article, rr.ministry, rr.sphere_code,
       rr.okeds, rr.stages, rr.title, rr.legal_text, rr.canon_text,
       rr.subject, rr.action, rr.object, rr.condition,
-      rr.norm_url, rr.review_status, rr.ara_status,
+      rr.norm_url, rr.review_status, rr.ara_status, rr.is_canonical, rr.dup_group_id,
       s.name_ru AS sphere_name
     FROM requirement_registry rr
     LEFT JOIN spheres s ON s.code = rr.sphere_code
