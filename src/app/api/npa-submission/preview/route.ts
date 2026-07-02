@@ -76,12 +76,18 @@ export async function POST(req: NextRequest) {
   if (!articles.length)
     return NextResponse.json({ title, articleCount: 0, requirements: [], note: "Структура НПА не распознана. Полный парсинг сделает пайплайн." });
 
-  // 2. первые содержательные сегменты (статьи закона или пункт-блоки приказа) → до ~5000 симв
-  const substantive = articles.filter((a) => a.text.length > 200).slice(0, 4);
+  // 2. САМЫЕ содержательные сегменты (топ по длине, не первые по порядку — в приказах
+  //    требования часто в середине Правил), в исходном порядке документа → до ~6500 симв
+  const substantive = articles
+    .map((a, i) => ({ a, i }))
+    .sort((x, y) => y.a.text.length - x.a.text.length)
+    .slice(0, 5)
+    .sort((x, y) => x.i - y.i)
+    .map((x) => x.a);
   let joined = "";
   for (const a of substantive) {
-    if (joined.length > 5000) break;
-    joined += `\n\n[${a.label}]\n${a.text.slice(0, 1800)}`;
+    if (joined.length > 6500) break;
+    joined += `\n\n[${a.label}]\n${a.text.slice(0, 1600)}`;
   }
 
   // 3. DeepSeek
