@@ -97,9 +97,8 @@ export interface Req {
 export const REVIEW_LABEL: Record<string, string> = {
   pending: "на подтверждении", confirmed: "подтверждено", rejected: "отклонено", edited: "отредактировано",
 };
-export interface Organ { ministry: string; npa_count: number; npa_active: number; req_count: number; overdue: number; }
 export interface Npa {
-  ngr: string; title: string; ministry: string; npa_status: string;
+  ngr: string; title: string; npa_status: string | null;
   date_adopted: string | null; date_revision: string | null; review_deadline: string | null;
   overdue: boolean; req_count: number; adilet_url: string;
 }

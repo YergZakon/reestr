@@ -1,24 +1,42 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUserWithAccess } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-/** GET /api/registry/organs — органы со сводкой по НПА (для вкладки «Органы и НПА»). */
+/**
+ * GET /api/registry/organs — узлы справочника органов со сводкой по НПА/требованиям
+ * (вкладка «Органы и НПА»). Ось — requirement_registry.authority_code ↔ organizations.code,
+ * поэтому назначения «комитет↔НПА» отражаются здесь сразу (НПА уходит под комитет).
+ * Скоуп: admin видит все органы; moderator/expert — только узлы своего поддерева
+ * (assigned_authorities). parent_id отдаётся для отрисовки дерева на клиенте.
+ */
 export async function GET() {
-  const user = await getCurrentUser();
+  const user = await getCurrentUserWithAccess();
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
 
-  const res = await query(`
-    SELECT ministry,
-           COUNT(*) AS npa_count,
-           COUNT(*) FILTER (WHERE npa_status <> 'утратил силу') AS npa_active,
-           SUM(req_count) AS req_count,
-           COUNT(*) FILTER (WHERE review_deadline IS NOT NULL AND review_deadline < now()) AS overdue
-    FROM npa_registry
-    WHERE ministry IS NOT NULL
-    GROUP BY ministry
-    ORDER BY req_count DESC
-  `);
-  return NextResponse.json({ organs: res.rows });
+  const scoped = user.role !== "admin";
+  const params: unknown[] = [];
+  let scopeCond = "";
+  if (scoped) {
+    if (!user.assigned_authorities.length) return NextResponse.json({ organs: [], scoped: true });
+    params.push(user.assigned_authorities);
+    scopeCond = "AND o.code = ANY($1::text[])";
+  }
+
+  const res = await query(
+    `SELECT o.code, o.name_ru, o.short_name, o.type, po.code AS parent_code,
+            count(DISTINCT rr.ngr)::int AS npa_count,
+            count(*)::int AS req_count,
+            count(DISTINCT rr.ngr) FILTER (WHERE COALESCE(rr.npa_status,'') <> 'утратил силу')::int AS npa_active
+     FROM organizations o
+     LEFT JOIN organizations po ON po.id = o.parent_id
+     JOIN requirement_registry rr ON rr.authority_code = o.code
+     WHERE o.active AND rr.is_canonical AND NOT COALESCE(rr.excluded, false) AND rr.ngr IS NOT NULL
+       ${scopeCond}
+     GROUP BY o.id, o.code, o.name_ru, o.short_name, o.type, po.code
+     ORDER BY count(*) DESC`,
+    params,
+  );
+  return NextResponse.json({ organs: res.rows, scoped });
 }
