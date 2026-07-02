@@ -73,6 +73,9 @@ export default function ReviewMode({ onOpen, registerReload }:
                   <div className="reg-rev-t">{r.title || r.action}</div>
                   <div className="reg-rev-m">{r.ngr}{r.article ? ` · ${r.article}` : ""} · {minShort(r.ministry)}{r.sphere_name ? ` · ${r.sphere_name}` : ""}</div>
                 </div>
+                {(r as Req & { dup_suspect?: boolean | null }).dup_suspect && (
+                  <span className="reg-rb reg-rb-ara" title="Похожее требование уже есть в реестре — проверьте перед подтверждением">возможный дубль</span>
+                )}
                 <span className={"reg-rb reg-rb-" + (r.review_status || "")}>{REVIEW_LABEL[r.review_status || ""] || r.review_status}</span>
               </div>
             ))}

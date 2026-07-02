@@ -17,6 +17,8 @@ jobs:
         run: npx tsc --noEmit
       - name: Chunker contract test (Python↔TS fixtures)
         run: npm run test:chunker
+      - name: Prompt contract test (worker ↔ Python canon)
+        run: npm run test:prompts
       - name: OpenAPI coverage gate (spec ↔ routes)
         run: |
           pip install pyyaml --quiet

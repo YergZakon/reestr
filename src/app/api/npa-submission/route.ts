@@ -56,7 +56,7 @@ export async function GET() {
   }
   const r = await query(
     `SELECT s.id, s.ngr, s.npa_title, s.org_id, o.short_name AS org_short, o.name_ru AS org_name,
-            s.sphere_code, s.ara_deadline, s.status, s.cards_created, s.error, s.created_at, s.processed_at,
+            s.sphere_code, s.ara_deadline, s.status, s.stage, s.cards_created, s.error, s.created_at, s.processed_at,
             u.username AS submitter
      FROM npa_submission s
      LEFT JOIN organizations o ON o.id = s.org_id
