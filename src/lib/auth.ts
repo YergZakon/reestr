@@ -3,13 +3,18 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { query } from "./db";
 
-if (!process.env.JWT_SECRET) {
-  // Без секрета подписи токенов приложение не запускается (не откатываемся на общеизвестный ключ).
-  throw new Error(
-    "JWT_SECRET не задан. Установите переменную окружения JWT_SECRET (Railway → Variables)."
-  );
+/** Ленивый fail-fast: секрет обязателен при ПЕРВОМ использовании (подпись/проверка токена),
+ *  но не при сборке — `next build` импортирует модули на «Collecting page data», а Railway
+ *  не передаёт Variables в build-стадию Dockerfile. Fallback на общеизвестный ключ запрещён. */
+function requireJwtSecret(): string {
+  const s = process.env.JWT_SECRET;
+  if (!s) {
+    throw new Error(
+      "JWT_SECRET не задан. Установите переменную окружения JWT_SECRET (Railway → Variables)."
+    );
+  }
+  return s;
 }
-const JWT_SECRET: string = process.env.JWT_SECRET;
 
 export interface UserPayload {
   id: number;
@@ -26,12 +31,13 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 }
 
 export function signToken(user: UserPayload): string {
-  return jwt.sign(user, JWT_SECRET, { expiresIn: "7d" });
+  return jwt.sign(user, requireJwtSecret(), { expiresIn: "7d" });
 }
 
 export function verifyToken(token: string): UserPayload | null {
+  const secret = requireJwtSecret(); // до try: отсутствие секрета — конфигурационная ошибка, не «невалидный токен»
   try {
-    return jwt.verify(token, JWT_SECRET) as UserPayload;
+    return jwt.verify(token, secret) as UserPayload;
   } catch {
     return null;
   }
