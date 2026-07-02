@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import pool, { query } from "@/lib/db";
+import { zbody, SpheresAssignBody } from "@/lib/validate";
 
 export const dynamic = "force-dynamic";
 
@@ -31,14 +32,9 @@ export async function PUT(
     return NextResponse.json({ error: "Некорректный id" }, { status: 400 });
   }
 
-  const body = await req.json();
-  const assignedSpheres = body.assigned_spheres;
-  if (!Array.isArray(assignedSpheres)) {
-    return NextResponse.json(
-      { error: "assigned_spheres должен быть массивом строк" },
-      { status: 400 },
-    );
-  }
+  const vb = await zbody(req, SpheresAssignBody);
+  if (!vb.ok) return vb.res;
+  const assignedSpheres = vb.data.assigned_spheres;
 
   // Проверим что target-юзер существует
   const targetUser = await query(

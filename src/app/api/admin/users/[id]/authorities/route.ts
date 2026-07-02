@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import pool, { query } from "@/lib/db";
+import { zbody, AuthoritiesAssignBody } from "@/lib/validate";
 
 export const dynamic = "force-dynamic";
 
@@ -28,14 +29,9 @@ export async function PUT(
     return NextResponse.json({ error: "Некорректный id" }, { status: 400 });
   }
 
-  const body = await req.json();
-  const assignedAuthorities = body.assigned_authorities;
-  if (!Array.isArray(assignedAuthorities)) {
-    return NextResponse.json(
-      { error: "assigned_authorities должен быть массивом строк" },
-      { status: 400 },
-    );
-  }
+  const vb = await zbody(req, AuthoritiesAssignBody);
+  if (!vb.ok) return vb.res;
+  const assignedAuthorities = vb.data.assigned_authorities;
 
   // Целевой юзер существует?
   const targetUser = await query(

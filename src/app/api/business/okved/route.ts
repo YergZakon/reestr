@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { escapeLike } from "@/lib/validate";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
     params.push(q + "%");
     where = `d.code LIKE $1`;
   } else {
-    params.push(`%${q}%`);
+    params.push(`%${escapeLike(q)}%`);
     where = `d.name_ru ILIKE $1`;
   }
 

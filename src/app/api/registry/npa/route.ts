@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { escapeLike } from "@/lib/validate";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
   if (status === "active") conds.push("npa_status <> 'утратил силу'");
   if (status === "dead") conds.push("npa_status = 'утратил силу'");
   const q = sp.get("q");
-  if (q && q.trim()) { params.push(`%${q.trim()}%`); conds.push(`(title ILIKE $${params.length} OR ngr ILIKE $${params.length})`); }
+  if (q && q.trim()) { params.push(`%${escapeLike(q.trim())}%`); conds.push(`(title ILIKE $${params.length} OR ngr ILIKE $${params.length})`); }
 
   const res = await query(`
     SELECT ngr, title, ministry, npa_status,

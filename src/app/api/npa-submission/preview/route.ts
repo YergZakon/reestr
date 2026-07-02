@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { parseArticles, parseTitle } from "@/lib/npaParse";
+import { zbody, PreviewBody, NGR_RE } from "@/lib/validate";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -23,9 +24,11 @@ export async function POST(req: NextRequest) {
   if (!process.env.DEEPSEEK_API_KEY)
     return NextResponse.json({ error: "ИИ-сервис не настроен" }, { status: 503 });
 
-  const body = await req.json().catch(() => ({}));
-  const ngr = String(body.ngr || "").trim().replace(/.*\/docs\//, "").replace(/#.*$/, "");
-  if (!ngr) return NextResponse.json({ error: "Укажите ngr или ссылку adilet" }, { status: 400 });
+  const v = await zbody(req, PreviewBody);
+  if (!v.ok) return v.res;
+  const ngr = v.data.ngr.trim().replace(/.*\/docs\//, "").replace(/#.*$/, "");
+  if (!NGR_RE.test(ngr))
+    return NextResponse.json({ error: "Укажите корректный ngr или ссылку adilet" }, { status: 400 });
 
   // 1. тянем adilet
   let html = "";

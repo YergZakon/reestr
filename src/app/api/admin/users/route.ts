@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser, hashPassword } from "@/lib/auth";
 import { query, initDB } from "@/lib/db";
 import { moderatorScopeOrgIds } from "@/lib/orgs";
+import { zbody, UserCreateBody, UserToggleBody } from "@/lib/validate";
 
 // Управление пользователями. admin — все; moderator — только пользователи своего поддерева органов
 // (создаёт только рецензентов role='expert', назначает только узлы своего поддерева).
@@ -45,17 +46,14 @@ export async function POST(req: NextRequest) {
   if (m.err) return m.err;
   const { user, isAdmin, scope } = m;
 
-  const body = await req.json();
-  const { username, password, fullName } = body;
-  let role = body.role || "expert";
-  const assignedSpheres: string[] = Array.isArray(body.assigned_spheres) ? body.assigned_spheres : [];
-  const assignedAuthorities: string[] = Array.isArray(body.assigned_authorities) ? body.assigned_authorities : [];
-  const assignedOrgs: number[] = Array.isArray(body.assigned_orgs) ? body.assigned_orgs.map(Number).filter(Boolean) : [];
-
-  if (!username || !password) return NextResponse.json({ error: "Логин и пароль обязательны" }, { status: 400 });
-  if (password.length < 6) return NextResponse.json({ error: "Пароль минимум 6 символов" }, { status: 400 });
-  if (!["admin", "moderator", "expert"].includes(role))
-    return NextResponse.json({ error: "Роль: admin, moderator или expert" }, { status: 400 });
+  const vb = await zbody(req, UserCreateBody);
+  if (!vb.ok) return vb.res;
+  const { username, password } = vb.data;
+  const fullName = vb.data.fullName ?? null;
+  let role: string = vb.data.role;
+  const assignedSpheres: string[] = vb.data.assigned_spheres;
+  const assignedAuthorities: string[] = vb.data.assigned_authorities;
+  const assignedOrgs: number[] = vb.data.assigned_orgs;
 
   // Модератор: может создавать только рецензентов и только в своём поддереве
   if (!isAdmin) {
@@ -120,9 +118,9 @@ export async function PUT(req: NextRequest) {
   await initDB();
   const m = await requireManager();
   if (m.err) return m.err;
-  const body = await req.json();
-  const { userId, isActive } = body;
-  if (!userId || typeof isActive !== "boolean") return NextResponse.json({ error: "userId и isActive обязательны" }, { status: 400 });
+  const vb = await zbody(req, UserToggleBody);
+  if (!vb.ok) return vb.res;
+  const { userId, isActive } = vb.data;
   if (userId === m.user!.id && !isActive) return NextResponse.json({ error: "Нельзя деактивировать свой аккаунт" }, { status: 400 });
 
   // модератор — только пользователи своего поддерева

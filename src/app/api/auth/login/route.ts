@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateUser, signToken } from "@/lib/auth";
 import { initDB } from "@/lib/db";
+import { zbody, LoginBody } from "@/lib/validate";
 
 export async function POST(req: NextRequest) {
   try {
     await initDB();
-    const { username, password } = await req.json();
-
-    if (!username || !password) {
-      return NextResponse.json({ error: "Введите логин и пароль" }, { status: 400 });
-    }
+    const v = await zbody(req, LoginBody);
+    if (!v.ok) return v.res;
+    const { username, password } = v.data;
 
     const user = await authenticateUser(username, password);
     if (!user) {

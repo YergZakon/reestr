@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserWithAccess } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { zbody, VoteBody, BulkVotesBody } from "@/lib/validate";
 
 const VOTE_LIMIT_PER_MIN = 60;
 const BULK_LIMIT_PER_MIN = 5;
@@ -31,16 +32,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { cardId, vote, comment } = await req.json();
-  if (!cardId || !vote) {
-    return NextResponse.json({ error: "cardId и vote обязательны" }, { status: 400 });
-  }
-  if (!["confirm", "reject", "uncertain"].includes(vote)) {
-    return NextResponse.json(
-      { error: "vote должен быть: confirm | reject | uncertain" },
-      { status: 400 },
-    );
-  }
+  const vb = await zbody(req, VoteBody);
+  if (!vb.ok) return vb.res;
+  const { cardId, vote, comment } = vb.data;
 
   // Проверим, что карточка существует, и что её (sphere, authority) разрешены эксперту
   const card = await query(
@@ -130,10 +124,9 @@ export async function PUT(req: NextRequest) {
     );
   }
 
-  const { votes } = await req.json();
-  if (!Array.isArray(votes)) {
-    return NextResponse.json({ error: "votes должен быть массивом" }, { status: 400 });
-  }
+  const vb = await zbody(req, BulkVotesBody);
+  if (!vb.ok) return vb.res;
+  const { votes } = vb.data;
 
   // Pre-fetch (sphere, authority) для всех cardId — одним запросом
   const validVotes = votes.filter(

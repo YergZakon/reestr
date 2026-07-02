@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getCurrentUserWithAccess } from "@/lib/auth";
+import { zbody, ReviewBody } from "@/lib/validate";
 
 export const dynamic = "force-dynamic";
 
@@ -26,13 +27,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Нет прав" }, { status: 403 });
   const isAdmin = user.role === "admin";
 
-  const body = await req.json().catch(() => null);
-  if (!body?.action) return NextResponse.json({ error: "action обязателен" }, { status: 400 });
+  const v = await zbody(req, ReviewBody);
+  if (!v.ok) return v.res;
+  const body = v.data;
   const { action, comment, fields } = body;
-  const ids: number[] = Array.isArray(body.ids)
-    ? body.ids.map(Number).filter(Boolean)
-    : body.id ? [Number(body.id)] : [];
-  if (!ids.length) return NextResponse.json({ error: "id или ids обязательны" }, { status: 400 });
+  const ids: number[] = body.ids ?? (body.id != null ? [body.id] : []);
 
   const rowsRes = await query("SELECT * FROM requirement_registry WHERE id = ANY($1)", [ids]);
   if (!rowsRes.rows.length) return NextResponse.json({ error: "Записи не найдены" }, { status: 404 });

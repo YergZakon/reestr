@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { zbody, OrgCreateBody } from "@/lib/validate";
 
 export const dynamic = "force-dynamic";
 
@@ -27,12 +28,9 @@ export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
   if (user.role !== "admin") return NextResponse.json({ error: "Нет прав" }, { status: 403 });
-  const b = await req.json().catch(() => ({}));
-  const { code, parent_id, type, name_ru, short_name, region_code, sphere_codes } = b;
-  if (!code || !type || !name_ru)
-    return NextResponse.json({ error: "code, type, name_ru обязательны" }, { status: 400 });
-  if (!["ministry", "committee", "department", "agency", "akimat", "akimat_dept"].includes(type))
-    return NextResponse.json({ error: "неизвестный type" }, { status: 400 });
+  const v = await zbody(req, OrgCreateBody);
+  if (!v.ok) return v.res;
+  const { code, parent_id, type, name_ru, short_name, region_code, sphere_codes } = v.data;
   try {
     const r = await query(
       `INSERT INTO organizations (code, parent_id, type, name_ru, short_name, region_code, sphere_codes)

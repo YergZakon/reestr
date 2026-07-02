@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { moderatorScopeOrgIds } from "@/lib/orgs";
+import { zbody, OrgsAssignBody } from "@/lib/validate";
 
 /** PUT /api/admin/users/:id/orgs — назначить пользователя на узлы органов. Body: {assigned_orgs:[org_id]}. */
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -12,8 +13,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { id } = await params;
   const uid = parseInt(id, 10);
-  const body = await req.json().catch(() => ({}));
-  const orgIds: number[] = Array.isArray(body.assigned_orgs) ? body.assigned_orgs.map(Number).filter(Boolean) : [];
+  const vb = await zbody(req, OrgsAssignBody);
+  if (!vb.ok) return vb.res;
+  const orgIds: number[] = vb.data.assigned_orgs;
 
   const isAdmin = user.role === "admin";
   if (!isAdmin) {

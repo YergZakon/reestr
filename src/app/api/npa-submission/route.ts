@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { moderatorScopeOrgIds } from "@/lib/orgs";
+import { zbody, SubmissionBody, NGR_RE } from "@/lib/validate";
 
 export const dynamic = "force-dynamic";
 
@@ -16,10 +17,13 @@ export async function POST(req: NextRequest) {
   if (user.role !== "admin" && user.role !== "moderator")
     return NextResponse.json({ error: "Нет прав" }, { status: 403 });
 
-  const b = await req.json().catch(() => ({}));
-  const ngr = String(b.ngr || "").trim().replace(/.*\/docs\//, "").replace(/#.*$/, "");
-  const orgId = Number(b.org_id);
-  if (!ngr || !orgId) return NextResponse.json({ error: "ngr и org_id обязательны" }, { status: 400 });
+  const v = await zbody(req, SubmissionBody);
+  if (!v.ok) return v.res;
+  const b = v.data;
+  const ngr = b.ngr.trim().replace(/.*\/docs\//, "").replace(/#.*$/, "");
+  const orgId = b.org_id;
+  if (!NGR_RE.test(ngr))
+    return NextResponse.json({ error: "Некорректный госрегномер (ngr)" }, { status: 400 });
 
   if (user.role === "moderator") {
     const scope = await moderatorScopeOrgIds(user.id);

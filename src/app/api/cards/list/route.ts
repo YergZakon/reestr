@@ -18,6 +18,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserWithAccess } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { escapeLike } from "@/lib/validate";
 
 export const dynamic = "force-dynamic";
 
@@ -92,7 +93,7 @@ export async function GET(req: NextRequest) {
     conds.push(`rc.requirement_type = $${params.length}`);
   }
   if (q) {
-    params.push(`%${q}%`);
+    params.push(`%${escapeLike(q)}%`);
     conds.push(`(rc.short_title ILIKE $${params.length} OR rc.canonical_text ILIKE $${params.length})`);
   }
 
