@@ -5,7 +5,7 @@
 // Человеческая (юридическая) валидация НЕ здесь: ревью органом → срок АРА → include МНЭ.
 // Полный семантический дедуп (bge-m3) — регламентный; здесь только быстрый pg_trgm-флаг.
 // Затраты DeepSeek логируются ТОЛЬКО в console (серверные логи Railway).
-import { query } from "@/lib/db";
+import pool, { query } from "@/lib/db";
 import { fetchAdilet } from "@/lib/adilet";
 import { parseArticles, parseTitle } from "@/lib/npaParse";
 import { dsChat, pMap, newUsage, usageCostUsd } from "./llm";
@@ -14,8 +14,7 @@ import { SYSTEM_EXTRACT, buildExtractUser, SYSTEM_CARD, buildCardUser, buildSphe
 const MAX_SEGMENTS = 120;      // как в Python-конвейере (--max-articles 120)
 const EXTRACT_POOL = 5;
 const CARD_POOL = 6;
-const DUP_SIM = 0.6;           // порог trgm-«подозрения на дубль»
-const MAX_ATTEMPTS = 3;
+const MAX_ATTEMPTS = 3;        // порог trgm-дубля задаётся в checkDup (similarity_threshold=0.6)
 
 interface Sub { id: number; ngr: string; sphere_code: string | null; org_id: number | null }
 
@@ -43,6 +42,40 @@ async function fail(id: number, attempt: number, msg: string) {
     `UPDATE npa_submission SET status=$1, error=$2, lease_until=NULL WHERE id=$3`,
     [final ? "error" : "submitted", msg.slice(0, 300), id]);
   console.error(`[worker] подача ${id}: ${final ? "ERROR (исчерпаны попытки)" : "retry"} — ${msg.slice(0, 160)}`);
+}
+
+/** Дедуп-подозрение для одной карточки. Двухэшелонный и НЕ фатальный:
+ *  1) exact: та же пара (ngr, action) уже в каноне — btree, мгновенно (повторная подача НПА);
+ *  2) trgm: похожий текст по всему реестру — выделенное соединение, порог 0.6 НА УРОВНЕ
+ *     ИНДЕКСА (set pg_trgm.similarity_threshold) + statement_timeout 5s.
+ *  Любая ошибка/таймаут → null (подача не тормозится; полный дедуп — регламентный bge-m3). */
+async function checkDup(ngr: string, action: string, legal: string): Promise<number | null> {
+  try {
+    const exact = await query(
+      `SELECT id FROM requirement_registry
+       WHERE ngr = $1 AND action = $2 AND is_canonical
+         AND (npa_status IS NULL OR npa_status <> 'утратил силу') LIMIT 1`,
+      [ngr, action]);
+    if (exact.rows[0]) return exact.rows[0].id as number;
+  } catch { /* не фатально */ }
+
+  if (legal.length < 25) return null;
+  const cl = await pool.connect();
+  try {
+    await cl.query("SET statement_timeout = '5s'");
+    await cl.query("SET pg_trgm.similarity_threshold = 0.6");
+    const r = await cl.query(
+      `SELECT id FROM requirement_registry
+       WHERE is_canonical AND (npa_status IS NULL OR npa_status <> 'утратил силу')
+         AND COALESCE(canon_text, legal_text, '') % $1
+       LIMIT 1`, [legal]);
+    return r.rows[0] ? (r.rows[0].id as number) : null;
+  } catch {
+    return null; // таймаут/ошибка trgm — карточка идёт без флага
+  } finally {
+    try { await cl.query("RESET statement_timeout; RESET pg_trgm.similarity_threshold"); } catch { /* noop */ }
+    cl.release();
+  }
 }
 
 const norm = (v: unknown, max: number): string | null => {
@@ -123,16 +156,8 @@ export async function processOne(): Promise<boolean> {
       const legal = norm(c.quote, 1000) || "";
       const subj = norm(c.subject, 200) || "";
       const act = norm(c.action, 400) || "";
-      const dup = legal.length >= 25
-        ? await query(
-            `SELECT id, similarity(COALESCE(canon_text, legal_text, ''), $1) AS sim
-             FROM requirement_registry
-             WHERE is_canonical AND (npa_status IS NULL OR npa_status <> 'утратил силу')
-               AND COALESCE(canon_text, legal_text, '') % $1
-             ORDER BY sim DESC LIMIT 1`, [legal])
-        : { rows: [] as { id: number; sim: number }[] };
-      const suspect = dup.rows[0] && Number(dup.rows[0].sim) >= DUP_SIM ? dup.rows[0] : null;
-      if (suspect) suspects++;
+      const suspectId = await checkDup(sub.ngr, act, legal);
+      if (suspectId) suspects++;
 
       const stages = Array.isArray(c.stages) ? (c.stages as unknown[]).map(String).slice(0, 10) : [];
       const triggers = Array.isArray(v.triggers) ? (v.triggers as unknown[]).map(String).slice(0, 14) : [];
@@ -155,7 +180,7 @@ export async function processOne(): Promise<boolean> {
          triggers, v.permit === true, v.audience === "specific" ? "specific" : "any",
          norm(v.action_type, 20), num(v.time_hours), num(v.frequency_per_year),
          norm(v.staff_role, 20), num(v.external_cost_kzt), num(v.inspection_hours_biz),
-         suspect ? true : null, suspect ? suspect.id : null]);
+         suspectId ? true : null, suspectId]);
       inserted++;
     }
 
