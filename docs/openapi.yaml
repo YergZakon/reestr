@@ -1,0 +1,749 @@
+openapi: 3.0.3
+info:
+  title: АИС «Реестр обязательных требований» — HTTP API
+  version: "1.0.0"
+  description: |
+    Спецификация фактического API веб-приложения (Next.js App Router, 46 маршрутов).
+    Составлена по коду `src/app/api/**` (2026-07-02), см. docs/architecture (комплект ГОСТ 34).
+
+    **Аутентификация:** JWT в httpOnly-cookie `auth_token` (выдаётся `/api/auth/login`, срок 7 суток).
+    **Роли:** `admin` (МНЭ, без ограничений) · `moderator` (орган + поддерево организаций) ·
+    `expert` (назначенные сферы ∩ органы). Скоупы возвращает `/api/auth/me`.
+    **Ошибки:** единый формат `{ "error": string }`; 401 — не авторизован, 403 — нет прав/чужой орган,
+    404 — не найдено, 429 — превышен лимит (голосование), 5xx — внутренняя/внешний сервис.
+
+    Раздел «Легаси-экспертиза» обслуживает исторический MVP-контур (requirement_cards/голосования)
+    и не развивается — см. документ 09 плана (К5).
+servers:
+  - url: https://reestr-web-production.up.railway.app
+    description: Продуктив (Railway)
+  - url: http://localhost:3000
+    description: Локальная разработка
+
+security:
+  - cookieAuth: []
+
+tags:
+  - name: Аутентификация
+  - name: Реестр
+    description: Публичный каталог требований, фасеты, экспорт, витрины органов
+  - name: Ревью и АРА
+    description: Очереди подтверждения госорганов, действия по карточкам, цикл включения
+  - name: Подача НПА
+    description: Самообслуживание органов — подача по ngr + мгновенное ИИ-превью
+  - name: Бизнес-портал
+    description: Гид-поиск ABLIS, сценарии, ИИ-заключение
+  - name: Справочники
+  - name: Администрирование
+    description: Пользователи, назначения, организации, параметры SCM
+  - name: Легаси-экспертиза
+    description: Исторический MVP-контур (не развивается)
+
+paths:
+  # ══════════════════ Аутентификация ══════════════════
+  /api/auth/login:
+    post:
+      tags: [Аутентификация]
+      summary: Вход (устанавливает cookie auth_token)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string, format: password }
+      responses:
+        "200":
+          description: Успех; Set-Cookie auth_token (httpOnly, 7 сут)
+          content: { application/json: { schema: { $ref: "#/components/schemas/UserMe" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/auth/logout:
+    post:
+      tags: [Аутентификация]
+      summary: Выход (сброс cookie)
+      responses: { "200": { description: OK } }
+  /api/auth/me:
+    get:
+      tags: [Аутентификация]
+      summary: Текущий пользователь + скоупы доступа
+      description: Также используется как healthcheck деплоя (railway.json).
+      responses:
+        "200":
+          content: { application/json: { schema: { $ref: "#/components/schemas/UserMe" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ══════════════════ Реестр ══════════════════
+  /api/registry/list:
+    get:
+      tags: [Реестр]
+      summary: Каталог требований (фасеты, поиск, пагинация)
+      description: Выдаются только `is_canonical` и не «утратил силу».
+      parameters:
+        - { name: page,  in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 12 } }
+        - { name: q,     in: query, schema: { type: string }, description: Поиск по титулу/тексту (ILIKE) }
+        - { name: sort,  in: query, schema: { type: string } }
+        - { name: sphere,   in: query, schema: { type: array, items: { type: string } }, style: form, explode: true, description: Мультифасет sphere_code }
+        - { name: ministry, in: query, schema: { type: array, items: { type: string } }, style: form, explode: true }
+        - { name: stage,    in: query, schema: { type: array, items: { type: string } }, style: form, explode: true, description: "Пересечение с stages[]" }
+        - { name: oked,     in: query, schema: { type: string }, description: Префикс ОКЭД }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/RegistryItem" } }
+                  total: { type: integer }
+                  page: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/registry/filters:
+    get:
+      tags: [Реестр]
+      summary: Справочники значений фасетов (сферы, органы, стадии, секции)
+      responses: { "200": { description: Объект списков для дропдаунов } }
+  /api/registry/export:
+    get:
+      tags: [Реестр]
+      summary: CSV-экспорт по текущим фильтрам
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+        - { name: sphere, in: query, schema: { type: string } }
+        - { name: ministry, in: query, schema: { type: string } }
+        - { name: ngr, in: query, schema: { type: string } }
+        - { name: source, in: query, schema: { type: string } }
+        - { name: trust, in: query, schema: { type: string } }
+        - { name: review_status, in: query, schema: { type: string } }
+        - { name: npa_status, in: query, schema: { type: string } }
+        - { name: ersop_confirmed, in: query, schema: { type: string } }
+      responses:
+        "200": { description: CSV, content: { text/csv: { schema: { type: string } } } }
+  /api/registry/npa:
+    get:
+      tags: [Реестр]
+      summary: НПА органа (агрегация требований по актам)
+      parameters:
+        - { name: ministry, in: query, schema: { type: string } }
+        - { name: q, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string }, description: Статус НПА (действующий/утратил силу) }
+      responses: { "200": { description: Список НПА со счётчиками и adilet-ссылками } }
+  /api/registry/organs:
+    get:
+      tags: [Реестр]
+      summary: Витрина органов (НПА, требования, средняя нагрузка)
+      responses: { "200": { description: Сводка по органам } }
+  /api/registry/cost:
+    get:
+      tags: [Реестр]
+      summary: Регуляторная нагрузка (SCM) по органам/сферам
+      responses: { "200": { description: "Суммы burden_kzt/часы, срезы" } }
+  /api/registry/cost/params:
+    get:
+      tags: [Администрирование]
+      summary: Параметры модели стоимости (SCM)
+      responses:
+        "200": { content: { application/json: { schema: { $ref: "#/components/schemas/CostParams" } } } }
+    post:
+      tags: [Администрирование]
+      summary: Обновить параметры SCM (пересчёт «на лету» через v_requirement_cost)
+      requestBody:
+        content: { application/json: { schema: { $ref: "#/components/schemas/CostParams" } } }
+      responses:
+        "200": { description: Обновлено }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/registry/duplicates:
+    get:
+      tags: [Реестр]
+      summary: Группы дублей требований
+      parameters:
+        - { name: cross, in: query, schema: { type: string, enum: ["1"] }, description: Только межведомственные }
+        - { name: group, in: query, schema: { type: integer }, description: Конкретная группа }
+      responses: { "200": { description: Группы с участниками и косинус-близостью } }
+  /api/registry/{id}/duplicates:
+    get:
+      tags: [Реестр]
+      summary: Дубли конкретного требования
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200": { description: Список дублей группы }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ══════════════════ Ревью и АРА ══════════════════
+  /api/registry/review-queue:
+    get:
+      tags: [Ревью и АРА]
+      summary: Очередь подтверждения органа (скоуп по правам пользователя)
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer } }
+        - { name: q, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string, enum: [pending, confirmed, rejected, edited] } }
+        - { name: authority, in: query, schema: { type: string }, description: Код органа (∈ доступных пользователю) }
+        - { name: sphere, in: query, schema: { type: array, items: { type: string } }, style: form, explode: true }
+      responses:
+        "200": { description: Страница очереди + счётчики }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/registry/review:
+    post:
+      tags: [Ревью и АРА]
+      summary: Действие по карточке(ам) реестра
+      description: |
+        `confirm` требует `ara_deadline` (≤3 лет для законов, ≤2 — прочие).
+        `edit` принимает новые `title`/`legal_text` (+ запись в registry_edits).
+        `include` — только admin (включение в реестр: included_at, ara_status).
+        Массовый режим — `ids[]`. Доступ: authority_code карточки ∈ скоуп пользователя.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                id: { type: integer, description: Одна карточка }
+                ids: { type: array, items: { type: integer }, description: Массовое действие }
+                action: { type: string, enum: [confirm, reject, edit, include] }
+                comment: { type: string }
+                ara_deadline: { type: string, format: date, description: Обязателен при confirm }
+                title: { type: string, description: Для edit }
+                legal_text: { type: string, description: Для edit }
+      responses:
+        "200": { description: Применено (счётчик обновлённых) }
+        "400": { description: Нет ara_deadline при confirm / неверное действие }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  # ══════════════════ Подача НПА ══════════════════
+  /api/npa-submission:
+    post:
+      tags: [Подача НПА]
+      summary: Подать НПА на разбор (модератор/админ)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ngr, org_id]
+              properties:
+                ngr: { type: string, description: Код adilet/zan (напр. V2300033578) }
+                npa_title: { type: string }
+                org_id: { type: integer, description: Узел organizations (∈ поддерево модератора) }
+                sphere_code: { type: string }
+                ara_deadline: { type: string, format: date }
+                preview_json: { type: object, description: Результат превью (опционально) }
+      responses:
+        "200": { content: { application/json: { schema: { $ref: "#/components/schemas/Submission" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    get:
+      tags: [Подача НПА]
+      summary: Список подач (модератор — своё поддерево; админ — все)
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Submission" } }
+  /api/npa-submission/preview:
+    post:
+      tags: [Подача НПА]
+      summary: Мгновенное ИИ-превью НПА (~15 с, без записи в реестр)
+      description: |
+        Node загружает adilet-HTML по ngr → чанкер (src/lib/npaParse.ts, каскад «ст.N»/«п.zN»/окна) →
+        DeepSeek по первым содержательным сегментам → черновые требования.
+        Требует DEEPSEEK_API_KEY на сервере.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ngr]
+              properties: { ngr: { type: string } }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  title: { type: string }
+                  articleCount: { type: integer }
+                  previewedArticles: { type: array, items: { type: string }, description: "Метки сегментов («ст.5», «п.z16»)" }
+                  requirements:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        subject: { type: string }
+                        action: { type: string }
+                        object: { type: string, nullable: true }
+                        condition: { type: string, nullable: true }
+                        quote: { type: string }
+                  note: { type: string, description: Если структура не распознана }
+        "502": { description: Сбой adilet/DeepSeek }
+
+  # ══════════════════ Бизнес-портал ══════════════════
+  /api/business/sections:
+    get: { tags: [Бизнес-портал], summary: 18 секций ОКЭД со статистикой МСП, responses: { "200": { description: OK } } }
+  /api/business/okved:
+    get:
+      tags: [Бизнес-портал]
+      summary: Автокомплит вида деятельности по ОКЭД
+      parameters: [ { name: q, in: query, required: true, schema: { type: string } } ]
+      responses: { "200": { description: Совпадения с релевантностью } }
+  /api/business/scenarios:
+    get: { tags: [Бизнес-портал], summary: Типовые сценарии открытия бизнеса, responses: { "200": { description: OK } } }
+  /api/business/questions:
+    get: { tags: [Бизнес-портал], summary: Опросник применимости (ABLIS-триггеры), responses: { "200": { description: OK } } }
+  /api/business/requirements:
+    get:
+      tags: [Бизнес-портал]
+      summary: Применимые требования по профилю (стадии жизненного цикла)
+      parameters:
+        - { name: path, in: query, schema: { type: string, enum: [new, expand] }, description: Новый бизнес / расширение }
+        - { name: section, in: query, schema: { type: string } }
+        - { name: oked, in: query, schema: { type: string } }
+        - { name: horizontalSphere, in: query, schema: { type: string } }
+        - { name: triggers, in: query, schema: { type: string }, description: CSV выбранных триггеров }
+      responses: { "200": { description: "Требования, сгруппированные по стадиям" } }
+  /api/business/conclusion:
+    post:
+      tags: [Бизнес-портал]
+      summary: ИИ-заключение для предпринимателя (DeepSeek, Markdown)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                path: { type: string, enum: [new, expand] }
+                section: { type: string }
+                oked: { type: string }
+                title: { type: string }
+                triggers: { type: array, items: { type: string } }
+      responses:
+        "200": { description: "{ conclusion: markdown }" }
+        "502": { description: Сбой DeepSeek }
+
+  # ══════════════════ Справочники ══════════════════
+  /api/spheres:
+    get: { tags: [Справочники], summary: Сферы регулирования, responses: { "200": { description: OK } } }
+  /api/authorities:
+    get: { tags: [Справочники], summary: Органы-регуляторы (плоский справочник), responses: { "200": { description: OK } } }
+  /api/organizations:
+    get:
+      tags: [Справочники]
+      summary: Иерархия госорганов (дерево, 113 узлов)
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Organization" } }
+    post:
+      tags: [Администрирование]
+      summary: Добавить узел (только admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, type, name_ru]
+              properties:
+                code: { type: string }
+                parent_id: { type: integer, nullable: true }
+                type: { type: string, enum: [ministry, committee, department, agency, nacbank, akimat, akimat_dept] }
+                name_ru: { type: string }
+                short_name: { type: string }
+                region_code: { type: string, nullable: true }
+                sphere_codes: { type: array, items: { type: string } }
+      responses:
+        "200": { description: Создан }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  # ══════════════════ Администрирование ══════════════════
+  /api/admin/users:
+    get:
+      tags: [Администрирование]
+      summary: Пользователи (admin — все; moderator — своё поддерево)
+      responses: { "200": { description: Список с назначениями } }
+    post:
+      tags: [Администрирование]
+      summary: Создать пользователя
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password, role]
+              properties:
+                username: { type: string }
+                password: { type: string, format: password }
+                fullName: { type: string }
+                role: { type: string, enum: [admin, moderator, expert] }
+                assigned_spheres: { type: array, items: { type: string } }
+                assigned_authorities: { type: array, items: { type: string } }
+                assigned_orgs: { type: array, items: { type: integer } }
+      responses:
+        "200": { description: Создан }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    put:
+      tags: [Администрирование]
+      summary: Активировать/деактивировать пользователя
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, isActive]
+              properties:
+                userId: { type: integer }
+                isActive: { type: boolean }
+      responses: { "200": { description: Обновлено } }
+  /api/admin/users/{id}/spheres:
+    put:
+      tags: [Администрирование]
+      summary: Назначить сферы пользователю
+      parameters: [ { name: id, in: path, required: true, schema: { type: integer } } ]
+      requestBody: { content: { application/json: { schema: { type: object, properties: { spheres: { type: array, items: { type: string } } } } } } }
+      responses: { "200": { description: OK } }
+  /api/admin/users/{id}/authorities:
+    put:
+      tags: [Администрирование]
+      summary: Назначить органы (плоский скоуп)
+      parameters: [ { name: id, in: path, required: true, schema: { type: integer } } ]
+      requestBody: { content: { application/json: { schema: { type: object, properties: { authorities: { type: array, items: { type: string } } } } } } }
+      responses: { "200": { description: OK } }
+  /api/admin/users/{id}/orgs:
+    put:
+      tags: [Администрирование]
+      summary: Назначить узлы иерархии (доступ = узел + потомки)
+      parameters: [ { name: id, in: path, required: true, schema: { type: integer } } ]
+      requestBody: { content: { application/json: { schema: { type: object, properties: { orgs: { type: array, items: { type: integer } } } } } } }
+      responses: { "200": { description: OK } }
+
+  # ══════════════════ Легаси-экспертиза (MVP-контур, не развивается) ══════════════════
+  /api/cards/list:
+    get:
+      tags: [Легаси-экспертиза]
+      summary: Карточки requirement_cards для голосования
+      parameters:
+        - { name: page, in: query, schema: { type: integer } }
+        - { name: limit, in: query, schema: { type: integer } }
+        - { name: q, in: query, schema: { type: string } }
+        - { name: sphere, in: query, schema: { type: string } }
+        - { name: authority, in: query, schema: { type: string } }
+        - { name: role_fragment, in: query, schema: { type: string } }
+        - { name: requirement_type, in: query, schema: { type: string } }
+        - { name: vote_status, in: query, schema: { type: string } }
+      responses: { "200": { description: OK } }
+  /api/cards/vote:
+    post:
+      tags: [Легаси-экспертиза]
+      summary: Голос по карточке (лимит 60/мин)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cardId, vote]
+              properties:
+                cardId: { type: integer }
+                vote: { type: string, enum: [confirm, reject, uncertain] }
+                comment: { type: string }
+      responses:
+        "200": { description: OK }
+        "429": { description: Превышен лимит }
+    put:
+      tags: [Легаси-экспертиза]
+      summary: Массовое голосование (лимит 5/мин)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                votes:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      cardId: { type: integer }
+                      vote: { type: string, enum: [confirm, reject, uncertain] }
+      responses: { "200": { description: OK }, "429": { description: Лимит } }
+  /api/cards/gold-labels:
+    get:
+      tags: [Легаси-экспертиза]
+      summary: Золотые метки консенсуса
+      parameters:
+        - { name: sphere, in: query, schema: { type: string } }
+        - { name: role_fragment, in: query, schema: { type: string } }
+        - { name: min_votes, in: query, schema: { type: integer } }
+        - { name: gold_confidence, in: query, schema: { type: number } }
+      responses: { "200": { description: OK } }
+  /api/cards/quality:
+    get:
+      tags: [Легаси-экспертиза]
+      summary: Метрики согласованности (Fleiss' Kappa)
+      parameters:
+        - { name: sphere, in: query, schema: { type: string } }
+        - { name: role_fragment, in: query, schema: { type: string } }
+      responses: { "200": { description: OK } }
+  /api/cards/stats:
+    get: { tags: [Легаси-экспертиза], summary: Статистика голосования, responses: { "200": { description: OK } } }
+  /api/cards/export/ml-dataset:
+    get:
+      tags: [Легаси-экспертиза]
+      summary: Экспорт ML-датасета (train/val/test)
+      parameters:
+        - { name: format, in: query, schema: { type: string } }
+        - { name: sphere, in: query, schema: { type: string } }
+        - { name: role_fragment, in: query, schema: { type: string } }
+        - { name: requirement_type, in: query, schema: { type: string } }
+        - { name: min_votes, in: query, schema: { type: integer } }
+        - { name: min_agreement, in: query, schema: { type: number } }
+        - { name: split, in: query, schema: { type: string } }
+        - { name: seed, in: query, schema: { type: integer } }
+        - { name: test_ratio, in: query, schema: { type: number } }
+        - { name: val_ratio, in: query, schema: { type: number } }
+      responses: { "200": { description: OK } }
+  /api/cards/export/vote-matrix:
+    get:
+      tags: [Легаси-экспертиза]
+      summary: Матрица голосов карточек
+      parameters:
+        - { name: format, in: query, schema: { type: string } }
+        - { name: sphere, in: query, schema: { type: string } }
+        - { name: role_fragment, in: query, schema: { type: string } }
+        - { name: requirement_type, in: query, schema: { type: string } }
+        - { name: min_votes, in: query, schema: { type: integer } }
+      responses: { "200": { description: OK } }
+  /api/requirements:
+    get:
+      tags: [Легаси-экспертиза]
+      summary: Требования первой версии (таблица requirements, пуста)
+      parameters:
+        - { name: page, in: query, schema: { type: integer } }
+        - { name: limit, in: query, schema: { type: integer } }
+        - { name: sphere, in: query, schema: { type: string } }
+        - { name: category, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: vote_status, in: query, schema: { type: string } }
+        - { name: iteration_id, in: query, schema: { type: integer } }
+        - { name: npa_id, in: query, schema: { type: integer } }
+      responses: { "200": { description: OK } }
+  /api/votes:
+    post:
+      tags: [Легаси-экспертиза]
+      summary: Голос v1 (requirementId)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                requirementId: { type: integer }
+                vote: { type: string }
+                comment: { type: string }
+      responses: { "200": { description: OK } }
+    put:
+      tags: [Легаси-экспертиза]
+      summary: Массовые голоса v1
+      responses: { "200": { description: OK } }
+  /api/admin/stats:
+    get: { tags: [Легаси-экспертиза], summary: Статистика v1-контура, responses: { "200": { description: OK } } }
+  /api/admin/agreement:
+    get:
+      tags: [Легаси-экспертиза]
+      summary: Согласованность голосов v1
+      parameters:
+        - { name: sphere, in: query, schema: { type: string } }
+        - { name: category, in: query, schema: { type: string } }
+        - { name: iteration_id, in: query, schema: { type: integer } }
+      responses: { "200": { description: OK } }
+  /api/admin/gold-labels:
+    get:
+      tags: [Легаси-экспертиза]
+      summary: Голд-метки v1
+      parameters:
+        - { name: sphere, in: query, schema: { type: string } }
+        - { name: category, in: query, schema: { type: string } }
+        - { name: iteration_id, in: query, schema: { type: integer } }
+        - { name: min_votes, in: query, schema: { type: integer } }
+        - { name: gold_confidence, in: query, schema: { type: number } }
+      responses: { "200": { description: OK } }
+  /api/admin/iterations:
+    get: { tags: [Легаси-экспертиза], summary: Итерации экспертизы v1, responses: { "200": { description: OK } } }
+    post: { tags: [Легаси-экспертиза], summary: Создать итерацию, responses: { "200": { description: OK } } }
+    put: { tags: [Легаси-экспертиза], summary: Обновить итерацию, responses: { "200": { description: OK } } }
+  /api/admin/reject:
+    post:
+      tags: [Легаси-экспертиза]
+      summary: Отклонить требования v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                requirementIds: { type: array, items: { type: integer } }
+                reason: { type: string }
+      responses: { "200": { description: OK } }
+    delete: { tags: [Легаси-экспертиза], summary: Снять отклонение, responses: { "200": { description: OK } } }
+  /api/export:
+    get:
+      tags: [Легаси-экспертиза]
+      summary: Экспорт v1 (CSV/JSON)
+      parameters:
+        - { name: format, in: query, schema: { type: string, enum: [csv, json] } }
+        - { name: sphere, in: query, schema: { type: string } }
+        - { name: category, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string } }
+      responses: { "200": { description: OK } }
+  /api/export/ml-dataset:
+    get:
+      tags: [Легаси-экспертиза]
+      summary: ML-датасет v1
+      parameters:
+        - { name: format, in: query, schema: { type: string } }
+        - { name: sphere, in: query, schema: { type: string } }
+        - { name: category, in: query, schema: { type: string } }
+        - { name: iteration_id, in: query, schema: { type: integer } }
+        - { name: min_votes, in: query, schema: { type: integer } }
+        - { name: min_agreement, in: query, schema: { type: number } }
+        - { name: split, in: query, schema: { type: string } }
+        - { name: seed, in: query, schema: { type: integer } }
+        - { name: test_ratio, in: query, schema: { type: number } }
+        - { name: val_ratio, in: query, schema: { type: number } }
+      responses: { "200": { description: OK } }
+  /api/export/vote-matrix:
+    get:
+      tags: [Легаси-экспертиза]
+      summary: Матрица голосов v1
+      parameters:
+        - { name: format, in: query, schema: { type: string } }
+        - { name: sphere, in: query, schema: { type: string } }
+        - { name: category, in: query, schema: { type: string } }
+        - { name: iteration_id, in: query, schema: { type: integer } }
+        - { name: min_votes, in: query, schema: { type: integer } }
+      responses: { "200": { description: OK } }
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: auth_token
+      description: JWT (7 суток), выдаётся /api/auth/login
+
+  responses:
+    Unauthorized:
+      description: Не авторизован
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Forbidden:
+      description: Недостаточно прав / чужой орган
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    NotFound:
+      description: Не найдено
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+
+    UserMe:
+      type: object
+      properties:
+        id: { type: integer }
+        username: { type: string }
+        role: { type: string, enum: [admin, moderator, expert] }
+        assigned_spheres:
+          type: array
+          items: { type: string }
+          description: Пусто у admin = без ограничений
+        assigned_authorities:
+          type: array
+          items: { type: string }
+          description: user_authorities ∪ коды поддерева user_orgs
+
+    RegistryItem:
+      type: object
+      description: Карточка требования (ключевые поля из 61 колонки requirement_registry)
+      properties:
+        id: { type: integer }
+        ngr: { type: string }
+        npa_title: { type: string }
+        article: { type: string, description: «ст.5» / «п. Глава 2 …» }
+        norm_url: { type: string, nullable: true, description: "Deep-link adilet #zN" }
+        title: { type: string }
+        legal_text: { type: string }
+        subject: { type: string }
+        action: { type: string }
+        object: { type: string, nullable: true }
+        condition: { type: string, nullable: true }
+        evidence: { type: string, nullable: true }
+        stages: { type: array, items: { type: string } }
+        sphere_code: { type: string }
+        ministry: { type: string }
+        authority_code: { type: string, nullable: true }
+        scope: { type: string, enum: [horizontal, sectoral], nullable: true }
+        audience: { type: string, nullable: true }
+        is_permit: { type: boolean, nullable: true }
+        review_status: { type: string, enum: [pending, confirmed, rejected, edited], nullable: true }
+        ara_status: { type: string, nullable: true }
+        ara_deadline: { type: string, format: date, nullable: true }
+        npa_status: { type: string, nullable: true }
+        cost_per_entity_kzt: { type: number, nullable: true }
+        total_burden_kzt: { type: number, nullable: true }
+      additionalProperties: true
+
+    Submission:
+      type: object
+      properties:
+        id: { type: integer }
+        ngr: { type: string }
+        npa_title: { type: string }
+        org_id: { type: integer }
+        sphere_code: { type: string, nullable: true }
+        ara_deadline: { type: string, format: date, nullable: true }
+        status: { type: string, enum: [submitted, parsing, parsed, error] }
+        cards_created: { type: integer, nullable: true }
+        error: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        processed_at: { type: string, format: date-time, nullable: true }
+
+    Organization:
+      type: object
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        parent_id: { type: integer, nullable: true }
+        type: { type: string }
+        name_ru: { type: string }
+        name_kz: { type: string, nullable: true }
+        short_name: { type: string, nullable: true }
+        region_code: { type: string, nullable: true }
+        sphere_codes: { type: array, items: { type: string } }
+
+    CostParams:
+      type: object
+      description: Параметры Standard Cost Model (одна строка cost_params, id=1)
+      properties:
+        hours_per_month: { type: number, description: Рабочих часов в месяц (160) }
+        on_costs: { type: number, description: Начисления на ФОТ (0.175) }
+        overhead: { type: number, description: Накладные (0.30) }
+        mult_clerical: { type: number }
+        mult_specialist: { type: number }
+        mult_manager: { type: number }
+        inspector_rate_kzt: { type: number, description: Ставка часа проверки }
+        avg_wage_month: { type: number, description: "Фолбэк-зарплата, ₸/мес" }
+      additionalProperties: { type: number }

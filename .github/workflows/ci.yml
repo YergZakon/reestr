@@ -17,3 +17,7 @@ jobs:
         run: npx tsc --noEmit
       - name: Chunker contract test (Python↔TS fixtures)
         run: npm run test:chunker
+      - name: OpenAPI coverage gate (spec ↔ routes)
+        run: |
+          pip install pyyaml --quiet
+          python tests/openapi/check_coverage.py
