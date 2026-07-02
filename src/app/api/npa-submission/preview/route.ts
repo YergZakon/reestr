@@ -45,14 +45,14 @@ export async function POST(req: NextRequest) {
   const title = parseTitle(html);
   const articles = parseArticles(html);
   if (!articles.length)
-    return NextResponse.json({ title, articleCount: 0, requirements: [], note: "Статьи не распознаны (возможно, приказ без структуры «Статья N»). Полный парсинг сделает пайплайн." });
+    return NextResponse.json({ title, articleCount: 0, requirements: [], note: "Структура НПА не распознана. Полный парсинг сделает пайплайн." });
 
-  // 2. первые содержательные статьи (пропускаем определения) → до ~5000 симв
+  // 2. первые содержательные сегменты (статьи закона или пункт-блоки приказа) → до ~5000 симв
   const substantive = articles.filter((a) => a.text.length > 200).slice(0, 4);
   let joined = "";
   for (const a of substantive) {
     if (joined.length > 5000) break;
-    joined += `\n\n[Статья ${a.num}]\n${a.text.slice(0, 1800)}`;
+    joined += `\n\n[${a.label}]\n${a.text.slice(0, 1800)}`;
   }
 
   // 3. DeepSeek
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
     let reqs: unknown[] = [];
     try { reqs = JSON.parse(j.choices?.[0]?.message?.content || "{}").requirements || []; } catch { reqs = []; }
     return NextResponse.json({
-      title, articleCount: articles.length, previewedArticles: substantive.map((a) => a.num),
+      title, articleCount: articles.length, previewedArticles: substantive.map((a) => a.label),
       requirements: reqs,
     });
   } catch (e) {

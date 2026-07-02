@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "seed": "tsx scripts/seed.ts",
-    "seed:spheres": "node scripts/seed-spheres.mjs"
+    "seed:spheres": "node scripts/seed-spheres.mjs",
+    "test:chunker": "tsx tests/chunker/run.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

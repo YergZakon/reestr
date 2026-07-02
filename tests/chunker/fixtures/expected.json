@@ -1,0 +1,15 @@
+{
+  "_comment": "Контракт чанкеров Python (scripts/extract, scripts/registry/process_submissions) и TS (src/lib/npaParse.ts). Копия фикстур живёт в ochistka_trebov-main/tests/chunker/fixtures — менять СИНХРОННО.",
+  "law": {
+    "article_nums": ["1", "2"],
+    "must_contain": ["учёт операций", "тестовой сфере"]
+  },
+  "prikaz": {
+    "min_segments": 2,
+    "must_contain": ["Оператор обязан", "порядок осуществления тестовой деятельности"]
+  },
+  "plain": {
+    "min_segments": 1,
+    "must_contain": ["обмена информацией"]
+  }
+}

@@ -15,3 +15,5 @@ jobs:
       - run: npm ci
       - name: TypeScript typecheck
         run: npx tsc --noEmit
+      - name: Chunker contract test (Python↔TS fixtures)
+        run: npm run test:chunker
