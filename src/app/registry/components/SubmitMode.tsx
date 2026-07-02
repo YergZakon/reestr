@@ -12,6 +12,7 @@ export default function SubmitMode() {
   const [subAra, setSubAra] = useState("");
   const [subList, setSubList] = useState<any[]>([]);
   const [subMsg, setSubMsg] = useState("");
+  const [subTried, setSubTried] = useState(false); // «Проверить» нажимали → форму подачи показываем даже если превью упало
 
   const loadSubs = useCallback(() => { fetch("/api/npa-submission").then((r) => r.json()).then((d) => setSubList(d.submissions || [])).catch(() => {}); }, []);
   useEffect(() => {
@@ -20,9 +21,10 @@ export default function SubmitMode() {
   }, [loadSubs]);
 
   const runPreview = () => {
-    setSubBusy(true); setSubMsg(""); setSubPrev(null);
+    setSubBusy(true); setSubMsg(""); setSubPrev(null); setSubTried(false);
     fetch("/api/npa-submission/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ngr: subNgr }) })
-      .then((r) => r.json()).then((d) => { if (d.error) setSubMsg(d.error); else setSubPrev(d); }).catch(() => setSubMsg("Сбой превью")).finally(() => setSubBusy(false));
+      .then((r) => r.json()).then((d) => { if (d.error) setSubMsg(d.error); else setSubPrev(d); }).catch(() => setSubMsg("Сбой превью"))
+      .finally(() => { setSubBusy(false); setSubTried(true); });
   };
   const submitNpa = () => {
     if (!subOrgId) { setSubMsg("Выберите орган"); return; }
@@ -58,6 +60,17 @@ export default function SubmitMode() {
                 </div>
               )) : <div className="reg-empty">{subPrev.note || "Требования в превью не найдены (проверит полный парсинг)."}</div>}
             </div>
+          </div>
+        )}
+        {/* Форма подачи доступна и без превью: сбой ИИ/adilet не должен блокировать подачу —
+            авторитетный парсинг всё равно выполняет Python-конвейер оператора. */}
+        {(subPrev || (subTried && !subBusy)) && (
+          <div style={{ marginTop: 6 }}>
+            {!subPrev && (
+              <div className="reg-cost-hint" style={{ margin: "6px 0 10px" }}>
+                Превью недоступно — НПА можно подать без него: полный разбор выполнит оператор.
+              </div>
+            )}
             <div className="reg-cost-params-grid">
               <label className="reg-cost-param"><span className="reg-cost-param-l">Ответственный орган (узел)</span>
                 <span className="reg-cost-param-in"><select value={subOrgId} onChange={(e) => setSubOrgId(e.target.value)} style={{ width: "100%", height: 36, border: "1px solid var(--line)", borderRadius: 8 }}>
@@ -67,7 +80,9 @@ export default function SubmitMode() {
               <label className="reg-cost-param"><span className="reg-cost-param-l">Срок АРА</span>
                 <span className="reg-cost-param-in"><input type="date" value={subAra} onChange={(e) => setSubAra(e.target.value)} /></span></label>
             </div>
-            <button className="reg-cost-apply" onClick={submitNpa} disabled={subBusy}>Подать в очередь</button>
+            <button className="reg-cost-apply" onClick={submitNpa} disabled={subBusy}>
+              {subPrev ? "Подать в очередь" : "Подать без превью"}
+            </button>
           </div>
         )}
       </div>
