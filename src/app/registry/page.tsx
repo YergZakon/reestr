@@ -196,7 +196,8 @@ export default function RegistryPage() {
           <button className={mode === "biz" ? "on" : ""} onClick={() => { setMode("biz"); setBizProfile(null); setBizStep("select"); setBizPath(null); }}><I.briefcase />Бизнес</button>
           {(me?.role === "admin" || me?.role === "moderator") && <button className={mode === "submit" ? "on" : ""} onClick={() => setMode("submit")}><I.download />Подача НПА</button>}
           {(me?.role === "admin" || me?.role === "moderator") && <button className={mode === "assign" ? "on" : ""} onClick={() => setMode("assign")}><I.layers />Назначения</button>}
-          {(me?.role === "admin" || me?.role === "moderator") && <button onClick={() => (window.location.href = "/cards/admin/users")}><I.building />Пользователи</button>}
+          {me?.role === "admin" && <button onClick={() => (window.location.href = "/admin/moderators")}><I.building />Модераторы</button>}
+          {me?.role === "moderator" && <button onClick={() => (window.location.href = "/moderator/analysts")}><I.building />Аналитики</button>}
         </div>
         {me && <NotificationsBell />}
         <div className="reg-lang">

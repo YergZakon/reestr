@@ -137,7 +137,7 @@ export async function initDB() {
     if (parseInt(userCount.rows[0].count) === 0) {
       const bcrypt = await import("bcryptjs");
       // Начальный admin создаётся ТОЛЬКО из переменной окружения (без паролей в коде).
-      // Экспертов и модераторов заводит admin через UI (/cards/admin/users).
+      // Модераторов заводит admin (/admin/moderators), аналитиков — модераторы (/moderator/analysts).
       const adminPassword = process.env.SEED_ADMIN_PASSWORD;
       if (!adminPassword) {
         console.warn(

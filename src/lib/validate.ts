@@ -81,8 +81,9 @@ export const UserToggleBody = z.object({
   isActive: z.boolean().optional(),
   email: z.string().email("некорректный email").max(160).nullable()
     .or(z.literal("").transform(() => null)).optional(),
-}).refine((b) => b.isActive !== undefined || b.email !== undefined,
-  { message: "нужно передать isActive и/или email" });
+  password: z.string().min(8, "минимум 8 символов").max(128).optional(),
+}).refine((b) => b.isActive !== undefined || b.email !== undefined || b.password !== undefined,
+  { message: "нужно передать isActive, email и/или password" });
 export const SpheresAssignBody = z.object({ assigned_spheres: z.array(z.string().max(40)).max(100) });
 export const AuthoritiesAssignBody = z.object({ assigned_authorities: z.array(z.string().max(40)).max(100) });
 export const OrgsAssignBody = z.object({ assigned_orgs: z.array(z.coerce.number().int().positive()).max(100) });

@@ -470,6 +470,7 @@ paths:
               properties:
                 username: { type: string }
                 password: { type: string, format: password }
+                email: { type: string }
                 fullName: { type: string }
                 role: { type: string, enum: [admin, moderator, expert] }
                 assigned_spheres: { type: array, items: { type: string } }
@@ -480,16 +481,18 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
     put:
       tags: [Администрирование]
-      summary: Активировать/деактивировать пользователя
+      summary: "Обновить пользователя: активность, email, сброс пароля"
       requestBody:
         content:
           application/json:
             schema:
               type: object
-              required: [userId, isActive]
+              required: [userId]
               properties:
                 userId: { type: integer }
                 isActive: { type: boolean }
+                email: { type: string, nullable: true }
+                password: { type: string, format: password }
       responses: { "200": { description: Обновлено } }
   /api/admin/users/{id}/spheres:
     put:

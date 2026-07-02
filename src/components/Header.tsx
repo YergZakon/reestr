@@ -50,12 +50,20 @@ export default function Header() {
               >
                 Реестр
               </button>
-              {(user.role === "admin" || user.role === "moderator") && (
+              {user.role === "admin" && (
                 <button
-                  onClick={() => router.push("/cards/admin/users")}
+                  onClick={() => router.push("/admin/moderators")}
                   className="px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
                 >
-                  Пользователи
+                  Модераторы
+                </button>
+              )}
+              {user.role === "moderator" && (
+                <button
+                  onClick={() => router.push("/moderator/analysts")}
+                  className="px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
+                >
+                  Аналитики
                 </button>
               )}
             </nav>
@@ -73,7 +81,7 @@ export default function Header() {
                     : "bg-blue-100 text-blue-700"
                 }`}
               >
-                {user.role === "admin" ? "Админ" : user.role === "moderator" ? "Модератор" : "Эксперт"}
+                {user.role === "admin" ? "Админ" : user.role === "moderator" ? "Модератор" : "Аналитик"}
               </span>
             </span>
             <button

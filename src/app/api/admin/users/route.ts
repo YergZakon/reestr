@@ -121,7 +121,7 @@ export async function PUT(req: NextRequest) {
   if (m.err) return m.err;
   const vb = await zbody(req, UserToggleBody);
   if (!vb.ok) return vb.res;
-  const { userId, isActive, email } = vb.data;
+  const { userId, isActive, email, password } = vb.data;
   if (userId === m.user!.id && isActive === false)
     return NextResponse.json({ error: "Нельзя деактивировать свой аккаунт" }, { status: 400 });
 
@@ -139,7 +139,9 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Такой email уже используется" }, { status: 409 });
     }
   }
+  if (password !== undefined)
+    await query("UPDATE users SET password_hash = $1 WHERE id = $2", [await hashPassword(password), userId]);
   await query("INSERT INTO activity_log (user_id, action, details) VALUES ($1,$2,$3)",
-    [m.user!.id, "toggle_user", JSON.stringify({ target_user_id: userId, is_active: isActive, email_changed: email !== undefined })]);
+    [m.user!.id, "toggle_user", JSON.stringify({ target_user_id: userId, is_active: isActive, email_changed: email !== undefined, password_reset: password !== undefined })]);
   return NextResponse.json({ ok: true });
 }
