@@ -8,6 +8,7 @@ import {
   I, fmtKzt, minShort, mdToHtml, SECTION_ICON, STAGE_LABEL, STAGE_ORDER,
   Card, PermitCard, Drawer, Facet, OptRow, type Req,
 } from "./lib";
+import NotificationsBell from "@/components/NotificationsBell";
 import OrgansMode from "./components/OrgansMode";
 import CostMode from "./components/CostMode";
 import MethodMode from "./components/MethodMode";
@@ -195,6 +196,7 @@ export default function RegistryPage() {
           {(me?.role === "admin" || me?.role === "moderator") && <button className={mode === "submit" ? "on" : ""} onClick={() => setMode("submit")}><I.download />Подача НПА</button>}
           {(me?.role === "admin" || me?.role === "moderator") && <button onClick={() => (window.location.href = "/cards/admin/users")}><I.building />Пользователи</button>}
         </div>
+        {me && <NotificationsBell />}
         <div className="reg-lang">
           <button className={lang === "ru" ? "on" : ""} onClick={() => setLang("ru")}>РУС</button>
           <button className={lang === "kz" ? "on" : ""} onClick={() => setLang("kz")}>ҚАЗ</button>

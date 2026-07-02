@@ -68,6 +68,8 @@ export const OrgCreateBody = z.object({
 export const UserCreateBody = z.object({
   username: z.string().regex(/^[a-zA-Z0-9._-]{3,64}$/, "3-64 символа: латиница/цифры/._-"),
   password: z.string().min(8, "минимум 8 символов").max(128),
+  email: z.string().email("некорректный email").max(160).nullish()
+    .or(z.literal("").transform(() => null)),
   fullName: z.string().max(150).nullish(),
   role: z.enum(["admin", "moderator", "expert"]).default("expert"),
   assigned_spheres: z.array(z.string().max(40)).max(50).default([]),
@@ -76,8 +78,11 @@ export const UserCreateBody = z.object({
 });
 export const UserToggleBody = z.object({
   userId: z.coerce.number().int().positive(),
-  isActive: z.boolean(),
-});
+  isActive: z.boolean().optional(),
+  email: z.string().email("некорректный email").max(160).nullable()
+    .or(z.literal("").transform(() => null)).optional(),
+}).refine((b) => b.isActive !== undefined || b.email !== undefined,
+  { message: "нужно передать isActive и/или email" });
 export const SpheresAssignBody = z.object({ assigned_spheres: z.array(z.string().max(40)).max(100) });
 export const AuthoritiesAssignBody = z.object({ assigned_authorities: z.array(z.string().max(40)).max(100) });
 export const OrgsAssignBody = z.object({ assigned_orgs: z.array(z.coerce.number().int().positive()).max(100) });

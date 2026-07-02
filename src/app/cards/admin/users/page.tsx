@@ -354,6 +354,7 @@ function CreateUserModal({
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
   const [role, setRole] = useState<"admin" | "moderator" | "expert">("expert");
   const [pickedSpheres, setPickedSpheres] = useState<Set<string>>(new Set());
   const [pickedOrgs, setPickedOrgs] = useState<Set<number>>(new Set());
@@ -385,6 +386,7 @@ function CreateUserModal({
           username,
           password,
           fullName: fullName || null,
+          email: email || null,
           role,
           assigned_spheres: role !== "admin" ? Array.from(pickedSpheres) : [],
           assigned_orgs: role !== "admin" ? Array.from(pickedOrgs) : [],
@@ -435,7 +437,7 @@ function CreateUserModal({
                 minLength={6}
               />
             </div>
-            <div className="col-span-2">
+            <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">
                 ФИО
               </label>
@@ -443,6 +445,18 @@ function CreateUserModal({
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                Email (для уведомлений)
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={inputClass}
+                placeholder="user@gov.kz"
               />
             </div>
             <div>

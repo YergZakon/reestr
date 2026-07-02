@@ -1,6 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import NotificationsBell from "./NotificationsBell";
 
 interface User {
   id: number;
@@ -60,6 +61,7 @@ export default function Header() {
             </nav>
           </div>
           <div className="flex items-center gap-3">
+            <NotificationsBell />
             <span className="text-sm text-slate-500">
               {user.username}{" "}
               <span

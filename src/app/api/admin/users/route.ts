@@ -30,7 +30,7 @@ export async function GET() {
     where = `WHERE u.id IN (SELECT user_id FROM user_orgs WHERE org_id = ANY($1::int[]))`;
   }
   const result = await query(
-    `SELECT u.id, u.username, u.full_name, u.role, u.is_active, u.created_at,
+    `SELECT u.id, u.username, u.full_name, u.email, u.role, u.is_active, u.created_at,
             COALESCE((SELECT array_agg(sphere_code) FROM user_spheres WHERE user_id = u.id), '{}') AS assigned_spheres,
             COALESCE((SELECT array_agg(authority_code) FROM user_authorities WHERE user_id = u.id), '{}') AS assigned_authorities,
             COALESCE((SELECT array_agg(org_id) FROM user_orgs WHERE user_id = u.id), '{}') AS assigned_org_ids
@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
   const vb = await zbody(req, UserCreateBody);
   if (!vb.ok) return vb.res;
   const { username, password } = vb.data;
+  const email = vb.data.email ?? null;
   const fullName = vb.data.fullName ?? null;
   let role: string = vb.data.role;
   const assignedSpheres: string[] = vb.data.assigned_spheres;
@@ -85,9 +86,9 @@ export async function POST(req: NextRequest) {
 
   const passwordHash = await hashPassword(password);
   const result = await query(
-    `INSERT INTO users (username, password_hash, full_name, role) VALUES ($1,$2,$3,$4)
-     RETURNING id, username, full_name, role, is_active, created_at`,
-    [username, passwordHash, fullName || null, role],
+    `INSERT INTO users (username, password_hash, full_name, email, role) VALUES ($1,$2,$3,$4,$5)
+     RETURNING id, username, full_name, email, role, is_active, created_at`,
+    [username, passwordHash, fullName || null, email, role],
   );
   const uid = result.rows[0].id;
 
@@ -120,16 +121,25 @@ export async function PUT(req: NextRequest) {
   if (m.err) return m.err;
   const vb = await zbody(req, UserToggleBody);
   if (!vb.ok) return vb.res;
-  const { userId, isActive } = vb.data;
-  if (userId === m.user!.id && !isActive) return NextResponse.json({ error: "Нельзя деактивировать свой аккаунт" }, { status: 400 });
+  const { userId, isActive, email } = vb.data;
+  if (userId === m.user!.id && isActive === false)
+    return NextResponse.json({ error: "Нельзя деактивировать свой аккаунт" }, { status: 400 });
 
   // модератор — только пользователи своего поддерева
   if (!m.isAdmin) {
     const inScope = await query("SELECT 1 FROM user_orgs WHERE user_id=$1 AND org_id = ANY($2::int[]) LIMIT 1", [userId, m.scope]);
     if (!inScope.rows.length) return NextResponse.json({ error: "Пользователь вне вашего поддерева" }, { status: 403 });
   }
-  await query("UPDATE users SET is_active = $1 WHERE id = $2", [isActive, userId]);
+  if (isActive !== undefined)
+    await query("UPDATE users SET is_active = $1 WHERE id = $2", [isActive, userId]);
+  if (email !== undefined) {
+    try {
+      await query("UPDATE users SET email = $1 WHERE id = $2", [email, userId]);
+    } catch {
+      return NextResponse.json({ error: "Такой email уже используется" }, { status: 409 });
+    }
+  }
   await query("INSERT INTO activity_log (user_id, action, details) VALUES ($1,$2,$3)",
-    [m.user!.id, "toggle_user", JSON.stringify({ target_user_id: userId, is_active: isActive })]);
+    [m.user!.id, "toggle_user", JSON.stringify({ target_user_id: userId, is_active: isActive, email_changed: email !== undefined })]);
   return NextResponse.json({ ok: true });
 }

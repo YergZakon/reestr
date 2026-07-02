@@ -2,6 +2,7 @@
 // Однопроцессный guard (busy) — Railway держит один инстанс; при рестарте контейнера
 // зависшие задачи возвращаются в очередь по истечении lease (claimNext).
 import { processOne } from "./pipeline";
+import { notifyTick } from "./notify";
 
 let started = false;
 let busy = false;
@@ -9,7 +10,9 @@ let busy = false;
 export function startWorkerLoop() {
   if (started) return;
   started = true;
-  console.log("[worker] цикл запущен (тик 30 с)");
+  console.log("[worker] цикл запущен (тик 30 с; уведомления — каждый час)");
+  setInterval(notifyTick, 60 * 60_000);
+  setTimeout(notifyTick, 120_000); // первый прогон уведомлений через 2 мин после старта
   const tick = async () => {
     if (busy) return;
     busy = true;
