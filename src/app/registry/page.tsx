@@ -1,99 +1,20 @@
 "use client";
-import { useEffect, useMemo, useState, useCallback } from "react";
+/* Реестр обязательных требований — корневая страница.
+   После рефакторинга К2 здесь остались: шапка с режимами, каталог (gov),
+   бизнес-гид ABLIS (biz) и общий Drawer. Остальные режимы — components/*Mode. */
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import "./registry.css";
+import {
+  I, fmtKzt, minShort, mdToHtml, SECTION_ICON, STAGE_LABEL, STAGE_ORDER,
+  Card, PermitCard, Drawer, Facet, OptRow, type Req,
+} from "./lib";
+import OrgansMode from "./components/OrgansMode";
+import CostMode from "./components/CostMode";
+import MethodMode from "./components/MethodMode";
+import DupesMode from "./components/DupesMode";
+import ReviewMode from "./components/ReviewMode";
+import SubmitMode from "./components/SubmitMode";
 
-/* ——— Иконки ——— */
-const I = {
-  search: (p: any) => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" {...p}><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>,
-  chevDown: (p: any) => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="m6 9 6 6 6-6"/></svg>,
-  chevRight: (p: any) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="m9 18 6-6-6-6"/></svg>,
-  chevLeft: (p: any) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="m15 18-6-6 6-6"/></svg>,
-  check: (p: any) => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M20 6 9 17l-5-5"/></svg>,
-  x: (p: any) => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" {...p}><path d="M18 6 6 18M6 6l12 12"/></svg>,
-  download: (p: any) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>,
-  scale: (p: any) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M12 3v18M7 21h10M5 7h14M5 7l-2.5 6a3 3 0 0 0 5 0L5 7Zm14 0-2.5 6a3 3 0 0 0 5 0L19 7ZM8 7l4-2 4 2"/></svg>,
-  gov: (p: any) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M3 21h18M5 21V10M19 21V10M3 10l9-6 9 6M9 21v-6h6v6"/></svg>,
-  briefcase: (p: any) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>,
-  building: (p: any) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M9 6h.01M15 6h.01M9 10h.01M15 10h.01M9 14h.01M15 14h.01"/></svg>,
-  layers: (p: any) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5M3 17l9 5 9-5"/></svg>,
-  coins: (p: any) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18M7 6h1v4M16.71 13.88l.7.71-2.82 2.82"/></svg>,
-  copy: (p: any) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>,
-  calc: (p: any) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01M8 18h4"/></svg>,
-};
-const fmtKzt = (n: number): string => {
-  if (n >= 1e9) return (n / 1e9).toFixed(1) + " млрд ₸";
-  if (n >= 1e6) return (n / 1e6).toFixed(1) + " млн ₸";
-  if (n >= 1e3) return (n / 1e3).toFixed(0) + " тыс ₸";
-  return Math.round(n).toLocaleString("ru") + " ₸";
-};
-
-/* ——— Маппинги под наши данные ——— */
-const SPHERE_COLOR: Record<string, string> = {
-  mchs: "#D9663A", mz_zdrav: "#2E8B8B", mz_obshchepit: "#4E944F", me_neft_uran: "#8A6D3B",
-  miir_obrabotka: "#5A6BB0", miir_transport: "#3A6EA5", msx: "#4E944F", mnvo: "#7E5AA8",
-  mtsriap: "#3E9C6B", mti_torgovlya: "#C2853A", mtzsn_trud_otn: "#C2853A", mtzsn_trudoustr: "#C2853A",
-  ecology: "#3E9C6B", land: "#8A6D3B", transport: "#3A6EA5", other_ersop: "#6B7A73",
-};
-const STAGE_LABEL: Record<string, string> = {
-  planning: "Планирование", registration: "Регистрация", pre_launch: "До-запуск", launch: "Запуск",
-  operation: "Деятельность", reporting: "Отчётность", inspection: "Проверки", expansion: "Расширение",
-  suspension: "Приостановка", closure: "Закрытие",
-};
-const STAGE_ORDER = ["planning", "registration", "pre_launch", "launch", "operation", "reporting", "inspection", "expansion", "suspension", "closure"];
-function minShort(m: string | null): string {
-  if (!m) return "—";
-  return m.replace("Министерство ", "Мин").replace(" Республики Казахстан", "").replace(" РК", "").slice(0, 28);
-}
-const SECTION_ICON: Record<string, string> = {
-  A: "🌾", B: "⛏️", C: "🏭", D: "⚡", E: "💧", F: "🏗️", G: "🛒", H: "🚚", I: "🏨",
-  J: "📡", K: "🏦", L: "🏢", M: "💼", N: "🗂️", P: "🎓", Q: "🩺", R: "🎭", S: "🛠️",
-};
-
-// Настраиваемые параметры расчёта нагрузки (cost_params). pct — хранится долей (0.30), показываем %.
-const PARAM_FIELDS: { k: string; label: string; unit: string; pct?: boolean; step?: string }[] = [
-  { k: "inspector_rate_kzt", label: "Час проверки (государство)", unit: "₸/ч" },
-  { k: "overhead", label: "Накладные расходы", unit: "%", pct: true, step: "0.1" },
-  { k: "on_costs", label: "Соц. отчисления работодателя", unit: "%", pct: true, step: "0.1" },
-  { k: "hours_per_month", label: "Рабочих часов в месяце", unit: "ч" },
-  { k: "mult_clerical", label: "Множитель: делопроизводитель", unit: "×", step: "0.1" },
-  { k: "mult_specialist", label: "Множитель: специалист", unit: "×", step: "0.1" },
-  { k: "mult_manager", label: "Множитель: руководитель", unit: "×", step: "0.1" },
-  { k: "avg_wage_month", label: "Средняя зарплата (резерв)", unit: "₸/мес" },
-];
-const paramsToForm = (p: Record<string, unknown> | null): Record<string, string> => {
-  const f: Record<string, string> = {};
-  if (!p) return f;
-  for (const fld of PARAM_FIELDS) {
-    const v = Number(p[fld.k]);
-    f[fld.k] = fld.pct ? String(Math.round(v * 1000) / 10) : String(v);
-  }
-  return f;
-};
-const formToParams = (f: Record<string, string>): Record<string, number> => {
-  const out: Record<string, number> = {};
-  for (const fld of PARAM_FIELDS) {
-    const n = Number(f[fld.k]);
-    if (!isNaN(n) && f[fld.k] !== "") out[fld.k] = fld.pct ? n / 100 : n;
-  }
-  return out;
-};
-
-interface Req {
-  id: number; ngr: string | null; npa_title: string | null; article: string | null;
-  ministry: string | null; sphere_code: string | null; sphere_name: string | null;
-  okeds: string[] | null; stages: string[] | null;
-  title: string | null; legal_text: string | null; canon_text: string | null;
-  subject: string | null; action: string | null; object: string | null; condition: string | null;
-  scope?: string | null; sections?: string[] | null; triggers?: string[] | null; is_permit?: boolean | null;
-  action_type?: string | null; time_hours?: number | null; frequency_per_year?: number | null;
-  external_cost_kzt?: number | null; cost_per_entity_kzt?: number | null; staff_role?: string | null;
-  inspection_hours_biz?: number | null; inspection_cost_biz?: number | null; inspection_cost_gov?: number | null;
-  authority_code?: string | null; review_status?: string | null; ara_status?: string | null;
-  ara_deadline?: string | null; review_comment?: string | null; norm_url?: string | null;
-}
-const REVIEW_LABEL: Record<string, string> = {
-  pending: "на подтверждении", confirmed: "подтверждено", rejected: "отклонено", edited: "отредактировано",
-};
 interface Scenario { id: string; title: string; oked: string; section: string; icon: string; desc: string; }
 interface SectionRow { section: string; name_ru: string; biz_total: number | null; workers_thousands: number | null; req_count: number; }
 interface OkedRow { code: string; name_ru: string; section: string; section_name: string; }
@@ -103,245 +24,6 @@ interface BizData { oked: string | null; okedName: string | null; section: strin
 interface Question { tag: string; q: string; hint?: string; def: boolean; }
 type BizPath = "new" | "expand";
 interface Opt { ministry?: string; sphere_code?: string; stage?: string; name?: string; n: number; }
-
-function MetaChip({ children, color, stage }: { children: React.ReactNode; color?: string; stage?: boolean }) {
-  return <span className={"reg-mchip" + (stage ? " stage" : "")}>{color && <span className="dot" style={{ background: color }} />}{children}</span>;
-}
-
-/* ——— Карточка ——— */
-function Card({ r, onOpen }: { r: Req; onOpen: (r: Req) => void }) {
-  const heading = r.title || `${r.subject || ""}${r.action ? " → " + r.action : ""}`.trim() || "—";
-  const body = r.canon_text || r.legal_text || "";
-  return (
-    <article className="reg-card" style={{ ["--stripe" as any]: SPHERE_COLOR[r.sphere_code || ""] || "var(--line)" }} onClick={() => onOpen(r)}>
-      <div className="reg-card-top">
-        <h3 className="reg-card-title">{heading}</h3>
-        <span className="reg-card-arrow"><I.chevRight /></span>
-      </div>
-      {body && <p className="reg-card-snippet">{body}</p>}
-      <div className="reg-card-facets">
-        {r.review_status === "confirmed" && <span className="reg-rb reg-rb-confirmed">подтверждено госорганом</span>}
-        {(!r.review_status || r.review_status === "pending" || r.review_status === "edited") && <span className="reg-rb reg-rb-pending">на подтверждении</span>}
-        {r.ara_status === "исключён" && <span className="reg-rb reg-rb-rejected">исключён</span>}
-        {r.sphere_name && <MetaChip color={SPHERE_COLOR[r.sphere_code || ""]}>{r.sphere_name}</MetaChip>}
-        {r.ministry && <MetaChip>{minShort(r.ministry)}</MetaChip>}
-        {(r.stages || []).slice(0, 3).map((s) => <MetaChip key={s} stage>{STAGE_LABEL[s] || s}</MetaChip>)}
-        {(r.stages || []).length > 3 && <MetaChip stage>+{(r.stages || []).length - 3}</MetaChip>}
-      </div>
-    </article>
-  );
-}
-
-/* Куда подавать заявку: eLicense (лицензии/разрешения) или eGov (регистрация/налоги/уведомления). */
-function applyTarget(r: Req): { url: string; label: string } {
-  const t = `${r.title || ""} ${r.action || ""} ${r.object || ""} ${r.legal_text || ""}`.toLowerCase();
-  if (/лиценз|разрешени|аккредит|аттестац|сертификат|патент|допуск/.test(t))
-    return { url: "https://elicense.kz/", label: "Оформить · eLicense.kz" };
-  if (/регистрац|налог|на учёт|на учет|постанов|статист|деклар|уведомлен/.test(t) || r.scope === "horizontal")
-    return { url: "https://egov.kz/", label: "Оформить · eGov.kz" };
-  return { url: "https://elicense.kz/", label: "Оформить · eLicense.kz" };
-}
-
-/* ——— Permit-карточка («Что оформить») ——— */
-function PermitCard({ r, onOpen }: { r: Req; onOpen: (r: Req) => void }) {
-  const name = r.title || `${r.subject || ""}${r.action ? " → " + r.action : ""}`.trim() || "—";
-  const ap = applyTarget(r);
-  const adilet = r.norm_url || (r.ngr ? `https://adilet.zan.kz/rus/docs/${r.ngr}` : null);
-  return (
-    <div className="reg-permit">
-      <div className="reg-permit-main" onClick={() => onOpen(r)}>
-        <div className="reg-permit-name">{name}</div>
-        {r.ministry && <div className="reg-permit-issuer">Выдаёт: {minShort(r.ministry)}</div>}
-        {r.npa_title && <div className="reg-permit-npa">{r.npa_title}{r.article ? `, ${r.article}` : ""}</div>}
-        {(r.stages || []).length > 0 && <div className="reg-permit-meta">{(r.stages || []).slice(0, 3).map((s) => <span key={s} className="reg-permit-stage">{STAGE_LABEL[s] || s}</span>)}</div>}
-      </div>
-      <div className="reg-permit-side">
-        <a className="reg-apply-btn" href={ap.url} target="_blank" rel="noreferrer">{ap.label}<I.chevRight /></a>
-        {adilet && <a className="reg-permit-npalink" href={adilet} target="_blank" rel="noreferrer">Текст НПА</a>}
-      </div>
-    </div>
-  );
-}
-
-/* ——— Drawer ——— */
-function Drawer({ r, onClose, onSaved, role }: { r: Req; onClose: () => void; onSaved: () => void; role?: string }) {
-  const [editing, setEditing] = useState(false);
-  const [text, setText] = useState(r.canon_text || r.legal_text || "");
-  const [busy, setBusy] = useState(false);
-  const [rbusy, setRbusy] = useState(false);
-  const [araDate, setAraDate] = useState<string>(() => {
-    if (r.ara_deadline) return String(r.ara_deadline).slice(0, 10);
-    const d = new Date(); d.setFullYear(d.getFullYear() + (/^[KZ]/i.test(r.ngr || "") ? 3 : 2));
-    return d.toISOString().slice(0, 10);
-  });
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h);
-  }, [onClose]);
-  const heading = r.title || `${r.subject || ""}${r.action ? " → " + r.action : ""}`.trim();
-  const adilet = r.norm_url || (r.ngr ? `https://adilet.zan.kz/rus/docs/${r.ngr}` : null);
-  async function save() {
-    setBusy(true);
-    try {
-      await fetch("/api/registry/review", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: r.id, action: "edit", fields: { canon_text: text } }) });
-      onSaved(); setEditing(false);
-    } finally { setBusy(false); }
-  }
-  async function review(action: string, extra: Record<string, unknown> = {}) {
-    setRbusy(true);
-    try {
-      const res = await fetch("/api/registry/review", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: r.id, action, ...extra }) });
-      if (res.ok) { onSaved(); onClose(); }
-      else { const e = await res.json().catch(() => ({})); alert(e.error || "Ошибка"); }
-    } finally { setRbusy(false); }
-  }
-  return (
-    <>
-      <div className="reg-scrim" onClick={onClose} />
-      <aside className="reg-drawer" role="dialog">
-        <div className="reg-drawer-head">
-          <h2 className="reg-d-title" style={{ flex: 1 }}>{heading}</h2>
-          <button className="reg-drawer-close" onClick={onClose}><I.x /></button>
-        </div>
-        <div className="reg-drawer-body">
-          {r.review_status && (role === "expert" || role === "admin") && (
-            <div className="reg-d-section reg-review-box">
-              <div className="reg-d-section-h">Ревью госоргана</div>
-              <div className="reg-review-status">
-                Статус: <b className={"reg-rb reg-rb-" + r.review_status}>{REVIEW_LABEL[r.review_status] || r.review_status}</b>
-                {r.ara_status && <span className="reg-rb reg-rb-ara">{r.ara_status}</span>}
-              </div>
-              {r.review_comment && <div className="reg-review-comment">Комментарий: {r.review_comment}</div>}
-              <label className="reg-review-ara">Срок проведения АРА
-                <input type="date" value={araDate} onChange={(e) => setAraDate(e.target.value)} />
-              </label>
-              <div className="reg-review-acts">
-                <button className="reg-rev-confirm" disabled={rbusy} onClick={() => review("confirm", { ara_deadline: araDate })}>Подтвердить</button>
-                <button className="reg-rev-reject" disabled={rbusy} onClick={() => review("reject")}>Отклонить</button>
-                {role === "admin" && r.review_status === "confirmed" && (
-                  <button className="reg-rev-include" disabled={rbusy} onClick={() => review("include")}>Включить в реестр</button>
-                )}
-              </div>
-            </div>
-          )}
-          <div className="reg-d-section">
-            <div className="reg-d-section-h">Текст требования</div>
-            {editing
-              ? <textarea className="reg-edit-area" rows={5} value={text} onChange={(e) => setText(e.target.value)} />
-              : <p className="reg-d-legal">{r.canon_text || r.legal_text}</p>}
-          </div>
-          <div className="reg-d-section">
-            <div className="reg-d-section-h">Структура</div>
-            <dl className="reg-d-grid">
-              {r.subject && <><dt>Субъект</dt><dd>{r.subject}</dd></>}
-              {r.action && <><dt>Действие</dt><dd>{r.action}</dd></>}
-              {r.object && <><dt>Объект</dt><dd>{r.object}</dd></>}
-              {r.condition && <><dt>Условие</dt><dd>{r.condition}</dd></>}
-              {r.sphere_name && <><dt>Сфера</dt><dd><MetaChip color={SPHERE_COLOR[r.sphere_code || ""]}>{r.sphere_name}</MetaChip></dd></>}
-              {r.ministry && <><dt>Орган</dt><dd>{r.ministry}</dd></>}
-            </dl>
-          </div>
-          {r.cost_per_entity_kzt != null && (
-            <div className="reg-d-section">
-              <div className="reg-d-section-h">Оценка нагрузки (Standard Cost Model)</div>
-              <dl className="reg-d-grid">
-                <dt>Стоимость</dt><dd><b>{fmtKzt(Number(r.cost_per_entity_kzt))}</b> / субъект / год</dd>
-                {r.time_hours != null && <><dt>Трудозатраты</dt><dd>{Number(r.time_hours)} ч × {Number(r.frequency_per_year)}/год{r.staff_role ? ` · ${r.staff_role}` : ""}</dd></>}
-                {Number(r.external_cost_kzt) > 0 && <><dt>Внешние расходы</dt><dd>{fmtKzt(Number(r.external_cost_kzt))} (пошлины/услуги)</dd></>}
-                {Number(r.inspection_cost_gov) > 0 && <><dt>Стоимость проверки</dt><dd>государству {fmtKzt(Number(r.inspection_cost_gov))} · бизнесу {fmtKzt(Number(r.inspection_cost_biz))}{r.inspection_hours_biz ? ` (${Number(r.inspection_hours_biz)} ч)` : ""}</dd></>}
-              </dl>
-              <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 6 }}>Предварительная ИИ-оценка; госорган может уточнить.</div>
-            </div>
-          )}
-          {r.ngr && (
-            <div className="reg-d-section">
-              <div className="reg-d-section-h">Нормативно-правовой источник</div>
-              <div className="reg-npa-card">
-                <div style={{ fontSize: 14.5, fontWeight: 600, lineHeight: 1.4 }}>{r.npa_title || r.ngr}{r.article ? `, ${r.article}` : ""}</div>
-                <div style={{ fontSize: 12.5, color: "var(--ink-3)", marginTop: 6 }}>
-                  Госрегномер: <b style={{ color: "var(--ink-2)" }}>{r.ngr}</b>
-                  {adilet && <> · <a className="reg-d-link" href={adilet} target="_blank" rel="noreferrer">Открыть на adilet.zan.kz →</a></>}
-                </div>
-              </div>
-            </div>
-          )}
-          {r.okeds && r.okeds.length > 0 && (
-            <div className="reg-d-section">
-              <div className="reg-d-section-h">Применимые виды деятельности (ОКЭД)</div>
-              <div style={{ fontSize: 13, color: "var(--ink-2)", lineHeight: 1.7 }}>{r.okeds.join(", ")}</div>
-            </div>
-          )}
-          {r.stages && r.stages.length > 0 && (
-            <div className="reg-d-section">
-              <div className="reg-d-section-h">Стадии жизненного цикла</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
-                {r.stages.map((s) => <MetaChip key={s} stage>{STAGE_LABEL[s] || s}</MetaChip>)}
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="reg-drawer-foot">
-          {editing ? (
-            <>
-              <button className="reg-act-btn reg-act-save" disabled={busy} onClick={save}>Сохранить</button>
-              <button className="reg-act-btn reg-act-edit" onClick={() => { setEditing(false); setText(r.canon_text || r.legal_text || ""); }}>Отмена</button>
-            </>
-          ) : (
-            <button className="reg-act-btn reg-act-edit" onClick={() => setEditing(true)}>✎ Редактировать формулировку</button>
-          )}
-        </div>
-      </aside>
-    </>
-  );
-}
-
-/* ——— Фасет ——— */
-function Facet({ title, prime, open, setOpen, children }: any) {
-  return (
-    <div className={"reg-facet" + (prime ? " reg-facet-prime" : "")}>
-      <button className={"reg-facet-head" + (open ? "" : " closed")} onClick={() => setOpen(!open)}>
-        <span className="reg-facet-name">{title}</span><span className="chev"><I.chevDown /></span>
-      </button>
-      {open && <div className="reg-facet-opts">{children}</div>}
-    </div>
-  );
-}
-function OptRow({ on, onClick, label, count }: any) {
-  return (
-    <label className={"reg-opt" + (on ? " on" : "")} onClick={(e) => { e.preventDefault(); onClick(); }}>
-      <span className="box"><I.check /></span>
-      <span className="reg-opt-label">{label}</span>
-      {count != null && <span className="reg-opt-count">{count.toLocaleString("ru")}</span>}
-    </label>
-  );
-}
-
-/* Минимальный markdown→HTML для ИИ-заключения (## ### - * **bold**) */
-function mdToHtml(md: string): { __html: string } {
-  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const inline = (s: string) => s.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/(?<!\*)\*(?!\*)(.+?)\*(?!\*)/g, "<i>$1</i>");
-  let html = "", inList = false;
-  for (let ln of esc(md).split("\n")) {
-    ln = ln.trimEnd();
-    const close = () => { if (inList) { html += "</ul>"; inList = false; } };
-    if (/^#{1,3}\s+/.test(ln)) { close(); const lvl = ln.match(/^#+/)![0].length; html += `<h${lvl === 1 ? 3 : lvl + 1}>${inline(ln.replace(/^#+\s+/, ""))}</h${lvl === 1 ? 3 : lvl + 1}>`; }
-    else if (/^[-*]\s+/.test(ln)) { if (!inList) { html += "<ul>"; inList = true; } html += `<li>${inline(ln.replace(/^[-*]\s+/, ""))}</li>`; }
-    else if (/^\d+\.\s+/.test(ln)) { if (!inList) { html += "<ul>"; inList = true; } html += `<li>${inline(ln.replace(/^\d+\.\s+/, ""))}</li>`; }
-    else if (ln.trim() === "") close();
-    else { close(); html += `<p>${inline(ln)}</p>`; }
-  }
-  if (inList) html += "</ul>";
-  return { __html: html };
-}
-
-interface Organ { ministry: string; npa_count: number; npa_active: number; req_count: number; overdue: number; }
-interface Npa {
-  ngr: string; title: string; ministry: string; npa_status: string;
-  date_adopted: string | null; date_revision: string | null; review_deadline: string | null;
-  overdue: boolean; req_count: number; adilet_url: string;
-}
 
 export default function RegistryPage() {
   const [mode, setMode] = useState<"gov" | "biz" | "organs" | "cost" | "dupes" | "method" | "review" | "submit">("gov");
@@ -358,142 +40,21 @@ export default function RegistryPage() {
   const [f, setF] = useState<{ spheres: string[]; ministries: string[]; stages: string[]; q: string }>({ spheres: [], ministries: [], stages: [], q: "" });
   const [qd, setQd] = useState("");
 
-  // Ревью госоргана (очередь апрува по органам)
   const [me, setMe] = useState<{ id: number; username: string; role: string; assigned_authorities: string[] } | null>(null);
-  const [rq, setRq] = useState<any>(null);
-  const [rqStatus, setRqStatus] = useState("pending");
-  const [rqPage, setRqPage] = useState(1);
-  const [rqQ, setRqQ] = useState("");
-  const [rqQd, setRqQd] = useState("");
-  const [rqSel, setRqSel] = useState<number[]>([]);
-  const [rqAra, setRqAra] = useState<string>(() => { const d = new Date(); d.setFullYear(d.getFullYear() + 2); return d.toISOString().slice(0, 10); });
-  const [rqBusy, setRqBusy] = useState(false);
-  // Подача НПА (самообслуживание модератора)
-  const [subNgr, setSubNgr] = useState("");
-  const [subPrev, setSubPrev] = useState<any>(null);
-  const [subBusy, setSubBusy] = useState(false);
-  const [subOrgs, setSubOrgs] = useState<any[]>([]);
-  const [subOrgId, setSubOrgId] = useState("");
-  const [subSphere, setSubSphere] = useState("");
-  const [subAra, setSubAra] = useState("");
-  const [subList, setSubList] = useState<any[]>([]);
-  const [subMsg, setSubMsg] = useState("");
-  const loadSubs = useCallback(() => { fetch("/api/npa-submission").then((r) => r.json()).then((d) => setSubList(d.submissions || [])).catch(() => {}); }, []);
-  useEffect(() => {
-    if (mode === "submit") {
-      loadSubs();
-      if (!subOrgs.length) fetch("/api/organizations").then((r) => r.json()).then((d) => setSubOrgs(d.organizations || [])).catch(() => {});
-    }
-  }, [mode, subOrgs.length, loadSubs]);
-  const runPreview = () => {
-    setSubBusy(true); setSubMsg(""); setSubPrev(null);
-    fetch("/api/npa-submission/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ngr: subNgr }) })
-      .then((r) => r.json()).then((d) => { if (d.error) setSubMsg(d.error); else setSubPrev(d); }).catch(() => setSubMsg("Сбой превью")).finally(() => setSubBusy(false));
-  };
-  const submitNpa = () => {
-    if (!subOrgId) { setSubMsg("Выберите орган"); return; }
-    setSubBusy(true); setSubMsg("");
-    fetch("/api/npa-submission", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ngr: subNgr, npa_title: subPrev?.title, org_id: Number(subOrgId), sphere_code: subSphere || null, ara_deadline: subAra || null, preview_json: subPrev }) })
-      .then((r) => r.json()).then((d) => { if (d.error) setSubMsg(d.error); else { setSubMsg("Подано. Авторитетный парсинг выполнит оператор."); setSubNgr(""); setSubPrev(null); loadSubs(); } })
-      .finally(() => setSubBusy(false));
-  };
   useEffect(() => { fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null)).then((d) => setMe(d?.user || null)).catch(() => {}); }, []);
-  useEffect(() => { const t = setTimeout(() => setRqQd(rqQ), 400); return () => clearTimeout(t); }, [rqQ]);
-  const loadReviewQueue = useCallback(() => {
-    const p = new URLSearchParams({ status: rqStatus, page: String(rqPage), limit: "20" });
-    if (rqQd) p.set("q", rqQd);
-    fetch(`/api/registry/review-queue?${p}`).then((r) => r.json()).then((d) => { setRq(d); setRqSel([]); }).catch(() => {});
-  }, [rqStatus, rqPage, rqQd]);
-  useEffect(() => { if (mode === "review") loadReviewQueue(); }, [mode, loadReviewQueue]);
-  const reviewBulk = (action: string) => {
-    if (!rqSel.length) return;
-    setRqBusy(true);
-    const body: Record<string, unknown> = { ids: rqSel, action };
-    if (action === "confirm") body.ara_deadline = rqAra;
-    fetch("/api/registry/review", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-      .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
-      .then(({ ok, j }) => { if (!ok) alert(j.error || "Ошибка"); loadReviewQueue(); })
-      .finally(() => setRqBusy(false));
-  };
 
-  // бизнес-режим (Guided Search: путь → select → survey → report)
-  const [bizPath, setBizPath] = useState<BizPath | null>(null);
-  const [bizStep, setBizStep] = useState<"select" | "survey" | "report">("select");
-  const [bizProfile, setBizProfile] = useState<BizProfile | null>(null);
-  const [bizData, setBizData] = useState<BizData | null>(null);
-  const [bizLoading, setBizLoading] = useState(false);
-  const [sections, setSections] = useState<SectionRow[]>([]);
-  const [scenariosList, setScenariosList] = useState<Scenario[]>([]);
-  const [okedQ, setOkedQ] = useState("");
-  const [okedResults, setOkedResults] = useState<OkedRow[]>([]);
-  const [showHoriz, setShowHoriz] = useState(false);
-  const [horizItems, setHorizItems] = useState<Record<string, Req[]>>({});
-  const [horizOpen, setHorizOpen] = useState<Record<string, boolean>>({});
-  // опросник
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [answers, setAnswers] = useState<Record<string, boolean>>({});
-  // ИИ-заключение
-  const [conclusion, setConclusion] = useState<string | null>(null);
-  const [conclLoading, setConclLoading] = useState(false);
-  const [conclErr, setConclErr] = useState<string | null>(null);
-  // cost-management (Нагрузка)
+  // Drawer после действия в режиме «Ревью» обновляет очередь (колбэк регистрирует ReviewMode)
+  const reviewReloadRef = useRef<(() => void) | null>(null);
+  const registerReviewReload = useCallback((fn: () => void) => { reviewReloadRef.current = fn; }, []);
+
+  // costData общий для режимов «Нагрузка» и «Методика»
   const [costData, setCostData] = useState<any>(null);
-  const [costParams, setCostParams] = useState<Record<string, string>>({});
-  const [paramsSaving, setParamsSaving] = useState(false);
-  // методика — параметры интерактивного калькулятора
-  const [mWage, setMWage] = useState(441998);
-  const [mTime, setMTime] = useState(2);
-  const [mFreq, setMFreq] = useState(12);
-  const [mRole, setMRole] = useState("specialist");
-  // дубли
-  const [dupes, setDupes] = useState<{ groups: any[]; totalDuplicates: number; totalGroups: number; crossGroups?: number; rawCrossGroups?: number } | null>(null);
-  const [dupeCross, setDupeCross] = useState(true);
-  const [openDupe, setOpenDupe] = useState<string | null>(null);
-  const [dupeItems, setDupeItems] = useState<Record<string, Req[]>>({});
-
-  // режим «Органы и НПА»
-  const [organs, setOrgans] = useState<Organ[]>([]);
-  const [selOrg, setSelOrg] = useState<string | null>(null);
-  const [npaList, setNpaList] = useState<Npa[]>([]);
-  const [npaLoading, setNpaLoading] = useState(false);
-  useEffect(() => {
-    if (mode === "organs" && organs.length === 0)
-      fetch("/api/registry/organs").then((r) => r.json()).then((d) => {
-        setOrgans(d.organs || []);
-        if (d.organs?.length) setSelOrg(d.organs[0].ministry);
-      });
-  }, [mode, organs.length]);
-  useEffect(() => {
-    if (!selOrg) return;
-    setNpaLoading(true);
-    fetch(`/api/registry/npa?ministry=${encodeURIComponent(selOrg)}`).then((r) => r.json())
-      .then((d) => setNpaList(d.npa || [])).finally(() => setNpaLoading(false));
-  }, [selOrg]);
-
-  useEffect(() => { fetch("/api/registry/filters").then((r) => r.json()).then(setFiltersData).catch(() => {}); }, []);
-  // Нагрузка
   useEffect(() => {
     if ((mode === "cost" || mode === "method") && !costData)
-      fetch("/api/registry/cost").then((r) => r.json()).then((d) => { setCostData(d); setCostParams(paramsToForm(d.params)); });
+      fetch("/api/registry/cost").then((r) => r.json()).then(setCostData).catch(() => {});
   }, [mode, costData]);
-  // Дубли
-  useEffect(() => {
-    if (mode === "dupes")
-      fetch(`/api/registry/duplicates?cross=${dupeCross ? "1" : "0"}`).then((r) => r.json()).then(setDupes);
-  }, [mode, dupeCross]);
-  const toggleDupe = (gid: string) => {
-    setOpenDupe((o) => (o === gid ? null : gid));
-    if (!dupeItems[gid]) fetch(`/api/registry/duplicates?group=${encodeURIComponent(gid)}`).then((r) => r.json()).then((d) => setDupeItems((p) => ({ ...p, [gid]: d.items || [] })));
-  };
-  const saveCostParams = () => {
-    setParamsSaving(true);
-    fetch("/api/registry/cost/params", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(formToParams(costParams)) })
-      .then((r) => r.json())
-      .then(() => fetch("/api/registry/cost").then((r) => r.json()))
-      .then((d) => { setCostData(d); setCostParams(paramsToForm(d.params)); })
-      .finally(() => setParamsSaving(false));
-  };
+
+  useEffect(() => { fetch("/api/registry/filters").then((r) => r.json()).then(setFiltersData).catch(() => {}); }, []);
   useEffect(() => { const t = setTimeout(() => setQd(f.q), 400); return () => clearTimeout(t); }, [f.q]);
 
   const params = useCallback((forExport = false) => {
@@ -526,7 +87,25 @@ export default function RegistryPage() {
     ...f.stages.map((v) => ({ key: "stages" as const, v, label: STAGE_LABEL[v] || v })),
   ];
 
-  // бизнес: справочники входа (секции + сценарии)
+  // ——— бизнес-режим (Guided Search: путь → select → survey → report) ———
+  const [bizPath, setBizPath] = useState<BizPath | null>(null);
+  const [bizStep, setBizStep] = useState<"select" | "survey" | "report">("select");
+  const [bizProfile, setBizProfile] = useState<BizProfile | null>(null);
+  const [bizData, setBizData] = useState<BizData | null>(null);
+  const [bizLoading, setBizLoading] = useState(false);
+  const [sections, setSections] = useState<SectionRow[]>([]);
+  const [scenariosList, setScenariosList] = useState<Scenario[]>([]);
+  const [okedQ, setOkedQ] = useState("");
+  const [okedResults, setOkedResults] = useState<OkedRow[]>([]);
+  const [showHoriz, setShowHoriz] = useState(false);
+  const [horizItems, setHorizItems] = useState<Record<string, Req[]>>({});
+  const [horizOpen, setHorizOpen] = useState<Record<string, boolean>>({});
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [answers, setAnswers] = useState<Record<string, boolean>>({});
+  const [conclusion, setConclusion] = useState<string | null>(null);
+  const [conclLoading, setConclLoading] = useState(false);
+  const [conclErr, setConclErr] = useState<string | null>(null);
+
   useEffect(() => {
     if (mode === "biz" && sections.length === 0)
       fetch("/api/business/sections").then((r) => r.json()).then((d) => setSections(d.sections || []));
@@ -534,7 +113,6 @@ export default function RegistryPage() {
       fetch("/api/business/scenarios").then((r) => r.json()).then((d) => setScenariosList(d.scenarios || []));
   }, [mode, sections.length, scenariosList.length]);
 
-  // автокомплит ОКЭД
   useEffect(() => {
     const q = okedQ.trim();
     if (q.length < 2) { setOkedResults([]); return; }
@@ -544,7 +122,6 @@ export default function RegistryPage() {
     return () => clearTimeout(t);
   }, [okedQ]);
 
-  // опросник: загрузка вопросов + дефолты
   useEffect(() => {
     if (mode === "biz" && questions.length === 0)
       fetch("/api/business/questions").then((r) => r.json()).then((d) => {
@@ -555,11 +132,8 @@ export default function RegistryPage() {
   }, [mode, questions.length]);
 
   const activeTriggers = useMemo(() => Object.entries(answers).filter(([, v]) => v).map(([k]) => k), [answers]);
-
-  // выбор профиля → шаг опросника
   const startProfile = (p: BizProfile) => { setBizProfile(p); setBizStep("survey"); setBizData(null); setConclusion(null); setConclErr(null); };
 
-  // показать отчёт (после опросника), с активными триггерами
   const loadReport = () => {
     if (!bizProfile) return;
     setBizStep("report"); setBizLoading(true);
@@ -580,7 +154,6 @@ export default function RegistryPage() {
     }
   };
 
-  // ИИ-заключение
   const genConclusion = () => {
     if (!bizProfile) return;
     setConclLoading(true); setConclErr(null); setConclusion(null);
@@ -710,390 +283,19 @@ export default function RegistryPage() {
           </main>
         </div>
       ) : mode === "organs" ? (
-        /* ——— Органы и НПА ——— */
-        <div className="reg-shell">
-          <aside className="reg-sidebar">
-            <div className="reg-filters">
-              <div className="reg-filters-head"><span className="reg-filters-title">Государственные органы</span></div>
-              {organs.map((o) => (
-                <div key={o.ministry} className={"reg-org-item" + (selOrg === o.ministry ? " on" : "")} onClick={() => setSelOrg(o.ministry)}>
-                  <span className="reg-org-name">{minShort(o.ministry)}</span>
-                  <span className="reg-org-count">{o.npa_count} НПА</span>
-                </div>
-              ))}
-            </div>
-          </aside>
-          <main className="reg-content">
-            <div className="reg-catalog">
-              <h1 className="reg-cat-h1">{selOrg || "Органы и НПА"}</h1>
-              {selOrg && (() => {
-                const o = organs.find((x) => x.ministry === selOrg);
-                return o ? <div className="reg-cat-sub">{o.npa_count} НПА · {Number(o.req_count).toLocaleString("ru")} требований</div> : null;
-              })()}
-              <div style={{ marginTop: 18 }} className="reg-npa-list">
-                {npaLoading ? <div className="reg-empty">Загрузка…</div> : npaList.map((n) => (
-                  <div key={n.ngr} className="reg-npa-card">
-                    <div className="reg-npa-top">
-                      <div className="reg-npa-title">{n.title}</div>
-                      <span className="reg-npa-req">{n.req_count} треб.</span>
-                    </div>
-                    <div className="reg-npa-meta">
-                      <span>Госрегномер: <b>{n.ngr}</b></span>
-                      {n.date_revision && <span>Редакция: <b>{n.date_revision}</b></span>}
-                      {n.review_deadline && <span title="Плановая дата анализа по реестру Минфина">План. анализ: <b>{n.review_deadline}</b></span>}
-                      {n.npa_status === "утратил силу" && <span className="reg-npa-dead">утратил силу</span>}
-                      <a className="reg-npa-link" href={n.adilet_url} target="_blank" rel="noreferrer">Открыть в adilet.zan.kz →</a>
-                    </div>
-                  </div>
-                ))}
-                {!npaLoading && npaList.length === 0 && <div className="reg-empty"><h3>Нет НПА</h3></div>}
-              </div>
-            </div>
-          </main>
-        </div>
+        <OrgansMode />
       ) : mode === "cost" ? (
-        /* ——— Нагрузка (cost-management, SCM) ——— */
-        <div className="reg-biz">
-          <div className="reg-biz-hero">
-            <h1>Регуляторная нагрузка на бизнес</h1>
-            <p>Оценка стоимости выполнения требований по модели Standard Cost Model (₸/год). Параметры настраиваемые; время и частота — предварительная ИИ-оценка.</p>
-          </div>
-          {!costData ? <div className="reg-empty">Загрузка…</div> : (
-            <>
-              <div className="reg-cost-summary">
-                <div className="reg-cost-stat"><b>{fmtKzt(costData.medianPerEntity)}</b><span>медианная стоимость выполнения требования (₸/субъект/год)</span></div>
-                <div className="reg-cost-stat"><b>{Number(costData.count).toLocaleString("ru")}</b><span>оценённых требований</span></div>
-                <div className="reg-cost-stat"><b>{Number(costData.withExternal).toLocaleString("ru")}</b><span>с пошлинами / внешними расходами</span></div>
-              </div>
-
-              {/* Настраиваемые параметры расчёта — смена пересчитывает всё мгновенно (view) */}
-              <div className="reg-cost-params">
-                <div className="reg-cost-params-h">
-                  <span>Параметры расчёта</span>
-                  <span className="reg-cost-hint">Значения по умолчанию — БНС / Standard Cost Model. Измените любой — стоимость пересчитается для всех требований.</span>
-                </div>
-                <div className="reg-cost-params-grid">
-                  {PARAM_FIELDS.map((fld) => (
-                    <label key={fld.k} className="reg-cost-param">
-                      <span className="reg-cost-param-l">{fld.label}</span>
-                      <span className="reg-cost-param-in">
-                        <input type="number" step={fld.step || "1"} value={costParams[fld.k] ?? ""}
-                          onChange={(e) => setCostParams((p) => ({ ...p, [fld.k]: e.target.value }))} />
-                        <i>{fld.unit}</i>
-                      </span>
-                    </label>
-                  ))}
-                </div>
-                <button className="reg-cost-apply" onClick={saveCostParams} disabled={paramsSaving}>
-                  {paramsSaving ? "Пересчёт…" : "Применить и пересчитать"}
-                </button>
-              </div>
-
-              {/* Стоимость проверок — зависит от «часа проверки» и трудозатрат на сопровождение */}
-              {Number(costData.withInspection) > 0 && (
-                <>
-                  <div className="reg-biz-blockh reg-biz-blockh-lg">Стоимость проверок<span className="reg-biz-blockh-cnt">{Number(costData.withInspection).toLocaleString("ru")} требований с выездной проверкой</span></div>
-                  <div className="reg-cost-summary">
-                    <div className="reg-cost-stat"><b>{fmtKzt(costData.medianInspGov)}</b><span>стоимость проверки государству — медиана (₸)</span></div>
-                    <div className="reg-cost-stat"><b>{fmtKzt(costData.avgInspGov)}</b><span>стоимость проверки государству — средняя (₸)</span></div>
-                    <div className="reg-cost-stat"><b>{fmtKzt(costData.avgInspBiz)}</b><span>сопровождение проверки бизнесом — средняя (₸)</span></div>
-                  </div>
-                </>
-              )}
-
-              <div className="reg-biz-blockh reg-biz-blockh-lg">Средняя стоимость требования по органам<span className="reg-biz-blockh-cnt">₸/субъект/год</span></div>
-              <div className="reg-cost-bars">
-                {costData.byMinistry.map((m: any, i: number) => (
-                  <div key={i} className="reg-cost-bar">
-                    <span className="reg-cost-bar-l" title={m.ministry}>{minShort(m.ministry)}</span>
-                    <span className="reg-cost-bar-track"><span className="reg-cost-bar-fill" style={{ width: (Number(m.burden) / Number(costData.byMinistry[0]?.burden || 1) * 100).toFixed(1) + "%" }} /></span>
-                    <span className="reg-cost-bar-v">{fmtKzt(Number(m.burden))}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="reg-biz-blockh reg-biz-blockh-lg">Топ-50 самых дорогих требований<span className="reg-biz-blockh-cnt">₸ на субъект / год</span></div>
-              <div className="reg-cost-table">
-                {costData.top.map((r: any) => (
-                  <div key={r.id} className="reg-cost-row" onClick={() => setActive(r)}>
-                    <span className="reg-cost-row-t">{r.title}</span>
-                    <span className="reg-cost-row-meta">{minShort(r.ministry)} · {r.action_type} · {Number(r.time_hours)}ч ×{Number(r.frequency_per_year)}/год{Number(r.external_cost_kzt) > 0 ? ` · пошлина ${fmtKzt(Number(r.external_cost_kzt))}` : ""}</span>
-                    <span className="reg-cost-row-v">{fmtKzt(Number(r.cost_per_entity_kzt))}</span>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+        <CostMode costData={costData} setCostData={setCostData} onOpen={setActive} />
       ) : mode === "dupes" ? (
-        /* ——— Дубли и избыточность ——— */
-        <div className="reg-biz">
-          <div className="reg-biz-hero">
-            <h1>Дублирующие и избыточные требования</h1>
-            <p>Группы уточнены по сектору: процедурно похожие действия из разных сфер (например, заявления на разные лицензии) разведены и не считаются дублем. «Кросс-орган» — одно обязательство в одном секторе контролируют разные органы (приоритет для гильотины и правила «1 вошло — 2 вышло»).</p>
-          </div>
-          <div className="reg-dupe-toolbar">
-            <button className={"reg-stage-pill" + (dupeCross ? " on" : "")} onClick={() => setDupeCross(true)}>Кросс-орган</button>
-            <button className={"reg-stage-pill" + (!dupeCross ? " on" : "")} onClick={() => setDupeCross(false)}>Все группы</button>
-            {dupes && <span className="reg-cost-hint">{Number(dupes.totalDuplicates).toLocaleString("ru")} дублей в {Number(dupes.totalGroups).toLocaleString("ru")} группах{dupeCross && dupes.rawCrossGroups ? ` · разведено по сферам ${(Number(dupes.rawCrossGroups) - Number(dupes.crossGroups)).toLocaleString("ru")} ложных склеек` : ""}</span>}
-          </div>
-          {!dupes ? <div className="reg-empty">Загрузка…</div> : (
-            <div className="reg-dupe-list">
-              {dupes.groups.map((g: any) => (
-                <div key={g.gid} className="reg-dupe-group">
-                  <button className="reg-dupe-head" onClick={() => toggleDupe(String(g.gid))}>
-                    <span className={"chev2" + (openDupe === String(g.gid) ? " open" : "")}><I.chevRight /></span>
-                    <span className="reg-dupe-title">{g.canon_title || "(группа дублей)"}</span>
-                    {g.sphere_code && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 6, background: (SPHERE_COLOR[g.sphere_code] || "#6B7A73") + "22", color: SPHERE_COLOR[g.sphere_code] || "#6B7A73", whiteSpace: "nowrap" }}>{g.sphere_name || g.sphere_code}</span>}
-                    <span className="reg-dupe-badge">{g.size}× · {g.organs} орг.</span>
-                    {Number(g.potential_saving) > 0 && <span className="reg-dupe-save">~{fmtKzt(Number(g.potential_saving))}</span>}
-                  </button>
-                  {openDupe === String(g.gid) && (
-                    <div className="reg-dupe-body">
-                      {dupeItems[String(g.gid)]
-                        ? dupeItems[String(g.gid)].map((r: any) => (
-                          <div key={r.id} className={"reg-dupe-item" + (r.is_canonical ? " canon" : "")} onClick={() => setActive(r)}>
-                            <span className="reg-dupe-item-t">{r.title || r.action}{r.is_canonical ? " · канон" : ""}</span>
-                            <span className="reg-dupe-item-m">{minShort(r.ministry)}{r.npa_title ? ` · ${minShort(r.npa_title)}` : ""}</span>
-                          </div>
-                        ))
-                        : <div className="reg-empty">Загрузка…</div>}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <DupesMode onOpen={setActive} />
       ) : mode === "method" ? (
-        /* ——— Методика расчёта ——— */
-        (() => {
-          const P: any = costData?.params || {};
-          const HRS = Number(P.hours_per_month ?? 160);
-          const ONC = 1 + Number(P.on_costs ?? 0.175);
-          const OVH = 1 + Number(P.overhead ?? 0.30);
-          const RM: Record<string, number> = { clerical: Number(P.mult_clerical ?? 0.8), specialist: Number(P.mult_specialist ?? 1), manager: Number(P.mult_manager ?? 1.4) };
-          const SUBJ = 2181112;
-          const rmv = RM[mRole] ?? 1;
-          const tariff = (mWage / HRS) * ONC * OVH * rmv;
-          const perEntity = tariff * mTime * mFreq;
-          const total = perEntity * SUBJ;
-          const ru = (n: number) => Math.round(n).toLocaleString("ru-RU");
-          const cf = (n: number, d: number) => n.toFixed(d).replace(".", ",");
-          return (
-            <div className="reg-biz">
-              <div className="reg-biz-hero">
-                <h1>Методика расчёта регуляторной нагрузки</h1>
-                <p>Стоимость каждого требования считается по международной модели Standard Cost Model. Покрутите параметры — видно, из чего складывается нагрузка. Коэффициенты берутся из живых настроек реестра (раздел «Нагрузка»).</p>
-              </div>
-
-              <div className="reg-mtd-f">
-                <div><span className="reg-mtd-lbl">Тариф часа труда (₸/ч) — полная стоимость часа специалиста</span>
-                  = (зарплата <span className="reg-mtd-v">{ru(mWage)}</span> ₸ <span className="reg-mtd-op">÷</span> <span className="reg-mtd-c">{HRS} ч</span>)
-                  <span className="reg-mtd-op">×</span> <span className="reg-mtd-c">{cf(ONC, 3)}</span> <span className="reg-mtd-x">соц.</span>
-                  <span className="reg-mtd-op">×</span> <span className="reg-mtd-c">{cf(OVH, 2)}</span> <span className="reg-mtd-x">накл.</span>
-                  <span className="reg-mtd-op">×</span> <span className="reg-mtd-v">{cf(rmv, 1)}</span> <span className="reg-mtd-x">роль</span>
-                  <span className="reg-mtd-op">=</span> <span className="reg-mtd-res">{ru(tariff)}</span> ₸/ч</div>
-                <div style={{ marginTop: 6 }}><span className="reg-mtd-lbl">Стоимость на 1 субъект (₸/год) — нагрузка на один бизнес</span>
-                  = (<span className="reg-mtd-res">{ru(tariff)}</span> ₸/ч <span className="reg-mtd-op">×</span> <span className="reg-mtd-v">{cf(mTime, 1)}</span> ч)
-                  <span className="reg-mtd-op">×</span> <span className="reg-mtd-v">{mFreq}</span> раз/год
-                  <span className="reg-mtd-op">=</span> <span className="reg-mtd-res">{ru(perEntity)}</span> ₸/год</div>
-              </div>
-
-              <div className="reg-mtd-controls">
-                <div className="reg-mtd-row"><label>Зарплата в отрасли, ₸/мес</label>
-                  <input type="range" min={200000} max={1200000} step={1000} value={mWage} onChange={(e) => setMWage(Number(e.target.value))} />
-                  <output>{ru(mWage)}</output></div>
-                <div className="reg-mtd-row"><label>Время на выполнение</label>
-                  <input type="range" min={0.5} max={40} step={0.5} value={mTime} onChange={(e) => setMTime(Number(e.target.value))} />
-                  <output>{cf(mTime, 1)} ч</output></div>
-                <div className="reg-mtd-row"><label>Частота</label>
-                  <input type="range" min={1} max={52} step={1} value={mFreq} onChange={(e) => setMFreq(Number(e.target.value))} />
-                  <output>{mFreq}/год</output></div>
-                <div className="reg-mtd-row"><label>Категория исполнителя</label>
-                  <select value={mRole} onChange={(e) => setMRole(e.target.value)}>
-                    <option value="clerical">Делопроизводитель (×{cf(RM.clerical, 1)})</option>
-                    <option value="specialist">Специалист (×{cf(RM.specialist, 1)})</option>
-                    <option value="manager">Руководитель (×{cf(RM.manager, 1)})</option>
-                  </select>
-                  <output>×{cf(rmv, 1)}</output></div>
-              </div>
-
-              <div className="reg-cost-summary" style={{ marginTop: 18 }}>
-                <div className="reg-cost-stat"><b>{ru(tariff)} ₸</b><span>тариф часа труда</span></div>
-                <div className="reg-cost-stat"><b>{ru(perEntity)} ₸</b><span>нагрузка на субъект / год</span></div>
-                <div className="reg-cost-stat"><b>{fmtKzt(total)}</b><span>суммарно по МСБ / год · одно требование × 2,18 млн</span></div>
-              </div>
-
-              <div className="reg-biz-blockh reg-biz-blockh-lg">На опыте каких стран построена методика<span className="reg-biz-blockh-cnt">международные практики</span></div>
-              <div className="reg-mtd-prov">
-                <div className="reg-mtd-card">
-                  <h4>Standard Cost Model</h4>
-                  <span className="reg-mtd-tag reg-mtd-t-core">Ядро формулы · Нидерланды, ЕС</span>
-                  <p>Само уравнение «Стоимость = Цена × Количество» и структура тарифа (зарплата + надбавки + накладные). Родина — Нидерланды, сеть SCM Network с 2003 г.</p>
-                  <div className="reg-mtd-fact">NL: админбремя €16,4 млрд/год ≈ 3,6% ВВП; применяют Дания, Норвегия, Швеция, Великобритания.</div>
-                </div>
-                <div className="reg-mtd-card">
-                  <h4>RBMF</h4>
-                  <span className="reg-mtd-tag reg-mtd-t-ext">Расширение · Австралия</span>
-                  <p>Деление издержек на 3 типа: административные, существенные (оборудование, обучение) и издержки задержки. Множитель надбавок к зарплате.</p>
-                  <div className="reg-mtd-fact">Office of Impact Analysis: $48,67/ч × 1,75 = $85,17/ч.</div>
-                </div>
-                <div className="reg-mtd-card">
-                  <h4>One-for-one rule</h4>
-                  <span className="reg-mtd-tag reg-mtd-t-ext">Расширение · Канада</span>
-                  <p>Дисконтированная SCM-формула (ставка 7%) и принцип «одно требование вошло — одно вышло» для сдерживания роста нагрузки.</p>
-                  <div className="reg-mtd-fact">Red Tape Reduction Act, 2015. В ЕС аналог «one-in-one-out» с 2022 г.</div>
-                </div>
-                <div className="reg-mtd-card">
-                  <h4>Bürokratiekostenindex</h4>
-                  <span className="reg-mtd-tag reg-mtd-t-ext">Расширение · Германия</span>
-                  <p>Индекс динамики бюрократических издержек на базе SCM — отслеживать рост или снижение совокупной нагрузки во времени.</p>
-                  <div className="reg-mtd-fact">Ведётся Statistisches Bundesamt; база для цели сокращения нагрузки.</div>
-                </div>
-                <div className="reg-mtd-card">
-                  <h4>Регуляторная гильотина</h4>
-                  <span className="reg-mtd-tag reg-mtd-t-cut">Поиск дублей · Корея, Хорватия</span>
-                  <p>Массовый пересмотр: каждое требование классифицируется «оставить / упростить / отменить» по чек-листу (законность, нужность, бизнес-дружелюбность).</p>
-                  <div className="reg-mtd-fact">Методология Jacobs, Cordova &amp; Associates. Корея 1998–99: 11 000+ норм за 11 мес, отменено ≈50%.</div>
-                </div>
-                <div className="reg-mtd-card">
-                  <h4>OECD</h4>
-                  <span className="reg-mtd-tag reg-mtd-t-fr">Рамка качества · международная</span>
-                  <p>Принципы: измерять и административные, и существенные издержки; пропорциональность (больше доказательств — для весомых норм) и риск-ориентированный контроль.</p>
-                  <div className="reg-mtd-fact">Regulatory Policy Outlook 2025, команда Measuring Regulatory Performance.</div>
-                </div>
-              </div>
-
-              <div className="reg-biz-blockh reg-biz-blockh-lg">Как реестр находит дубли<span className="reg-biz-blockh-cnt">три уровня</span></div>
-              <div className="reg-mtd-steps">
-                <div className="reg-mtd-step">
-                  <div className="reg-mtd-step-n">1</div>
-                  <h4>Структурный фильтр</h4>
-                  <p>Сравнение по полям карточки: сектор (сфера), орган, ОКЭД, тип обязательства, ссылка на НПА. Разводит процедурно похожие действия из разных секторов.</p>
-                </div>
-                <div className="reg-mtd-step">
-                  <div className="reg-mtd-step-n">2</div>
-                  <h4>Семантический</h4>
-                  <p>Эмбеддинги bge-m3 + косинусное сходство (порог ≈0,93) — ловит совпадения по смыслу даже при разной формулировке, внутри одного сектора.</p>
-                </div>
-                <div className="reg-mtd-step">
-                  <div className="reg-mtd-step-n">3</div>
-                  <h4>Гильотина</h4>
-                  <p>Совпадения классифицируются по чек-листу (законность, нужность, бизнес-дружелюбность). Приоритет — кросс-орган.</p>
-                  <div className="reg-mtd-guill"><span className="g-keep">оставить</span><span className="g-simpl">упростить</span><span className="g-cut">отменить</span></div>
-                </div>
-              </div>
-              <div className="reg-mtd-effect">Структурный фильтр по сектору развёл <b>648 ложных кросс-секторных склеек</b> (заявления на разные лицензии в разных отраслях) — настоящих кросс-орган групп осталось <b>300</b> вместо 958.</div>
-            </div>
-          );
-        })()
+        <MethodMode costData={costData} />
       ) : mode === "submit" ? (
-        /* ——— Подача НПА (самообслуживание) ——— */
-        <div className="reg-biz">
-          <div className="reg-biz-hero">
-            <h1>Подача НПА на включение в реестр</h1>
-            <p>Укажите ngr или ссылку adilet — система покажет черновой разбор на требования. После подачи авторитетный парсинг выполнит оператор, извлечённые карточки попадут в очередь ревью вашего органа.</p>
-          </div>
-          <div className="reg-cost-params">
-            <div className="reg-cost-params-h"><span>Новый НПА</span><span className="reg-cost-hint">по государственному регистрационному номеру</span></div>
-            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-              <input style={{ flex: 1, minWidth: 240, height: 38, border: "1px solid var(--line)", borderRadius: 9, padding: "0 12px", fontSize: 14 }}
-                value={subNgr} onChange={(e) => setSubNgr(e.target.value)} placeholder="напр. V2300032977 или https://adilet.zan.kz/rus/docs/…" />
-              <button className="reg-cost-apply" style={{ marginTop: 0 }} onClick={runPreview} disabled={subBusy || !subNgr}>{subBusy ? "…" : "Проверить"}</button>
-            </div>
-            {subMsg && <div className="reg-cost-hint" style={{ color: "#A32D2D", marginTop: 8 }}>{subMsg}</div>}
-            {subPrev && (
-              <div style={{ marginTop: 14 }}>
-                <div style={{ fontWeight: 650, fontSize: 15 }}>{subPrev.title || subNgr}</div>
-                <div className="reg-cost-hint" style={{ marginTop: 3 }}>Статей: {subPrev.articleCount} · разобрано в превью: {(subPrev.previewedArticles || []).join(", ") || "—"}</div>
-                <div style={{ margin: "10px 0" }}>
-                  {(subPrev.requirements || []).length ? (subPrev.requirements as any[]).map((r, i) => (
-                    <div key={i} className="reg-rev-row" style={{ marginBottom: 6 }}>
-                      <div className="reg-rev-main"><div className="reg-rev-t">{r.action}</div><div className="reg-rev-m">{r.subject}{r.quote ? ` · «${r.quote}»` : ""}</div></div>
-                    </div>
-                  )) : <div className="reg-empty">{subPrev.note || "Требования в превью не найдены (проверит полный парсинг)."}</div>}
-                </div>
-                <div className="reg-cost-params-grid">
-                  <label className="reg-cost-param"><span className="reg-cost-param-l">Ответственный орган (узел)</span>
-                    <span className="reg-cost-param-in"><select value={subOrgId} onChange={(e) => setSubOrgId(e.target.value)} style={{ width: "100%", height: 36, border: "1px solid var(--line)", borderRadius: 8 }}>
-                      <option value="">— выбрать —</option>{subOrgs.map((o: any) => <option key={o.id} value={o.id}>{o.short_name || o.name_ru}</option>)}</select></span></label>
-                  <label className="reg-cost-param"><span className="reg-cost-param-l">Сфера (код)</span>
-                    <span className="reg-cost-param-in"><input value={subSphere} onChange={(e) => setSubSphere(e.target.value)} placeholder="напр. taxes / labor" /></span></label>
-                  <label className="reg-cost-param"><span className="reg-cost-param-l">Срок АРА</span>
-                    <span className="reg-cost-param-in"><input type="date" value={subAra} onChange={(e) => setSubAra(e.target.value)} /></span></label>
-                </div>
-                <button className="reg-cost-apply" onClick={submitNpa} disabled={subBusy}>Подать в очередь</button>
-              </div>
-            )}
-          </div>
-          <div className="reg-biz-blockh reg-biz-blockh-lg">Мои подачи<span className="reg-biz-blockh-cnt">{subList.length}</span></div>
-          <div className="reg-rev-list">
-            {subList.map((s: any) => (
-              <div key={s.id} className="reg-rev-row">
-                <div className="reg-rev-main"><div className="reg-rev-t">{s.npa_title || s.ngr}</div><div className="reg-rev-m">{s.ngr} · {s.org_short || s.org_name || "—"} · подал {s.submitter}</div></div>
-                <span className={"reg-rb reg-rb-" + (s.status === "parsed" ? "confirmed" : s.status === "error" ? "rejected" : "pending")}>{s.status}{s.cards_created ? ` · ${s.cards_created} карт.` : ""}</span>
-              </div>
-            ))}
-            {!subList.length && <div className="reg-empty">Пока нет подач.</div>}
-          </div>
-        </div>
+        <SubmitMode />
       ) : mode === "review" ? (
-        /* ——— Ревью госоргана (очередь апрува) ——— */
-        <div className="reg-biz">
-          <div className="reg-biz-hero">
-            <h1>Подтверждение требований госорганом</h1>
-            <p>Извлечённые требования вашего органа — подтвердите, отклоните или поправьте. Подтверждённые включаются в реестр после согласования с уполномоченным органом (МНЭ). Срок проведения АРА обязателен при подтверждении.</p>
-          </div>
-          {!rq ? <div className="reg-empty">Загрузка…</div> : rq.noAuthorities ? (
-            <div className="reg-empty">Вам не назначены органы. Обратитесь к администратору (МНЭ) для назначения.</div>
-          ) : (
-            <>
-              <div className="reg-cost-summary">
-                <div className="reg-cost-stat"><b>{Number(rq.counts?.pending || 0).toLocaleString("ru")}</b><span>на подтверждении</span></div>
-                <div className="reg-cost-stat"><b>{Number(rq.counts?.confirmed || 0).toLocaleString("ru")}</b><span>подтверждено</span></div>
-                <div className="reg-cost-stat"><b>{Number(rq.counts?.rejected || 0).toLocaleString("ru")}</b><span>отклонено</span></div>
-              </div>
-              <div className="reg-dupe-toolbar">
-                {([["pending", "На подтверждении"], ["confirmed", "Подтверждённые"], ["rejected", "Отклонённые"], ["all", "Все"]] as [string, string][]).map(([v, l]) => (
-                  <button key={v} className={"reg-stage-pill" + (rqStatus === v ? " on" : "")} onClick={() => { setRqStatus(v); setRqPage(1); }}>{l}</button>
-                ))}
-                <input className="reg-mtd-row" style={{ flex: 1, minWidth: 160, height: 34, border: "1px solid var(--line)", borderRadius: 8, padding: "0 11px", fontSize: 13 }} placeholder="Поиск по тексту / ngr…" value={rqQ} onChange={(e) => setRqQ(e.target.value)} />
-              </div>
-              {rqStatus === "pending" && (
-                <div className="reg-rev-bulk">
-                  <label>Срок АРА <input type="date" value={rqAra} onChange={(e) => setRqAra(e.target.value)} /></label>
-                  <span className="reg-cost-hint">Выбрано: {rqSel.length}</span>
-                  <button className="reg-rev-confirm" disabled={!rqSel.length || rqBusy} onClick={() => reviewBulk("confirm")}>Подтвердить выбранные</button>
-                  <button className="reg-rev-reject" disabled={!rqSel.length || rqBusy} onClick={() => reviewBulk("reject")}>Отклонить выбранные</button>
-                  <button className="reg-rev-all" onClick={() => setRqSel(rqSel.length === rq.items.length && rq.items.length ? [] : rq.items.map((x: Req) => x.id))}>{rqSel.length === rq.items.length && rq.items.length ? "Снять все" : "Выбрать страницу"}</button>
-                </div>
-              )}
-              <div className="reg-rev-list">
-                {rq.items.map((r: Req) => (
-                  <div key={r.id} className="reg-rev-row">
-                    {rqStatus === "pending" && <input type="checkbox" checked={rqSel.includes(r.id)} onChange={(e) => setRqSel(e.target.checked ? [...rqSel, r.id] : rqSel.filter((x) => x !== r.id))} />}
-                    <div className="reg-rev-main" onClick={() => setActive(r)}>
-                      <div className="reg-rev-t">{r.title || r.action}</div>
-                      <div className="reg-rev-m">{r.ngr}{r.article ? ` · ${r.article}` : ""} · {minShort(r.ministry)}{r.sphere_name ? ` · ${r.sphere_name}` : ""}</div>
-                    </div>
-                    <span className={"reg-rb reg-rb-" + (r.review_status || "")}>{REVIEW_LABEL[r.review_status || ""] || r.review_status}</span>
-                  </div>
-                ))}
-                {!rq.items.length && <div className="reg-empty">Нет требований в этом статусе.</div>}
-              </div>
-              {rq.pages > 1 && (
-                <div className="reg-rev-pager">
-                  <button disabled={rqPage <= 1} onClick={() => setRqPage(rqPage - 1)}>←</button>
-                  <span>{rqPage} / {rq.pages}</span>
-                  <button disabled={rqPage >= rq.pages} onClick={() => setRqPage(rqPage + 1)}>→</button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+        <ReviewMode onOpen={setActive} registerReload={registerReviewReload} />
       ) : (
-        /* ——— Бизнес ——— */
+        /* ——— Бизнес (Guided Search ABLIS) ——— */
         <div className="reg-biz">
           {!bizPath ? (
             <>
@@ -1334,7 +536,7 @@ export default function RegistryPage() {
         </div>
       )}
 
-      {active && <Drawer r={active} onClose={() => setActive(null)} onSaved={mode === "review" ? loadReviewQueue : load} role={me?.role} />}
+      {active && <Drawer r={active} onClose={() => setActive(null)} onSaved={mode === "review" ? () => reviewReloadRef.current?.() : load} role={me?.role} />}
     </div>
   );
 }
