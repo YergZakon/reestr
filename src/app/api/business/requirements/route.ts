@@ -128,7 +128,7 @@ export async function GET(req: NextRequest) {
       `SELECT ${FIELDS} FROM requirement_registry rr
        LEFT JOIN spheres s ON s.code = rr.sphere_code
        WHERE ${ACTIVE} AND COALESCE(rr.is_permit,false) = true
-         AND ((COALESCE(s.is_horizontal,false) AND COALESCE(rr.audience,'any')='any') OR ${sr}) AND ${ap}${og}${expandCut}
+         AND ((COALESCE(s.is_horizontal,false) OR ${sr}) AND COALESCE(rr.audience,'any')='any') AND ${ap}${og}${expandCut}
        ORDER BY rr.ministry NULLS LAST, rr.id LIMIT 400`,
       params
     );
@@ -147,7 +147,7 @@ export async function GET(req: NextRequest) {
       `SELECT count(*) AS n FROM requirement_registry rr
        LEFT JOIN spheres s ON s.code = rr.sphere_code
        WHERE ${ACTIVE} AND NOT COALESCE(s.is_horizontal,false) AND COALESCE(rr.is_permit,false) = false
-         AND ${cSr} AND ${cAp}${cOg}${expandCut}`, cParams);
+         AND ${cSr} AND COALESCE(rr.audience,'any')='any' AND ${cAp}${cOg}${expandCut}`, cParams);
     sectoralTotal = parseInt(cnt.rows[0].n, 10);
 
     const params: unknown[] = [];
@@ -158,7 +158,7 @@ export async function GET(req: NextRequest) {
       `SELECT ${FIELDS} FROM requirement_registry rr
        LEFT JOIN spheres s ON s.code = rr.sphere_code
        WHERE ${ACTIVE} AND NOT COALESCE(s.is_horizontal,false) AND COALESCE(rr.is_permit,false) = false
-         AND ${sr} AND ${ap}${og}${expandCut}
+         AND ${sr} AND COALESCE(rr.audience,'any')='any' AND ${ap}${og}${expandCut}
        ORDER BY rr.ministry NULLS LAST, rr.id LIMIT 2000`, params);
     sectoral = r.rows;
   }
