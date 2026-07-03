@@ -57,8 +57,14 @@ export async function POST(req: NextRequest) {
 
   // фильтр применимости (как в requirements)
   const applic = (params: unknown[]) => {
-    if (T.length) { params.push(T); return `(rr.triggers IS NULL OR cardinality(rr.triggers)=0 OR rr.triggers && $${params.length}::text[])`; }
-    return `(rr.triggers IS NULL OR cardinality(rr.triggers)=0)`;
+    if (T.length) {
+      params.push(T);
+      const p = `$${params.length}`;
+      return `((rr.triggers IS NULL OR cardinality(rr.triggers)=0 OR rr.triggers && ${p}::text[])
+        AND (rr.cond_tags IS NULL OR cardinality(rr.cond_tags)=0 OR rr.cond_tags && ${p}::text[]))`;
+    }
+    return `((rr.triggers IS NULL OR cardinality(rr.triggers)=0)
+      AND (rr.cond_tags IS NULL OR cardinality(rr.cond_tags)=0))`;
   };
   const expandCut = String(body.path || "") === "expand" ? " AND NOT ('registration' = ANY(rr.stages) AND rr.scope='horizontal')" : "";
 

@@ -34,9 +34,14 @@ export async function GET(req: NextRequest) {
   const applic = (params: unknown[]) => {
     if (T.length) {
       params.push(T);
-      return `(rr.triggers IS NULL OR cardinality(rr.triggers) = 0 OR rr.triggers && $${params.length}::text[])`;
+      const p = `$${params.length}`;
+      // triggers: OR-семантика (любой активный общий тег открывает карточку);
+      // cond_tags: AND-семантика (условие должно быть подтверждено ответом «Да»)
+      return `((rr.triggers IS NULL OR cardinality(rr.triggers) = 0 OR rr.triggers && ${p}::text[])
+        AND (rr.cond_tags IS NULL OR cardinality(rr.cond_tags) = 0 OR rr.cond_tags && ${p}::text[]))`;
     }
-    return `(rr.triggers IS NULL OR cardinality(rr.triggers) = 0)`;
+    return `((rr.triggers IS NULL OR cardinality(rr.triggers) = 0)
+      AND (rr.cond_tags IS NULL OR cardinality(rr.cond_tags) = 0))`;
   };
 
   // path=expand (расширение действующего бизнеса) — исключаем уже пройденную базовую регистрацию

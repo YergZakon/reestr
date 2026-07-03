@@ -152,8 +152,32 @@ export async function GET(req: NextRequest) {
   const byTag: Record<string, number> = {};
   for (const r of counts.rows) byTag[r.tag] = r.n;
 
+  // слой 3: вопросы из условий карточек — top-8 cond-тегов по влиянию на профиль
+  const condCounts = await query(
+    `SELECT t AS tag, count(*)::int AS n
+     FROM requirement_registry rr
+     LEFT JOIN spheres s ON s.code = rr.sphere_code, unnest(rr.cond_tags) t
+     WHERE rr.is_canonical AND NOT COALESCE(rr.excluded, false)
+       AND (rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')
+       AND COALESCE(rr.review_status,'pending') <> 'rejected'
+       AND ((COALESCE(s.is_horizontal,false) AND COALESCE(rr.audience,'any')='any') OR ${rel})${og}
+     GROUP BY t ORDER BY n DESC LIMIT 8`, params);
+  const condTags = condCounts.rows.map((r: { tag: string; n: number }) => r.tag);
+  const condQ = condTags.length
+    ? await query(`SELECT tag, label, hint FROM condition_questions WHERE tag = ANY($1::text[])`, [condTags])
+    : { rows: [] as { tag: string; label: string; hint: string | null }[] };
+  const condByTag: Record<string, { label: string; hint: string | null }> = {};
+  for (const r of condQ.rows) condByTag[r.tag] = { label: r.label, hint: r.hint };
+  const condQuestions = condCounts.rows
+    .filter((r: { tag: string }) => condByTag[r.tag])
+    .map((r: { tag: string; n: number }) => ({
+      tag: r.tag, q: condByTag[r.tag].label, hint: condByTag[r.tag].hint || undefined,
+      def: false, pack: false, cond: true, count: r.n,
+    }));
+
   const questions = [
     ...pack.map((q) => ({ ...q, pack: true, count: byTag[q.tag] || 0 })),
+    ...condQuestions,
     ...QUESTIONS
       .filter((q) => !autoTags.includes(q.tag) && (byTag[q.tag] || 0) > 0)
       .map((q) => ({ ...q, pack: false, count: byTag[q.tag] })),

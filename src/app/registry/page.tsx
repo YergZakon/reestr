@@ -23,7 +23,7 @@ interface OkedRow { code: string; name_ru: string; section: string; section_name
 interface BizProfile { kind: "section" | "scenario" | "oked"; oked?: string; section?: string; title: string; icon?: string; desc?: string; }
 interface HorizGroup { sphere_code: string | null; name_ru: string | null; n: number; }
 interface BizData { oked: string | null; okedName: string | null; section: string | null; sectionName: string | null; permits: Req[]; sectoral: Req[]; sectoralTotal: number; horizontalGroups: HorizGroup[]; }
-interface Question { tag: string; q: string; hint?: string; def: boolean; pack?: boolean; count?: number; }
+interface Question { tag: string; q: string; hint?: string; def: boolean; pack?: boolean; cond?: boolean; count?: number; }
 type BizPath = "new" | "expand";
 interface Opt { ministry?: string; sphere_code?: string; stage?: string; name?: string; n: number; }
 
@@ -424,6 +424,9 @@ export default function RegistryPage() {
                     <div key={q.tag} className={"reg-q-card" + (answers[q.tag] !== undefined ? " answered" : "")}>
                       <div className="reg-q-text">{q.q}</div>
                       {q.hint && <div className="reg-q-hint">{q.hint}</div>}
+                      {typeof q.count === "number" && q.count > 0 && (
+                        <div className="reg-q-hint" style={{ opacity: 0.75 }}>Влияет на {q.count.toLocaleString("ru")} требований</div>
+                      )}
                       <div className="reg-q-btns">
                         <button className={"reg-q-btn yes" + (answers[q.tag] === true ? " on" : "")} onClick={() => setAnswers((p) => ({ ...p, [q.tag]: true }))}><I.check />Да</button>
                         <button className={"reg-q-btn no" + (answers[q.tag] === false ? " on" : "")} onClick={() => setAnswers((p) => ({ ...p, [q.tag]: false }))}>Нет</button>
