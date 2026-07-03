@@ -75,16 +75,26 @@ export async function POST(req: NextRequest) {
     if (section) { params.push(section); return `$${params.length} = ANY(rr.sections)`; }
     return "false";
   };
+  // ОКЭД-гейт точности (синхронно с business/requirements): карточки с okeds
+  // чужих отраслей не попадают в заключение профиля
+  const okedGate = (params: unknown[]) => {
+    if (!oked) return "";
+    params.push(oked);
+    const p = `$${params.length}`;
+    return ` AND (rr.okeds IS NULL OR cardinality(rr.okeds) = 0
+      OR EXISTS (SELECT 1 FROM unnest(rr.okeds) o WHERE o LIKE ${p} || '%' OR ${p} LIKE o || '%'))`;
+  };
 
   // permits
   const pParams: unknown[] = [];
   const pSr = sectoralRel(pParams);
   const pAp = applic(pParams);
+  const pOg = okedGate(pParams);
   const permits = (await query(
     `SELECT DISTINCT COALESCE(NULLIF(rr.title,''), rr.action) AS t, rr.ministry
      FROM requirement_registry rr LEFT JOIN spheres s ON s.code=rr.sphere_code
      WHERE ${ACTIVE} AND COALESCE(rr.is_permit,false)=true
-       AND ((COALESCE(s.is_horizontal,false) AND COALESCE(rr.audience,'any')='any') OR ${pSr}) AND ${pAp}${expandCut}
+       AND ((COALESCE(s.is_horizontal,false) AND COALESCE(rr.audience,'any')='any') OR ${pSr}) AND ${pAp}${pOg}${expandCut}
      ORDER BY 1 LIMIT 50`, pParams)).rows;
 
   // sectoral по стадиям (только названия, компактно)
@@ -92,11 +102,12 @@ export async function POST(req: NextRequest) {
     const sParams: unknown[] = [];
     const sSr = sectoralRel(sParams);
     const sAp = applic(sParams);
+    const sOg = okedGate(sParams);
     return query(
       `SELECT COALESCE(NULLIF(rr.title,''), rr.action) AS t, rr.stages, rr.ministry
        FROM requirement_registry rr LEFT JOIN spheres s ON s.code=rr.sphere_code
        WHERE ${ACTIVE} AND NOT COALESCE(s.is_horizontal,false) AND COALESCE(rr.is_permit,false)=false
-         AND ${sSr} AND ${sAp}${expandCut}
+         AND ${sSr} AND ${sAp}${sOg}${expandCut}
        ORDER BY rr.ministry NULLS LAST LIMIT 140`, sParams);
   })()).rows : [];
 

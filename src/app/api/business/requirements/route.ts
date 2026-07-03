@@ -99,17 +99,31 @@ export async function GET(req: NextRequest) {
     return "false";
   };
 
+  // ОКЭД-гейт точности: карточка с заполненными okeds относится к профилю
+  // только при префикс-пересечении с ОКЭДом пользователя (авиамед 51xxx не
+  // показывается грузоперевозкам 49xx); карточки без okeds остаются на уровне
+  // сферы. Применяется и к горизонтальным пермитам (вырубка ecology/81300).
+  const okedGate = (params: unknown[]) => {
+    if (!oked) return "";
+    params.push(oked);
+    const p = `$${params.length}`;
+    return ` AND (rr.okeds IS NULL OR cardinality(rr.okeds) = 0
+      OR EXISTS (SELECT 1 FROM unnest(rr.okeds) o WHERE o LIKE ${p} || '%' OR ${p} LIKE o || '%'))`;
+  };
+
+
   // ── Что оформить (permits): разрешительные, релевантные, применимые ──
   let permits: unknown[] = [];
   {
     const params: unknown[] = [];
     const sr = sectoralRel(params);
     const ap = applic(params);
+    const og = okedGate(params);
     const r = await query(
       `SELECT ${FIELDS} FROM requirement_registry rr
        LEFT JOIN spheres s ON s.code = rr.sphere_code
        WHERE ${ACTIVE} AND COALESCE(rr.is_permit,false) = true
-         AND ((COALESCE(s.is_horizontal,false) AND COALESCE(rr.audience,'any')='any') OR ${sr}) AND ${ap}${expandCut}
+         AND ((COALESCE(s.is_horizontal,false) AND COALESCE(rr.audience,'any')='any') OR ${sr}) AND ${ap}${og}${expandCut}
        ORDER BY rr.ministry NULLS LAST, rr.id LIMIT 400`,
       params
     );
@@ -123,21 +137,23 @@ export async function GET(req: NextRequest) {
     const cParams: unknown[] = [];
     const cSr = sectoralRel(cParams);
     const cAp = applic(cParams);
+    const cOg = okedGate(cParams);
     const cnt = await query(
       `SELECT count(*) AS n FROM requirement_registry rr
        LEFT JOIN spheres s ON s.code = rr.sphere_code
        WHERE ${ACTIVE} AND NOT COALESCE(s.is_horizontal,false) AND COALESCE(rr.is_permit,false) = false
-         AND ${cSr} AND ${cAp}${expandCut}`, cParams);
+         AND ${cSr} AND ${cAp}${cOg}${expandCut}`, cParams);
     sectoralTotal = parseInt(cnt.rows[0].n, 10);
 
     const params: unknown[] = [];
     const sr = sectoralRel(params);
     const ap = applic(params);
+    const og = okedGate(params);
     const r = await query(
       `SELECT ${FIELDS} FROM requirement_registry rr
        LEFT JOIN spheres s ON s.code = rr.sphere_code
        WHERE ${ACTIVE} AND NOT COALESCE(s.is_horizontal,false) AND COALESCE(rr.is_permit,false) = false
-         AND ${sr} AND ${ap}${expandCut}
+         AND ${sr} AND ${ap}${og}${expandCut}
        ORDER BY rr.ministry NULLS LAST, rr.id LIMIT 2000`, params);
     sectoral = r.rows;
   }
