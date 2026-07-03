@@ -23,7 +23,7 @@ interface OkedRow { code: string; name_ru: string; section: string; section_name
 interface BizProfile { kind: "section" | "scenario" | "oked"; oked?: string; section?: string; title: string; icon?: string; desc?: string; }
 interface HorizGroup { sphere_code: string | null; name_ru: string | null; n: number; }
 interface BizData { oked: string | null; okedName: string | null; section: string | null; sectionName: string | null; permits: Req[]; sectoral: Req[]; sectoralTotal: number; horizontalGroups: HorizGroup[]; }
-interface Question { tag: string; q: string; hint?: string; def: boolean; }
+interface Question { tag: string; q: string; hint?: string; def: boolean; pack?: boolean; count?: number; }
 type BizPath = "new" | "expand";
 interface Opt { ministry?: string; sphere_code?: string; stage?: string; name?: string; n: number; }
 
@@ -104,6 +104,7 @@ export default function RegistryPage() {
   const [horizOpen, setHorizOpen] = useState<Record<string, boolean>>({});
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, boolean>>({});
+  const [autoTags, setAutoTags] = useState<{ tag: string; label: string }[]>([]);
   const [conclusion, setConclusion] = useState<string | null>(null);
   const [conclLoading, setConclLoading] = useState(false);
   const [conclErr, setConclErr] = useState<string | null>(null);
@@ -124,17 +125,22 @@ export default function RegistryPage() {
     return () => clearTimeout(t);
   }, [okedQ]);
 
-  useEffect(() => {
-    if (mode === "biz" && questions.length === 0)
-      fetch("/api/business/questions").then((r) => r.json()).then((d) => {
-        const qs: Question[] = d.questions || [];
-        setQuestions(qs);
-        setAnswers(Object.fromEntries(qs.map((x) => [x.tag, x.def])));
-      });
-  }, [mode, questions.length]);
-
   const activeTriggers = useMemo(() => Object.entries(answers).filter(([, v]) => v).map(([k]) => k), [answers]);
-  const startProfile = (p: BizProfile) => { setBizProfile(p); setBizStep("survey"); setBizData(null); setConclusion(null); setConclErr(null); };
+  const startProfile = (p: BizProfile) => {
+    setBizProfile(p); setBizStep("survey"); setBizData(null); setConclusion(null); setConclErr(null);
+    // адаптивный опросник: вопросы и авто-теги зависят от вида деятельности
+    const qp = p.oked ? `oked=${encodeURIComponent(p.oked)}` : `section=${encodeURIComponent(p.section || "")}`;
+    setQuestions([]); setAutoTags([]);
+    fetch(`/api/business/questions?${qp}`).then((r) => r.json()).then((d) => {
+      const qs: Question[] = d.questions || [];
+      const auto: { tag: string; label: string }[] = d.auto || [];
+      setQuestions(qs); setAutoTags(auto);
+      setAnswers({
+        ...Object.fromEntries(qs.map((x) => [x.tag, x.def])),
+        ...Object.fromEntries(auto.map((a) => [a.tag, true])),
+      });
+    }).catch(() => {});
+  };
 
   const loadReport = () => {
     if (!bizProfile) return;
@@ -406,6 +412,13 @@ export default function RegistryPage() {
               <div className="reg-survey">
                 <h2 className="reg-wiz-h">Уточняющие вопросы</h2>
                 <p className="reg-wiz-sub">Ответы определяют, какие лицензии и требования войдут в отчёт. Отвечайте «Нет», если пункт к вам не относится.</p>
+                {autoTags.length > 0 && (
+                  <div className="reg-cost-hint" style={{ margin: "0 0 12px" }}>
+                    Учтено по виду деятельности:{" "}
+                    {autoTags.map((a) => <span key={a.tag} className="reg-rb reg-rb-confirmed" style={{ marginRight: 6 }}>{a.label}</span>)}
+                  </div>
+                )}
+                {questions.length === 0 && <div className="reg-empty">Подбираю вопросы под вид деятельности…</div>}
                 <div className="reg-q-list">
                   {questions.map((q) => (
                     <div key={q.tag} className={"reg-q-card" + (answers[q.tag] !== undefined ? " answered" : "")}>
