@@ -14,13 +14,20 @@ export default function ReviewMode({ onOpen, registerReload }:
   const [rqSel, setRqSel] = useState<number[]>([]);
   const [rqAra, setRqAra] = useState<string>(() => { const d = new Date(); d.setFullYear(d.getFullYear() + 2); return d.toISOString().slice(0, 10); });
   const [rqBusy, setRqBusy] = useState(false);
+  // каскадный фильтр: орган → комитет → НПА (видимость селектов зависит от скоупа роли)
+  const [rqOrg, setRqOrg] = useState("");
+  const [rqCom, setRqCom] = useState("");
+  const [rqNgr, setRqNgr] = useState("");
 
   useEffect(() => { const t = setTimeout(() => setRqQd(rqQ), 400); return () => clearTimeout(t); }, [rqQ]);
   const loadReviewQueue = useCallback(() => {
     const p = new URLSearchParams({ status: rqStatus, page: String(rqPage), limit: "20" });
     if (rqQd) p.set("q", rqQd);
+    const auth = rqCom || rqOrg;
+    if (auth) p.set("authority", auth);
+    if (rqNgr) p.set("ngr", rqNgr);
     fetch(`/api/registry/review-queue?${p}`).then((r) => r.json()).then((d) => { setRq(d); setRqSel([]); }).catch(() => {});
-  }, [rqStatus, rqPage, rqQd]);
+  }, [rqStatus, rqPage, rqQd, rqOrg, rqCom, rqNgr]);
   useEffect(() => { loadReviewQueue(); }, [loadReviewQueue]);
   useEffect(() => { registerReload(loadReviewQueue); }, [registerReload, loadReviewQueue]);
 
@@ -56,6 +63,38 @@ export default function ReviewMode({ onOpen, registerReload }:
             ))}
             <input className="reg-mtd-row" style={{ flex: 1, minWidth: 160, height: 34, border: "1px solid var(--line)", borderRadius: 8, padding: "0 11px", fontSize: 13 }} placeholder="Поиск по тексту / ngr…" value={rqQ} onChange={(e) => setRqQ(e.target.value)} />
           </div>
+          {(() => {
+            const SEL: React.CSSProperties = { height: 34, border: "1px solid var(--line)", borderRadius: 8, padding: "0 10px", fontSize: 13, maxWidth: 280, background: "#fff" };
+            const fa: { code: string; name_ru: string; short_name: string | null; parent_code: string | null; n: number }[] = rq.facets?.authorities || [];
+            const codes = new Set(fa.map((a) => a.code));
+            const roots = fa.filter((a) => !a.parent_code || !codes.has(a.parent_code));
+            const effRoot = rqOrg || (roots.length === 1 ? roots[0].code : "");
+            const coms = fa.filter((a) => a.parent_code === effRoot);
+            const npas: { ngr: string; npa_title: string; n: number }[] = rq.facets?.npas || [];
+            if (roots.length <= 1 && !coms.length && npas.length <= 1) return null;
+            return (
+              <div className="reg-dupe-toolbar" style={{ flexWrap: "wrap" }}>
+                {roots.length > 1 && (
+                  <select value={rqOrg} onChange={(e) => { setRqOrg(e.target.value); setRqCom(""); setRqNgr(""); setRqPage(1); }} style={SEL}>
+                    <option value="">Все органы</option>
+                    {roots.map((o) => <option key={o.code} value={o.code}>{(o.short_name || o.name_ru).slice(0, 40)} ({o.n})</option>)}
+                  </select>
+                )}
+                {coms.length > 0 && (
+                  <select value={rqCom} onChange={(e) => { setRqCom(e.target.value); setRqNgr(""); setRqPage(1); }} style={SEL}>
+                    <option value="">Весь орган (с комитетами)</option>
+                    {coms.map((c) => <option key={c.code} value={c.code}>{(c.short_name || c.name_ru).slice(0, 40)} ({c.n})</option>)}
+                  </select>
+                )}
+                {npas.length > 0 && (
+                  <select value={rqNgr} onChange={(e) => { setRqNgr(e.target.value); setRqPage(1); }} style={{ ...SEL, maxWidth: 460, flex: 1 }}>
+                    <option value="">Все НПА</option>
+                    {npas.map((n) => <option key={n.ngr} value={n.ngr}>{(n.npa_title || n.ngr).slice(0, 75)} ({n.n})</option>)}
+                  </select>
+                )}
+              </div>
+            );
+          })()}
           {rqStatus === "pending" && (
             <div className="reg-rev-bulk">
               <label>Срок АРА <input type="date" value={rqAra} onChange={(e) => setRqAra(e.target.value)} /></label>

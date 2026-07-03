@@ -36,8 +36,20 @@ export async function GET(req: NextRequest) {
   if (status !== "all") { params.push(status); conds.push(`rr.review_status = $${params.length}`); }
   const sphere = sp.getAll("sphere").filter(Boolean);
   if (sphere.length) { params.push(sphere); conds.push(`rr.sphere_code = ANY($${params.length}::text[])`); }
+  // фильтр по органу — поддеревом (министерство включает свои комитеты)
   const authority = sp.get("authority");
-  if (authority) { params.push(authority); conds.push(`rr.authority_code = $${params.length}`); }
+  if (authority) {
+    const sub = await query(
+      `WITH RECURSIVE s AS (
+         SELECT id, code FROM organizations WHERE code = $1
+         UNION ALL
+         SELECT c.id, c.code FROM organizations c JOIN s ON c.parent_id = s.id)
+       SELECT code FROM s`, [authority]);
+    params.push(sub.rows.length ? sub.rows.map((r) => r.code) : [authority]);
+    conds.push(`rr.authority_code = ANY($${params.length}::text[])`);
+  }
+  const ngr = sp.get("ngr");
+  if (ngr) { params.push(ngr); conds.push(`rr.ngr = $${params.length}`); }
   const q = sp.get("q");
   if (q && q.trim()) {
     params.push(`%${escapeLike(q.trim())}%`);
@@ -64,8 +76,38 @@ export async function GET(req: NextRequest) {
   const c: Record<string, number> = {};
   for (const r of counts.rows) c[r.review_status] = Number(r.n);
 
+  // фасеты для каскадных фильтров: органы/комитеты скоупа (с числом карточек
+  // текущего статуса) и НПА в пределах выбранного органа
+  const facParams: unknown[] = [];
+  let facWhere = ACTIVE;
+  if (!isAdmin) { facParams.push(user.assigned_authorities); facWhere += ` AND rr.authority_code = ANY($${facParams.length}::text[])`; }
+  if (status !== "all") { facParams.push(status); facWhere += ` AND rr.review_status = $${facParams.length}`; }
+  const facAuthorities = await query(
+    `SELECT o.code, o.name_ru, o.short_name, po.code AS parent_code, count(*)::int AS n
+     FROM requirement_registry rr
+     JOIN organizations o ON o.code = rr.authority_code AND o.active
+     LEFT JOIN organizations po ON po.id = o.parent_id
+     WHERE ${facWhere}
+     GROUP BY o.code, o.name_ru, o.short_name, po.code ORDER BY n DESC`, facParams);
+  if (authority) {
+    const sub = await query(
+      `WITH RECURSIVE s AS (
+         SELECT id, code FROM organizations WHERE code = $1
+         UNION ALL
+         SELECT c.id, c.code FROM organizations c JOIN s ON c.parent_id = s.id)
+       SELECT code FROM s`, [authority]);
+    facParams.push(sub.rows.length ? sub.rows.map((r) => r.code) : [authority]);
+    facWhere += ` AND rr.authority_code = ANY($${facParams.length}::text[])`;
+  }
+  const facNpas = await query(
+    `SELECT rr.ngr, COALESCE(max(rr.npa_title), rr.ngr) AS npa_title, count(*)::int AS n
+     FROM requirement_registry rr
+     WHERE ${facWhere} AND rr.ngr IS NOT NULL
+     GROUP BY rr.ngr ORDER BY n DESC LIMIT 300`, facParams);
+
   return NextResponse.json({
     items: items.rows, total, page, pages: Math.ceil(total / limit), limit, counts: c,
     isAdmin, authorities: user.assigned_authorities,
+    facets: { authorities: facAuthorities.rows, npas: facNpas.rows },
   });
 }
