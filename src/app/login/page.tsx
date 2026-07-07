@@ -24,8 +24,7 @@ export default function LoginPage() {
     setLoading(false);
 
     if (res.ok) {
-      const home = data.user?.role === "admin" ? "/cards/admin" : "/cards/review";
-      router.push(home);
+      router.push("/registry");
     } else {
       setError(data.error || "Ошибка авторизации");
     }
