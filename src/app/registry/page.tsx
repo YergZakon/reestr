@@ -210,6 +210,21 @@ export default function RegistryPage() {
           <button className={lang === "ru" ? "on" : ""} onClick={() => setLang("ru")}>РУС</button>
           <button className={lang === "kz" ? "on" : ""} onClick={() => setLang("kz")}>ҚАЗ</button>
         </div>
+        {me && (
+          <div className="reg-user">
+            <span className="reg-user-name">{me.username}</span>
+            <span className={`reg-user-role reg-user-role-${me.role}`}>
+              {me.role === "admin" ? "Админ" : me.role === "moderator" ? "Модератор" : "Аналитик"}
+            </span>
+            <button
+              className="reg-user-exit"
+              title="Выйти"
+              onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/login"; }}
+            >
+              Выйти
+            </button>
+          </div>
+        )}
       </header>
 
       {mode === "gov" ? (

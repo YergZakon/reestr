@@ -37,6 +37,16 @@
 .reg-lang button.on{background:var(--accent);color:#fff;}
 .reg-lang button+button{border-left:1px solid var(--line);}
 
+/* Пользователь + выход */
+.reg-user{display:flex;align-items:center;gap:8px;padding-left:12px;border-left:1px solid var(--line);}
+.reg-user-name{font-size:12.5px;font-weight:650;color:var(--ink-2);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.reg-user-role{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:6px;letter-spacing:.02em;}
+.reg-user-role-admin{background:#f3e8ff;color:#7e22ce;}
+.reg-user-role-moderator{background:#ccfbf1;color:#0f766e;}
+.reg-user-role-expert{background:#dbeafe;color:#1d4ed8;}
+.reg-user-exit{border:0;background:transparent;color:var(--ink-3);font-size:12px;font-weight:600;padding:4px 6px;border-radius:6px;cursor:pointer;transition:color .12s,background .12s;}
+.reg-user-exit:hover{color:#dc2626;background:#fef2f2;}
+
 /* Фильтры */
 .reg-filters{padding:18px 16px 40px;}
 .reg-filters-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
