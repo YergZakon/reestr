@@ -124,12 +124,13 @@ export async function GET(req: NextRequest) {
     const sr = sectoralRel(params);
     const ap = applic(params);
     const og = okedGate(params);
+    // приоритет: отраслевые пермиты профиля → адресные по ОКЭД → общие горизонтальные
     const r = await query(
-      `SELECT ${FIELDS} FROM requirement_registry rr
+      `SELECT ${FIELDS}, (${sr}) AS is_sectoral FROM requirement_registry rr
        LEFT JOIN spheres s ON s.code = rr.sphere_code
        WHERE ${ACTIVE} AND COALESCE(rr.is_permit,false) = true
          AND ((COALESCE(s.is_horizontal,false) OR ${sr}) AND COALESCE(rr.audience,'any')='any') AND ${ap}${og}${expandCut}
-       ORDER BY rr.ministry NULLS LAST, rr.id LIMIT 400`,
+       ORDER BY (${sr}) DESC, (cardinality(COALESCE(rr.okeds,'{}')) > 0) DESC, rr.ministry NULLS LAST, rr.id LIMIT 400`,
       params
     );
     permits = r.rows;

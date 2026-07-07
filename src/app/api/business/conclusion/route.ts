@@ -96,12 +96,14 @@ export async function POST(req: NextRequest) {
   const pSr = sectoralRel(pParams);
   const pAp = applic(pParams);
   const pOg = okedGate(pParams);
+  // в контекст LLM первыми идут отраслевые пермиты профиля, общие — остатком лимита
   const permits = (await query(
-    `SELECT DISTINCT COALESCE(NULLIF(rr.title,''), rr.action) AS t, rr.ministry
+    `SELECT COALESCE(NULLIF(rr.title,''), rr.action) AS t, min(rr.ministry) AS ministry,
+            bool_or(${pSr}) AS is_sect, bool_or(cardinality(COALESCE(rr.okeds,'{}')) > 0) AS targeted
      FROM requirement_registry rr LEFT JOIN spheres s ON s.code=rr.sphere_code
      WHERE ${ACTIVE} AND COALESCE(rr.is_permit,false)=true
        AND ((COALESCE(s.is_horizontal,false) OR ${pSr}) AND COALESCE(rr.audience,'any')='any') AND ${pAp}${pOg}${expandCut}
-     ORDER BY 1 LIMIT 50`, pParams)).rows;
+     GROUP BY 1 ORDER BY is_sect DESC, targeted DESC, t LIMIT 50`, pParams)).rows;
 
   // sectoral по стадиям (только названия, компактно)
   const sectoral = (useSpheres || section) ? (await (async () => {
