@@ -5,6 +5,10 @@ const nextConfig = {
   eslint: { ignoreDuringBuilds: true },
   // src/instrumentation.ts — старт облачного воркера подач вместе с сервером.
   experimental: { instrumentationHook: true },
+  // Легаси-контур /cards удалён (2026-07-07) — старые закладки ведём на /registry.
+  async redirects() {
+    return [{ source: "/cards/:path*", destination: "/registry", permanent: true }];
+  },
   // instrumentation компилируется и для edge-runtime; динамический импорт воркера
   // (pg → node:fs/net/tls) webpack трейсит статически. Для edge подставляем пустые
   // заглушки — в рантайме edge-ветка выходит раньше (проверка NEXT_RUNTIME).
