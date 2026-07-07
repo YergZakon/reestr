@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Реестр требований НПА — Экспертная оценка",
-  description: "Система экспертной оценки обязательных требований НПА в сфере земельных отношений",
+  title: "Реестр обязательных требований",
+  description: "Реестр обязательных требований к предпринимательской деятельности. Министерство национальной экономики Республики Казахстан",
 };
 
 export default function RootLayout({

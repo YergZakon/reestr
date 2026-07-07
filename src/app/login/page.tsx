@@ -34,10 +34,10 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
       <div className="w-full max-w-md p-8 bg-white rounded-xl shadow-lg">
         <h1 className="text-2xl font-bold text-center text-slate-800 mb-2">
-          Реестр требований НПА
+          Реестр обязательных требований
         </h1>
         <p className="text-sm text-slate-500 text-center mb-8">
-          Система экспертной оценки обязательных требований
+          Министерство национальной экономики Республики Казахстан
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">

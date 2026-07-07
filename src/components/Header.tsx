@@ -41,7 +41,7 @@ export default function Header() {
               className="text-lg font-bold text-slate-800 cursor-pointer"
               onClick={() => router.push(homeUrl)}
             >
-              Реестр НПА
+              Реестр обязательных требований
             </h1>
             <nav className="flex gap-1">
               <button
