@@ -46,10 +46,6 @@ export function minShort(m: string | null): string {
   if (!m) return "—";
   return m.replace("Министерство ", "Мин").replace(" Республики Казахстан", "").replace(" РК", "").slice(0, 28);
 }
-export const SECTION_ICON: Record<string, string> = {
-  A: "🌾", B: "⛏️", C: "🏭", D: "⚡", E: "💧", F: "🏗️", G: "🛒", H: "🚚", I: "🏨",
-  J: "📡", K: "🏦", L: "🏢", M: "💼", N: "🗂️", P: "🎓", Q: "🩺", R: "🎭", S: "🛠️",
-};
 
 /* ——— Параметры SCM (cost_params) ——— */
 export const PARAM_FIELDS: { k: string; label: string; unit: string; pct?: boolean; step?: string }[] = [
@@ -130,37 +126,6 @@ export function Card({ r, onOpen }: { r: Req; onOpen: (r: Req) => void }) {
         {(r.stages || []).length > 3 && <MetaChip stage>+{(r.stages || []).length - 3}</MetaChip>}
       </div>
     </article>
-  );
-}
-
-/* Куда подавать заявку: eLicense (лицензии/разрешения) или eGov (регистрация/налоги/уведомления). */
-export function applyTarget(r: Req): { url: string; label: string } {
-  const t = `${r.title || ""} ${r.action || ""} ${r.object || ""} ${r.legal_text || ""}`.toLowerCase();
-  if (/лиценз|разрешени|аккредит|аттестац|сертификат|патент|допуск/.test(t))
-    return { url: "https://elicense.kz/", label: "Оформить · eLicense.kz" };
-  if (/регистрац|налог|на учёт|на учет|постанов|статист|деклар|уведомлен/.test(t) || r.scope === "horizontal")
-    return { url: "https://egov.kz/", label: "Оформить · eGov.kz" };
-  return { url: "https://elicense.kz/", label: "Оформить · eLicense.kz" };
-}
-
-/* ——— Permit-карточка («Что оформить») ——— */
-export function PermitCard({ r, onOpen }: { r: Req; onOpen: (r: Req) => void }) {
-  const name = r.title || `${r.subject || ""}${r.action ? " → " + r.action : ""}`.trim() || "—";
-  const ap = applyTarget(r);
-  const adilet = r.norm_url || (r.ngr ? `https://adilet.zan.kz/rus/docs/${r.ngr}` : null);
-  return (
-    <div className="reg-permit">
-      <div className="reg-permit-main" onClick={() => onOpen(r)}>
-        <div className="reg-permit-name">{name}</div>
-        {r.ministry && <div className="reg-permit-issuer">Выдаёт: {minShort(r.ministry)}</div>}
-        {r.npa_title && <div className="reg-permit-npa">{r.npa_title}{r.article ? `, ${r.article}` : ""}</div>}
-        {(r.stages || []).length > 0 && <div className="reg-permit-meta">{(r.stages || []).slice(0, 3).map((s) => <span key={s} className="reg-permit-stage">{STAGE_LABEL[s] || s}</span>)}</div>}
-      </div>
-      <div className="reg-permit-side">
-        <a className="reg-apply-btn" href={ap.url} target="_blank" rel="noreferrer">{ap.label}<I.chevRight /></a>
-        {adilet && <a className="reg-permit-npalink" href={adilet} target="_blank" rel="noreferrer">Текст НПА</a>}
-      </div>
-    </div>
   );
 }
 
@@ -319,20 +284,3 @@ export function OptRow({ on, onClick, label, count }: any) {
   );
 }
 
-/* Минимальный markdown→HTML для ИИ-заключения (## ### - * **bold**) */
-export function mdToHtml(md: string): { __html: string } {
-  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const inline = (s: string) => s.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/(?<!\*)\*(?!\*)(.+?)\*(?!\*)/g, "<i>$1</i>");
-  let html = "", inList = false;
-  for (let ln of esc(md).split("\n")) {
-    ln = ln.trimEnd();
-    const close = () => { if (inList) { html += "</ul>"; inList = false; } };
-    if (/^#{1,3}\s+/.test(ln)) { close(); const lvl = ln.match(/^#+/)![0].length; html += `<h${lvl === 1 ? 3 : lvl + 1}>${inline(ln.replace(/^#+\s+/, ""))}</h${lvl === 1 ? 3 : lvl + 1}>`; }
-    else if (/^[-*]\s+/.test(ln)) { if (!inList) { html += "<ul>"; inList = true; } html += `<li>${inline(ln.replace(/^[-*]\s+/, ""))}</li>`; }
-    else if (/^\d+\.\s+/.test(ln)) { if (!inList) { html += "<ul>"; inList = true; } html += `<li>${inline(ln.replace(/^\d+\.\s+/, ""))}</li>`; }
-    else if (ln.trim() === "") close();
-    else { close(); html += `<p>${inline(ln)}</p>`; }
-  }
-  if (inList) html += "</ul>";
-  return { __html: html };
-}
