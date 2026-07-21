@@ -13,6 +13,10 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
+# Публичная ссылка на бизнес-сервис инлайнится в бандл на этапе build.
+# Railway пробрасывает одноимённую service-переменную как build arg.
+ARG NEXT_PUBLIC_BUSINESS_URL
+ENV NEXT_PUBLIC_BUSINESS_URL=$NEXT_PUBLIC_BUSINESS_URL
 RUN npm run build
 
 # Production

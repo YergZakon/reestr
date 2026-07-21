@@ -290,49 +290,8 @@ paths:
                   note: { type: string, description: Если структура не распознана }
         "502": { description: Сбой adilet/DeepSeek }
 
-  # ══════════════════ Бизнес-портал ══════════════════
-  /api/business/sections:
-    get: { tags: [Бизнес-портал], summary: 18 секций ОКЭД со статистикой МСП, responses: { "200": { description: OK } } }
-  /api/business/okved:
-    get:
-      tags: [Бизнес-портал]
-      summary: Автокомплит вида деятельности по ОКЭД
-      parameters: [ { name: q, in: query, required: true, schema: { type: string } } ]
-      responses: { "200": { description: Совпадения с релевантностью } }
-  /api/business/scenarios:
-    get: { tags: [Бизнес-портал], summary: Типовые сценарии открытия бизнеса, responses: { "200": { description: OK } } }
-  /api/business/questions:
-    get: { tags: [Бизнес-портал], summary: Опросник применимости (ABLIS-триггеры), responses: { "200": { description: OK } } }
-  /api/business/requirements:
-    get:
-      tags: [Бизнес-портал]
-      summary: Применимые требования по профилю (стадии жизненного цикла)
-      parameters:
-        - { name: path, in: query, schema: { type: string, enum: [new, expand] }, description: Новый бизнес / расширение }
-        - { name: section, in: query, schema: { type: string } }
-        - { name: oked, in: query, schema: { type: string } }
-        - { name: horizontalSphere, in: query, schema: { type: string } }
-        - { name: triggers, in: query, schema: { type: string }, description: CSV выбранных триггеров }
-      responses: { "200": { description: "Требования, сгруппированные по стадиям" } }
-  /api/business/conclusion:
-    post:
-      tags: [Бизнес-портал]
-      summary: ИИ-заключение для предпринимателя (DeepSeek, Markdown)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                path: { type: string, enum: [new, expand] }
-                section: { type: string }
-                oked: { type: string }
-                title: { type: string }
-                triggers: { type: array, items: { type: string } }
-      responses:
-        "200": { description: "{ conclusion: markdown }" }
-        "502": { description: Сбой DeepSeek }
+  # Бизнес-портал вынесен в отдельный публичный сервис reestr-business
+  # (репо YergZakon/reestr-business, https://reestr-business-production.up.railway.app).
 
   /api/npa-assignment:
     get:
