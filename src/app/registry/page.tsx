@@ -16,6 +16,7 @@ import DupesMode from "./components/DupesMode";
 import ReviewMode from "./components/ReviewMode";
 import SubmitMode from "./components/SubmitMode";
 import AssignMode from "./components/AssignMode";
+import HelpMode from "./components/HelpMode";
 
 interface Opt { ministry?: string; sphere_code?: string; stage?: string; name?: string; n: number; }
 
@@ -24,7 +25,7 @@ interface Opt { ministry?: string; sphere_code?: string; stage?: string; name?: 
 const SHOW_TABS = { cost: false, method: false, dupes: false, business: false };
 
 export default function RegistryPage() {
-  const [mode, setMode] = useState<"gov" | "organs" | "cost" | "dupes" | "method" | "review" | "submit" | "assign">("gov");
+  const [mode, setMode] = useState<"gov" | "organs" | "cost" | "dupes" | "method" | "review" | "submit" | "assign" | "help">("gov");
   const [lang, setLang] = useState<"ru" | "kz">("ru");
   const [items, setItems] = useState<Req[]>([]);
   const [filtersData, setFiltersData] = useState<{ ministries: Opt[]; spheres: Opt[]; stages: Opt[]; totals: { active: number; npa: number } } | null>(null);
@@ -109,6 +110,7 @@ export default function RegistryPage() {
           {(me?.role === "admin" || me?.role === "moderator") && <button className={mode === "assign" ? "on" : ""} onClick={() => setMode("assign")}><I.layers />Назначения</button>}
           {me?.role === "admin" && <button onClick={() => (window.location.href = "/admin/moderators")}><I.building />Модераторы</button>}
           {me?.role === "moderator" && <button onClick={() => (window.location.href = "/moderator/analysts")}><I.building />Аналитики</button>}
+          <button className={mode === "help" ? "on" : ""} onClick={() => setMode("help")}><I.help />Помощь</button>
         </div>
         {me && <NotificationsBell />}
         <div className="reg-lang">
@@ -227,6 +229,8 @@ export default function RegistryPage() {
         <AssignMode />
       ) : mode === "review" ? (
         <ReviewMode onOpen={setActive} registerReload={registerReviewReload} />
+      ) : mode === "help" ? (
+        <HelpMode role={me?.role} />
       ) : null}
 
       {active && <Drawer r={active} onClose={() => setActive(null)} onSaved={mode === "review" ? () => reviewReloadRef.current?.() : load} role={me?.role} />}
