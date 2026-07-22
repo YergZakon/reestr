@@ -19,6 +19,10 @@ import AssignMode from "./components/AssignMode";
 
 interface Opt { ministry?: string; sphere_code?: string; stage?: string; name?: string; n: number; }
 
+// Видимость вкладок каталога. Режимы и их код сохранены — скрыты только кнопки
+// в шапке; чтобы вернуть вкладку, поставь true.
+const SHOW_TABS = { cost: false, method: false, dupes: false, business: false };
+
 export default function RegistryPage() {
   const [mode, setMode] = useState<"gov" | "organs" | "cost" | "dupes" | "method" | "review" | "submit" | "assign">("gov");
   const [lang, setLang] = useState<"ru" | "kz">("ru");
@@ -96,11 +100,11 @@ export default function RegistryPage() {
         <div className="reg-mode">
           <button className={mode === "gov" ? "on" : ""} onClick={() => setMode("gov")}><I.gov />Каталог</button>
           <button className={mode === "organs" ? "on" : ""} onClick={() => setMode("organs")}><I.building />Органы и НПА</button>
-          <button className={mode === "cost" ? "on" : ""} onClick={() => setMode("cost")}><I.coins />Нагрузка</button>
-          <button className={mode === "method" ? "on" : ""} onClick={() => setMode("method")}><I.calc />Методика</button>
-          <button className={mode === "dupes" ? "on" : ""} onClick={() => setMode("dupes")}><I.copy />Дубли</button>
+          {SHOW_TABS.cost && <button className={mode === "cost" ? "on" : ""} onClick={() => setMode("cost")}><I.coins />Нагрузка</button>}
+          {SHOW_TABS.method && <button className={mode === "method" ? "on" : ""} onClick={() => setMode("method")}><I.calc />Методика</button>}
+          {SHOW_TABS.dupes && <button className={mode === "dupes" ? "on" : ""} onClick={() => setMode("dupes")}><I.copy />Дубли</button>}
           <button className={mode === "review" ? "on" : ""} onClick={() => setMode("review")}><I.check />Ревью</button>
-          {process.env.NEXT_PUBLIC_BUSINESS_URL && <a className="reg-mode-ext" href={process.env.NEXT_PUBLIC_BUSINESS_URL} target="_blank" rel="noreferrer"><I.briefcase />Бизнес<I.chevRight style={{ width: 13, height: 13, opacity: 0.55 }} /></a>}
+          {SHOW_TABS.business && process.env.NEXT_PUBLIC_BUSINESS_URL && <a className="reg-mode-ext" href={process.env.NEXT_PUBLIC_BUSINESS_URL} target="_blank" rel="noreferrer"><I.briefcase />Бизнес<I.chevRight style={{ width: 13, height: 13, opacity: 0.55 }} /></a>}
           {(me?.role === "admin" || me?.role === "moderator") && <button className={mode === "submit" ? "on" : ""} onClick={() => setMode("submit")}><I.download />Подача НПА</button>}
           {(me?.role === "admin" || me?.role === "moderator") && <button className={mode === "assign" ? "on" : ""} onClick={() => setMode("assign")}><I.layers />Назначения</button>}
           {me?.role === "admin" && <button onClick={() => (window.location.href = "/admin/moderators")}><I.building />Модераторы</button>}
