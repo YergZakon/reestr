@@ -34,7 +34,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
   const orgRole = target.rows[0].role === "moderator" ? "moderator" : "member";
 
-  await query("DELETE FROM user_orgs WHERE user_id=$1", [uid]);
+  // модератор снимает только привязки своего поддерева — чужие членства не трогает
+  if (isAdmin) await query("DELETE FROM user_orgs WHERE user_id=$1", [uid]);
+  else await query("DELETE FROM user_orgs WHERE user_id=$1 AND org_id IN (SELECT id FROM organizations WHERE id = ANY($2::int[]))",
+                   [uid, await moderatorScopeOrgIds(user.id)]);
   if (orgIds.length) {
     const vals = orgIds.map((_, i) => `($1, $${i + 2}, '${orgRole}')`).join(", ");
     await query(`INSERT INTO user_orgs (user_id, org_id, org_role) VALUES ${vals} ON CONFLICT DO NOTHING`, [uid, ...orgIds]);

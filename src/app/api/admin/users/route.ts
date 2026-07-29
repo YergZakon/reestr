@@ -52,13 +52,18 @@ export async function POST(req: NextRequest) {
   const email = vb.data.email ?? null;
   const fullName = vb.data.fullName ?? null;
   let role: string = vb.data.role;
-  const assignedSpheres: string[] = vb.data.assigned_spheres;
-  const assignedAuthorities: string[] = vb.data.assigned_authorities;
+  let assignedSpheres: string[] = vb.data.assigned_spheres;
+  let assignedAuthorities: string[] = vb.data.assigned_authorities;
   const assignedOrgs: number[] = vb.data.assigned_orgs;
 
   // Модератор: может создавать только рецензентов и только в своём поддереве
   if (!isAdmin) {
     role = "expert";
+    // Плоские оси доступа (user_authorities/user_spheres) объединяются в
+    // assigned_authorities наравне с орг-поддеревом (lib/auth.ts). Разрешать их
+    // модератору = дать аналитику доступ к чужим министерствам в обход оргмодели.
+    assignedAuthorities = [];
+    assignedSpheres = [];
     if (!assignedOrgs.length) return NextResponse.json({ error: "Укажите орган (узел)" }, { status: 400 });
     const outside = assignedOrgs.filter((o) => !scope!.includes(o));
     if (outside.length) return NextResponse.json({ error: "Орган вне вашего поддерева" }, { status: 403 });
@@ -129,6 +134,11 @@ export async function PUT(req: NextRequest) {
   if (!m.isAdmin) {
     const inScope = await query("SELECT 1 FROM user_orgs WHERE user_id=$1 AND org_id = ANY($2::int[]) LIMIT 1", [userId, m.scope]);
     if (!inScope.rows.length) return NextResponse.json({ error: "Пользователь вне вашего поддерева" }, { status: 403 });
+    // и только аналитиков: иначе сбросом пароля перехватывается аккаунт другого
+    // модератора (или админа), привязанного к узлу поддерева
+    const tgt = await query("SELECT role FROM users WHERE id=$1", [userId]);
+    if (tgt.rows[0]?.role !== "expert")
+      return NextResponse.json({ error: "Изменять можно только учётные записи аналитиков" }, { status: 403 });
   }
   if (isActive !== undefined)
     await query("UPDATE users SET is_active = $1 WHERE id = $2", [isActive, userId]);

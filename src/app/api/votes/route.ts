@@ -9,6 +9,9 @@ const BULK_LIMIT_PER_MIN = 5;  // массовое голосование — р
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
+  // легаси-контур голосования: те же роли, что и ревью реестра (moderator не голосует)
+  if (user.role !== "expert" && user.role !== "admin")
+    return NextResponse.json({ error: "Нет прав" }, { status: 403 });
 
   // Rate-limit: защита от случайного цикла или вредоносного спама
   const rl = await checkRateLimit(user.id, "POST /api/votes", VOTE_LIMIT_PER_MIN);
@@ -57,6 +60,9 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
+  // легаси-контур голосования: те же роли, что и ревью реестра (moderator не голосует)
+  if (user.role !== "expert" && user.role !== "admin")
+    return NextResponse.json({ error: "Нет прав" }, { status: 403 });
 
   const rl = await checkRateLimit(user.id, "PUT /api/votes", BULK_LIMIT_PER_MIN);
   if (!rl.allowed) {
