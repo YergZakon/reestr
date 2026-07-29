@@ -17,6 +17,7 @@ import ReviewMode from "./components/ReviewMode";
 import SubmitMode from "./components/SubmitMode";
 import AssignMode from "./components/AssignMode";
 import HelpMode from "./components/HelpMode";
+import MonitorMode from "./components/MonitorMode";
 
 interface Opt { ministry?: string; sphere_code?: string; stage?: string; name?: string; n: number; }
 
@@ -25,7 +26,7 @@ interface Opt { ministry?: string; sphere_code?: string; stage?: string; name?: 
 const SHOW_TABS = { cost: false, method: false, dupes: false, business: false };
 
 export default function RegistryPage() {
-  const [mode, setMode] = useState<"gov" | "organs" | "cost" | "dupes" | "method" | "review" | "submit" | "assign" | "help">("gov");
+  const [mode, setMode] = useState<"gov" | "organs" | "cost" | "dupes" | "method" | "review" | "submit" | "assign" | "help" | "monitor">("gov");
   const [lang, setLang] = useState<"ru" | "kz">("ru");
   const [items, setItems] = useState<Req[]>([]);
   const [filtersData, setFiltersData] = useState<{ ministries: Opt[]; spheres: Opt[]; stages: Opt[]; totals: { active: number; npa: number } } | null>(null);
@@ -108,6 +109,7 @@ export default function RegistryPage() {
           {SHOW_TABS.business && process.env.NEXT_PUBLIC_BUSINESS_URL && <a className="reg-mode-ext" href={process.env.NEXT_PUBLIC_BUSINESS_URL} target="_blank" rel="noreferrer"><I.briefcase />Бизнес<I.chevRight style={{ width: 13, height: 13, opacity: 0.55 }} /></a>}
           {(me?.role === "admin" || me?.role === "moderator") && <button className={mode === "submit" ? "on" : ""} onClick={() => setMode("submit")}><I.download />Подача НПА</button>}
           {(me?.role === "admin" || me?.role === "moderator") && <button className={mode === "assign" ? "on" : ""} onClick={() => setMode("assign")}><I.layers />Назначения</button>}
+          {me?.role === "admin" && <button className={mode === "monitor" ? "on" : ""} onClick={() => setMode("monitor")}><I.chart />Мониторинг</button>}
           {me?.role === "admin" && <button onClick={() => (window.location.href = "/admin/moderators")}><I.building />Модераторы</button>}
           {me?.role === "moderator" && <button onClick={() => (window.location.href = "/moderator/analysts")}><I.building />Аналитики</button>}
           <button className={mode === "help" ? "on" : ""} onClick={() => setMode("help")}><I.help />Помощь</button>
@@ -229,6 +231,8 @@ export default function RegistryPage() {
         <AssignMode />
       ) : mode === "review" ? (
         <ReviewMode onOpen={setActive} registerReload={registerReviewReload} />
+      ) : mode === "monitor" ? (
+        <MonitorMode />
       ) : mode === "help" ? (
         <HelpMode role={me?.role} />
       ) : null}
