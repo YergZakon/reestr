@@ -63,6 +63,14 @@ export const OrgCreateBody = z.object({
   region_code: z.string().max(10).nullish(),
   sphere_codes: z.array(z.string().max(40)).max(20).nullish(),
 });
+/** Правка узла: переименование и включение/отключение (модератор — в своём поддереве). */
+export const OrgUpdateBody = z.object({
+  id: z.coerce.number().int().positive(),
+  name_ru: z.string().min(2).max(300).optional(),
+  short_name: z.string().max(100).nullish(),
+  active: z.boolean().optional(),
+}).refine((b) => b.name_ru !== undefined || b.short_name !== undefined || b.active !== undefined,
+  { message: "нужно передать name_ru, short_name и/или active" });
 
 /* ——— Пользователи ——— */
 export const UserCreateBody = z.object({
