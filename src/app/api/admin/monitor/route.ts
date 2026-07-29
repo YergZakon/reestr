@@ -13,8 +13,11 @@ export const dynamic = "force-dynamic";
  * чтобы срез читался по ведомствам (рекурсивный CTE org_root).
  */
 
-// Живые канонические требования (та же база отбора, что в каталоге и очереди ревью)
-const ACTIVE = `rr.is_canonical AND NOT COALESCE(rr.excluded,false)
+// Действующие требования — та же база отбора, что в очереди ревью (review-queue)
+// и счётчиках каталога: дубли ВХОДЯТ (орган их тоже рассматривает и устраняет),
+// исключённые аудитом и утратившие силу — нет. Иначе итоги панели не сойдутся
+// с числами, которые видят аналитики в своих очередях.
+const ACTIVE = `NOT COALESCE(rr.excluded,false)
   AND (rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')`;
 
 // code/org_id → корневой узел (министерство/агентство/акимат)
@@ -42,6 +45,7 @@ export async function GET() {
       count(*) FILTER (WHERE rr.review_status='rejected')::int AS rejected,
       count(*) FILTER (WHERE rr.review_status='edited')::int AS edited,
       count(*) FILTER (WHERE rr.ara_status='в реестре')::int AS in_registry,
+      count(*) FILTER (WHERE NOT rr.is_canonical)::int AS dupes,
       count(DISTINCT rr.ngr)::int AS npa_count
     FROM requirement_registry rr WHERE ${ACTIVE}`)).rows[0];
 
@@ -75,6 +79,7 @@ export async function GET() {
              count(*) FILTER (WHERE rr.review_status='confirmed')::int AS confirmed,
              count(*) FILTER (WHERE rr.review_status='rejected')::int AS rejected,
              count(*) FILTER (WHERE rr.review_status='edited')::int AS edited,
+             count(*) FILTER (WHERE NOT rr.is_canonical)::int AS dupes,
              count(DISTINCT rr.ngr)::int AS npa
         FROM requirement_registry rr JOIN org_root r ON r.code = rr.authority_code
        WHERE ${ACTIVE}
@@ -99,7 +104,7 @@ export async function GET() {
            COALESCE(u.moderators,0) AS moderators, COALESCE(u.analysts,0) AS analysts,
            COALESCE(rq.total,0) AS total, COALESCE(rq.pending,0) AS pending,
            COALESCE(rq.confirmed,0) AS confirmed, COALESCE(rq.rejected,0) AS rejected,
-           COALESCE(rq.edited,0) AS edited, COALESCE(rq.npa,0) AS npa,
+           COALESCE(rq.edited,0) AS edited, COALESCE(rq.dupes,0) AS dupes, COALESCE(rq.npa,0) AS npa,
            COALESCE(sb.submissions,0) AS submissions
       FROM organizations o
       LEFT JOIN req rq ON rq.root_id = o.id

@@ -4,12 +4,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { I } from "../lib";
 
-interface Kpi { total: number; pending: number; confirmed: number; rejected: number; edited: number; in_registry: number; npa_count: number; }
+interface Kpi { total: number; pending: number; confirmed: number; rejected: number; edited: number; in_registry: number; dupes: number; npa_count: number; }
 interface Users { moderators: number; analysts: number; analysts_active: number; moderators_active: number; }
 interface Subs { by_users: number; by_system: number; parsed: number; failed: number; cards: number; submitters: number; last7: number; }
 interface OrgRow {
   org_id: number; code: string; name: string; moderators: number; analysts: number;
-  total: number; pending: number; confirmed: number; rejected: number; edited: number; npa: number; submissions: number;
+  total: number; pending: number; confirmed: number; rejected: number; edited: number; dupes: number; npa: number; submissions: number;
 }
 interface Reviewer {
   id: number; username: string; full_name: string; role: string; is_active: boolean; org: string | null;
@@ -74,11 +74,12 @@ export default function MonitorMode() {
 
       {/* KPI */}
       <div className="reg-mon-stats">
-        <Stat v={n(d.kpi.total)} label="требований в реестре" />
+        <Stat v={n(d.kpi.total)} label="действующих требований" />
         <Stat v={n(d.kpi.pending)} label="ожидают подтверждения" tone="warn" />
         <Stat v={n(d.kpi.confirmed)} label="подтверждено" tone="ok" />
         <Stat v={n(d.kpi.rejected)} label="отклонено" tone="bad" />
         <Stat v={n(d.kpi.edited)} label="отредактировано" />
+        <Stat v={n(d.kpi.dupes)} label="из них дублей (к устранению)" />
         <Stat v={n(d.kpi.npa_count)} label="НПА в реестре" />
       </div>
 
@@ -118,7 +119,7 @@ export default function MonitorMode() {
               <tr>
                 <th>Государственный орган</th>
                 <th>Модер.</th><th>Аналит.</th>
-                <th>НПА</th><th>Требований</th>
+                <th>НПА</th><th>Требований</th><th>Дублей</th>
                 <th>Ожидают</th><th>Подтв.</th><th>Откл.</th><th>Отред.</th>
                 <th>Обработано</th><th>Подано НПА</th>
               </tr>
@@ -134,6 +135,7 @@ export default function MonitorMode() {
                     <td className={"num" + (o.analysts === 0 ? " zero" : "")}>{o.analysts}</td>
                     <td className="num">{n(o.npa)}</td>
                     <td className="num b">{n(o.total)}</td>
+                    <td className="num">{o.dupes ? n(o.dupes) : "—"}</td>
                     <td className="num">{n(o.pending)}</td>
                     <td className="num ok">{o.confirmed ? n(o.confirmed) : "—"}</td>
                     <td className="num bad">{o.rejected ? n(o.rejected) : "—"}</td>
