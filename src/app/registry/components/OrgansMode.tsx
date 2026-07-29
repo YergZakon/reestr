@@ -15,8 +15,10 @@ export default function OrgansMode() {
   const [organs, setOrgans] = useState<OrgSummary[]>([]);
   const [scoped, setScoped] = useState(false);
   const [selCode, setSelCode] = useState<string | null>(null);
-  const [npaList, setNpaList] = useState<Npa[]>([]);
+  const [npaList, setNpaList] = useState<(Npa & { owner_code?: string | null })[]>([]);
   const [npaLoading, setNpaLoading] = useState(false);
+  // по умолчанию — только действующие: утратившие силу не должны мешать работе
+  const [npaStatus, setNpaStatus] = useState<"active" | "dead" | "all">("active");
 
   useEffect(() => {
     fetch("/api/registry/organs").then((r) => r.json()).then((d) => {
@@ -28,9 +30,10 @@ export default function OrgansMode() {
   useEffect(() => {
     if (!selCode) return;
     setNpaLoading(true);
-    fetch(`/api/registry/npa?authority=${encodeURIComponent(selCode)}`).then((r) => r.json())
+    fetch(`/api/registry/npa?authority=${encodeURIComponent(selCode)}&status=${npaStatus}`)
+      .then((r) => r.json())
       .then((d) => setNpaList(d.npa || [])).finally(() => setNpaLoading(false));
-  }, [selCode]);
+  }, [selCode, npaStatus]);
 
   /* два уровня: узел под родителем, если родитель тоже в сводке; иначе — корнем
      (аналитик комитета видит свой комитет корнем без министерства) */
@@ -69,8 +72,14 @@ export default function OrgansMode() {
       <main className="reg-content">
         <div className="reg-catalog">
           <h1 className="reg-cat-h1">{sel ? sel.name_ru : "Органы и НПА"}</h1>
-          {sel && <div className="reg-cat-sub">{sel.npa_count} НПА · {Number(sel.req_count).toLocaleString("ru")} требований</div>}
-          <div style={{ marginTop: 18 }} className="reg-npa-list">
+          {sel && <div className="reg-cat-sub">{sel.npa_count} НПА · {Number(sel.req_count).toLocaleString("ru")} требований · включая подведомственные комитеты</div>}
+          <div className="reg-dupe-toolbar" style={{ marginTop: 14 }}>
+            {([["active", "Действующие"], ["dead", "Утратившие силу"], ["all", "Все"]] as const).map(([v, label]) => (
+              <button key={v} className={"reg-stage-pill" + (npaStatus === v ? " on" : "")} onClick={() => setNpaStatus(v)}>{label}</button>
+            ))}
+            <span className="reg-cost-hint" style={{ marginLeft: "auto" }}>Показано НПА: {npaList.length}</span>
+          </div>
+          <div style={{ marginTop: 14 }} className="reg-npa-list">
             {npaLoading ? <div className="reg-empty">Загрузка…</div> : npaList.map((n) => (
               <div key={n.ngr} className="reg-npa-card">
                 <div className="reg-npa-top">
@@ -82,6 +91,11 @@ export default function OrgansMode() {
                   {n.date_revision && <span>Редакция: <b>{n.date_revision}</b></span>}
                   {n.review_deadline && <span title="Плановая дата анализа по реестру Минфина">План. анализ: <b>{n.review_deadline}</b></span>}
                   {n.npa_status === "утратил силу" && <span className="reg-npa-dead">утратил силу</span>}
+                  {n.owner_code && n.owner_code !== selCode && (
+                    <span className="reg-rb reg-rb-confirmed" title="НПА закреплён за подведомственным органом">
+                      {organs.find((o) => o.code === n.owner_code)?.short_name || n.owner_code}
+                    </span>
+                  )}
                   <a className="reg-npa-link" href={n.adilet_url} target="_blank" rel="noreferrer">Открыть в adilet.zan.kz →</a>
                 </div>
               </div>
