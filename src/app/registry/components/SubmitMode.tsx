@@ -76,14 +76,22 @@ export default function SubmitMode() {
                 <span className="reg-cost-param-in"><select value={subOrgId} onChange={(e) => setSubOrgId(e.target.value)} style={{ width: "100%", height: 36, border: "1px solid var(--line)", borderRadius: 8 }}>
                   <option value="">— выбрать —</option>
                   {/* иерархия: министерство → его комитеты; затем агентства и акиматы */}
-                  {subOrgs.filter((o: any) => o.type === "ministry" && o.parent_id == null).map((m: any) => (
-                    <optgroup key={m.id} label={m.short_name || m.name_ru}>
-                      <option value={m.id}>{m.short_name || m.name_ru} (само министерство)</option>
-                      {subOrgs.filter((c: any) => c.parent_id === m.id).map((c: any) => (
-                        <option key={c.id} value={c.id}>&nbsp;&nbsp;└ {c.short_name || c.name_ru}</option>
-                      ))}
-                    </optgroup>
-                  ))}
+                  {subOrgs.filter((o: any) => o.type === "ministry" && o.parent_id == null).map((m: any) => {
+                    // всё поддерево министерства: комитеты и созданные модератором подразделения
+                    const branch: { o: any; d: number }[] = [];
+                    const walk = (p: any, d: number) => subOrgs
+                      .filter((c: any) => c.parent_id === p.id)
+                      .forEach((c: any) => { branch.push({ o: c, d }); walk(c, d + 1); });
+                    walk(m, 1);
+                    return (
+                      <optgroup key={m.id} label={m.short_name || m.name_ru}>
+                        <option value={m.id}>{m.short_name || m.name_ru} (само министерство)</option>
+                        {branch.map(({ o, d }) => (
+                          <option key={o.id} value={o.id}>{" ".repeat(d * 2)}└ {o.short_name || o.name_ru}</option>
+                        ))}
+                      </optgroup>
+                    );
+                  })}
                   <optgroup label="Агентства и Нацбанк">
                     {subOrgs.filter((o: any) => o.type === "agency").map((o: any) => (
                       <option key={o.id} value={o.id}>{o.short_name || o.name_ru}</option>

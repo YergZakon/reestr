@@ -112,9 +112,15 @@ export async function GET(req: NextRequest) {
      ORDER BY count(*) DESC
      LIMIT $${lp} OFFSET $${op}`, params);
 
+  // всё поддерево органа: комитеты и созданные модератором подразделения
   const committees = await query(
-    `SELECT id, code, name_ru, short_name FROM organizations
-     WHERE parent_id = $1 AND active ORDER BY name_ru`, [orgId]);
+    `WITH RECURSIVE sub AS (
+       SELECT id, code, name_ru, short_name, parent_id, 1 AS depth
+         FROM organizations WHERE parent_id = $1 AND active
+       UNION ALL
+       SELECT c.id, c.code, c.name_ru, c.short_name, c.parent_id, s.depth + 1
+         FROM organizations c JOIN sub s ON c.parent_id = s.id WHERE c.active
+     ) SELECT id, code, name_ru, short_name, depth FROM sub ORDER BY depth, name_ru`, [orgId]);
 
   const log = await query(
     `SELECT a.id, a.ngr, a.status, a.reason, a.created_at, a.cancelled_at,
