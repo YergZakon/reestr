@@ -9,6 +9,9 @@ export async function GET() {
     await initDB();
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
+    // сводка по всем органам и пофамильный прогресс экспертов — только уполномоченному органу
+    if (user.role !== "admin")
+      return NextResponse.json({ error: "Нет доступа" }, { status: 403 });
 
     // Общая статистика
     const stats = await query(`

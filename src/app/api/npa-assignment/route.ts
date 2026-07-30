@@ -43,6 +43,32 @@ async function requireManager(orgId: number | null) {
   return { user };
 }
 
+/**
+ * Проверка владения НПА: назначать можно только акт, требования которого уже
+ * закреплены за поддеревом модератора. Без неё модератор мог указать чужой ngr
+ * и каскадом перевести требования другого министерства на свой комитет.
+ */
+async function assertOwnsNpa(user: { id: number; role: string }, ngr: string) {
+  if (user.role === "admin") return null;
+  const scope = await moderatorScopeOrgIds(user.id);
+  if (!scope.length)
+    return NextResponse.json({ error: "За вами не закреплён ни один орган" }, { status: 403 });
+  const codes = (await query(
+    `SELECT code FROM organizations WHERE id = ANY($1::int[])`, [scope])).rows.map((r: { code: string }) => r.code);
+  const foreign = await query(
+    `SELECT DISTINCT rr.authority_code AS code FROM requirement_registry rr
+      WHERE rr.ngr = $1 AND NOT COALESCE(rr.excluded,false)
+        AND (rr.authority_code IS NULL OR NOT (rr.authority_code = ANY($2::text[])))
+      LIMIT 3`, [ngr, codes]);
+  if (foreign.rows.length) {
+    const names = foreign.rows.map((r: { code: string | null }) => r.code || "не задан").join(", ");
+    return NextResponse.json(
+      { error: `НПА закреплён за другим органом (${names}) — назначение доступно только уполномоченному органу (МНЭ)` },
+      { status: 403 });
+  }
+  return null;
+}
+
 export async function GET(req: NextRequest) {
   const sp = new URL(req.url).searchParams;
   const orgId = parseInt(sp.get("org_id") || "0", 10);
@@ -114,6 +140,8 @@ export async function POST(req: NextRequest) {
   const { ngr, org_id, reason } = vb.data;
   const m = await requireManager(org_id);
   if (m.err) return m.err;
+  const own = await assertOwnsNpa(m.user!, ngr);
+  if (own) return own;
 
   const org = (await query(
     "SELECT id, code, name_ru, parent_id FROM organizations WHERE id=$1 AND active", [org_id])).rows[0];
