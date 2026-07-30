@@ -69,13 +69,31 @@ export function parseArticles(html: string): NpaArticle[] {
   const arts: NpaArticle[] = [];
   for (let i = 0; i < marks.length; i++) {
     const start = marks[i].idx;
-    const end = i + 1 < marks.length ? marks[i + 1].idx : Math.min(html.length, start + 8000);
+    // хвост после последнего якоря берём целиком: там живут приложения
+    // (проверочные листы-таблицы); прежний потолок start+8000 отрезал их
+    const end = i + 1 < marks.length ? marks[i + 1].idx : html.length;
     const sm = html.slice(marks[i].end, end).match(STAT_RE);
     const num = sm ? sm[1] : "";
     const label = sm ? `ст.${sm[1]}` : `п.${marks[i].anchor}`;
-    const text = strip(html.slice(start, end)).slice(0, 6000);
-    if (text.length >= 60) {
+    const text = strip(html.slice(start, end));
+    if (text.length < 60) continue;
+    if (text.length <= 6000) {
       arts.push({ num, anchor: marks[i].anchor, label, title: text.slice(0, 130), text });
+      continue;
+    }
+    // Длинный пункт-блок (таблица проверочного листа и т.п.) — окнами БЕЗ потерь.
+    // Прежний slice(0,6000) отбрасывал до 70% таблицы: у проверочных листов
+    // терялись пункты после 12–16-го (кейс V1800017797, Минэнерго, 2026-07-30).
+    for (let k = 0, p = 0; p < Math.min(text.length, 60000); k++, p += 4800) {
+      const chunk = text.slice(p, p + 4800);
+      if (chunk.length < 200) break;
+      arts.push({
+        num: k === 0 ? num : "",
+        anchor: marks[i].anchor,
+        label: k === 0 ? label : `${label}/${k + 1}`,
+        title: chunk.slice(0, 130),
+        text: chunk,
+      });
     }
   }
   return arts;
