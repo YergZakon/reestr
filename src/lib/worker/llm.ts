@@ -38,10 +38,16 @@ export async function dsChat(
         usage.hit += j.usage?.prompt_cache_hit_tokens || 0;
         usage.out += j.usage?.completion_tokens || 0;
       }
+      const finish = j.choices?.[0]?.finish_reason;
+      const content: string = j.choices?.[0]?.message?.content || "{}";
+      if (finish === "length")
+        console.warn(`[llm] ответ обрезан по max_tokens=${maxTokens} (len=${content.length}) — сегмент потеряет нормы`);
       try {
-        return JSON.parse(j.choices?.[0]?.message?.content || "{}");
+        return JSON.parse(content);
       } catch {
-        return {}; // невалидный JSON от модели — считаем пустым результатом
+        // невалидный JSON (чаще всего следствие обрезки) — пустой результат, но след в логах
+        console.warn(`[llm] невалидный JSON от модели (finish=${finish}, len=${content.length}): ${content.slice(0, 120)}`);
+        return {};
       }
     } catch (e) {
       lastErr = e;

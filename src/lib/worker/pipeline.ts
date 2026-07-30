@@ -11,7 +11,9 @@ import { parseArticles, parseTitle } from "@/lib/npaParse";
 import { dsChat, pMap, newUsage, usageCostUsd } from "./llm";
 import { SYSTEM_EXTRACT, buildExtractUser, SYSTEM_CARD, buildCardUser, buildSphereSystem } from "./prompts";
 
-const MAX_SEGMENTS = 120;      // как в Python-конвейере (--max-articles 120)
+const MAX_SEGMENTS = 200;      // выше python-канона (--max-articles 120): кап считается ПОСЛЕ
+                               // оконной нарезки длинных сегментов, и у якорно-богатых актов
+                               // с таблицами-приложениями окна хвоста не должны вылетать за кап
 const EXTRACT_POOL = 5;
 const CARD_POOL = 6;
 const MAX_ATTEMPTS = 3;        // порог trgm-дубля задаётся в checkDup (similarity_threshold=0.6)
@@ -109,7 +111,11 @@ export async function processOne(): Promise<boolean> {
     const npaTitle = (parseTitle(html) || sub.ngr).slice(0, 250);
     let segments = parseArticles(html);
     const capped = segments.length > MAX_SEGMENTS;
-    if (capped) segments = segments.slice(0, MAX_SEGMENTS);
+    if (capped) {
+      console.warn(`[worker] подача ${sub.id} (${sub.ngr}): сегментов ${segments.length} > ${MAX_SEGMENTS}, ` +
+        `отброшен хвост ${segments.length - MAX_SEGMENTS} — проверить акт вручную`);
+      segments = segments.slice(0, MAX_SEGMENTS);
+    }
     if (!segments.length) {
       await query(
         `UPDATE npa_submission SET status='parsed', stage=NULL, lease_until=NULL,
@@ -134,7 +140,8 @@ export async function processOne(): Promise<boolean> {
     // 3. извлечение по сегментам (промпт — дословно Python SYSTEM_EXTRACT)
     type RawCard = Record<string, unknown> & { _label: string };
     const extracted = await pMap(segments, EXTRACT_POOL, async (seg) => {
-      const res = await dsChat(SYSTEM_EXTRACT, buildExtractUser(seg.label, seg.title, seg.text), 4000, usage);
+      // 8000: плотное окно 4800 симв. таблицы даёт десятки норм — при 4000 JSON обрезался
+      const res = await dsChat(SYSTEM_EXTRACT, buildExtractUser(seg.label, seg.title, seg.text), 8000, usage);
       const reqs = Array.isArray(res.requirements) ? (res.requirements as Record<string, unknown>[]) : [];
       return reqs.filter((c) => norm(c.action, 400)).map((c) => ({ ...c, _label: seg.label }) as RawCard);
     });
