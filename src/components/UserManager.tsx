@@ -45,6 +45,8 @@ export default function UserManager({ kind }: { kind: "moderators" | "analysts" 
   // одноразовый показ выданных кредов (создание / сброс пароля)
   const [creds, setCreds] = useState<{ username: string; password: string } | null>(null);
   const [emailEdit, setEmailEdit] = useState<{ id: number; value: string } | null>(null);
+  // правка узла органа существующего пользователя (кейс: аналитика привязали не туда)
+  const [orgEdit, setOrgEdit] = useState<{ id: number; value: string } | null>(null);
 
   useEffect(() => {
     fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null)).then((d) => {
@@ -87,6 +89,21 @@ export default function UserManager({ kind }: { kind: "moderators" | "analysts" 
   useEffect(() => {
     if (!orgId && orgOptions.length) setOrgId(String(orgOptions[0].id));
   }, [orgOptions, orgId]);
+
+  const saveOrg = async (userId: number, orgIdStr: string) => {
+    setErr("");
+    if (!orgIdStr) { setErr("Выберите узел органа"); return; }
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/orgs`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assigned_orgs: [Number(orgIdStr)] }),
+      });
+      const d = await res.json();
+      if (!res.ok) { setErr(d.error || "Не удалось изменить узел"); return; }
+      setOrgEdit(null); load();
+    } catch { setErr("Сбой запроса"); } finally { setBusy(false); }
+  };
 
   const orgName = useCallback((ids: number[]) => {
     const names = ids.map((id) => {
@@ -213,7 +230,25 @@ export default function UserManager({ kind }: { kind: "moderators" | "analysts" 
             <li key={u.id} className="px-5 py-3 flex flex-wrap items-center gap-x-4 gap-y-1">
               <div className="min-w-[220px]">
                 <div className="text-sm font-medium text-slate-800">{u.username}{u.full_name ? <span className="text-slate-400 font-normal"> — {u.full_name}</span> : null}</div>
-                <div className="text-xs text-slate-500">{orgName(u.assigned_org_ids)}</div>
+                {orgEdit?.id === u.id ? (
+                  <span className="flex gap-1 items-center mt-0.5">
+                    <select value={orgEdit.value} onChange={(e) => setOrgEdit({ id: u.id, value: e.target.value })}
+                      className="h-7 rounded border border-slate-300 px-1 text-xs max-w-[340px]">
+                      <option value="">— выбрать узел —</option>
+                      {orgOptions.map((o) => (
+                        <option key={o.id} value={o.id}>{o.label}</option>
+                      ))}
+                    </select>
+                    <button className="text-xs text-emerald-700 underline" disabled={busy}
+                      onClick={() => saveOrg(u.id, orgEdit.value)}>ок</button>
+                    <button className="text-xs text-slate-400" onClick={() => setOrgEdit(null)}>×</button>
+                  </span>
+                ) : (
+                  <button className="text-xs text-slate-500 hover:underline text-left" title="Изменить узел органа"
+                    onClick={() => setOrgEdit({ id: u.id, value: String(u.assigned_org_ids[0] ?? "") })}>
+                    {orgName(u.assigned_org_ids)} <span className="text-slate-300">✎</span>
+                  </button>
+                )}
               </div>
               <div className="text-xs text-slate-500 min-w-[180px]">
                 {emailEdit?.id === u.id ? (
