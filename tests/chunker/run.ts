@@ -46,5 +46,17 @@ console.log("[plain] документ без якорей → окна по те
   for (const p of expected.plain.must_contain) check(blob.includes(p), `содержит «${p}»`);
 }
 
+console.log("[longtable] длинный пункт-блок → окна без потерь, футер отсечён");
+{
+  const arts = segs("longtable");
+  check(arts.length >= expected.longtable.min_segments,
+    `сегментов ≥ ${expected.longtable.min_segments} (получено ${arts.length})`);
+  check(arts.some((a) => a.label === "п.z2/2"), "длинный сегмент нарезан окнами (метка «п.z2/2»)");
+  const blob = arts.map((a) => a.text).join(" ");
+  for (const p of expected.longtable.must_contain) check(blob.includes(p), `содержит «${p}»`);
+  // хвост за <footer> (чужие НПА из «Последние документы») не должен попадать в извлечение
+  check(!blob.includes("О видах государственной собственности"), "футер adilet отсечён (нет чужих НПА)");
+}
+
 if (failures) { console.error(`\nПРОВАЛ: ${failures} проверок`); process.exit(1); }
 console.log("\nКонтракт чанкера: все проверки пройдены.");

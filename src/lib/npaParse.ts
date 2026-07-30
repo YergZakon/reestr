@@ -52,8 +52,40 @@ function windows(text: string, labelBase: string): NpaArticle[] {
   return out;
 }
 
+/** Окна длинного якорного сегмента: перехлёст 300 симв. (строка таблицы на границе
+ *  видна целиком хотя бы одному окну), короткий хвост доклеивается к последнему окну,
+ *  потолок 120 000 симв./сегмент. num/anchor — на первом окне, метки «п.zN», «п.zN/2»… */
+function windowSeg(text: string, num: string, anchor: string, label: string): NpaArticle[] {
+  const WIN = 4800, STEP = 4500, CAP = 120_000;
+  const t = text.slice(0, CAP);
+  const out: NpaArticle[] = [];
+  for (let k = 0, p = 0; p < t.length; k++, p += STEP) {
+    let chunk = t.slice(p, p + WIN);
+    const isLast = p + WIN >= t.length;
+    if (isLast) chunk = t.slice(p);
+    if (chunk.length < 200 && out.length) {
+      out[out.length - 1].text += " " + chunk; // хвост короче окна — доклеиваем, не теряем
+      break;
+    }
+    out.push({
+      num: k === 0 ? num : "",
+      anchor,
+      label: k === 0 ? label : `${label}/${k + 1}`,
+      title: chunk.slice(0, 130),
+      text: chunk,
+    });
+    if (isLast) break;
+  }
+  return out;
+}
+
 /** Сегменты НПА: статьи законов и пункт-блоки приказов; без якорей — окна по тексту. */
-export function parseArticles(html: string): NpaArticle[] {
+export function parseArticles(htmlRaw: string): NpaArticle[] {
+  // контент adilet заканчивается на футере (<!-- Footer --> / <div id="footer_top">):
+  // дальше виджет «Последние документы» — чужие НПА, которые нельзя пускать
+  // в извлечение (фантомные карточки); <footer> — на случай смены вёрстки
+  const cut = htmlRaw.search(/<!--\s*Footer|<div id="footer_top"|<footer[\s>]/i);
+  const html = cut > 1000 ? htmlRaw.slice(0, cut) : htmlRaw;
   const marks: { idx: number; end: number; anchor: string }[] = [];
   let m: RegExpExecArray | null;
   ANCHOR_RE.lastIndex = 0;
@@ -69,14 +101,22 @@ export function parseArticles(html: string): NpaArticle[] {
   const arts: NpaArticle[] = [];
   for (let i = 0; i < marks.length; i++) {
     const start = marks[i].idx;
-    const end = i + 1 < marks.length ? marks[i + 1].idx : Math.min(html.length, start + 8000);
+    // хвост после последнего якоря берём целиком: там живут приложения
+    // (проверочные листы-таблицы); прежний потолок start+8000 отрезал их
+    const end = i + 1 < marks.length ? marks[i + 1].idx : html.length;
     const sm = html.slice(marks[i].end, end).match(STAT_RE);
     const num = sm ? sm[1] : "";
     const label = sm ? `ст.${sm[1]}` : `п.${marks[i].anchor}`;
-    const text = strip(html.slice(start, end)).slice(0, 6000);
-    if (text.length >= 60) {
+    const text = strip(html.slice(start, end));
+    if (text.length < 60) continue;
+    if (text.length <= 6000) {
       arts.push({ num, anchor: marks[i].anchor, label, title: text.slice(0, 130), text });
+      continue;
     }
+    // Длинный пункт-блок (таблица проверочного листа и т.п.) — окнами БЕЗ потерь.
+    // Прежний slice(0,6000) отбрасывал до 70% таблицы: у проверочных листов
+    // терялись пункты после 12–16-го (кейс V1800017797, Минэнерго, 2026-07-30).
+    arts.push(...windowSeg(text, num, marks[i].anchor, label));
   }
   return arts;
 }
