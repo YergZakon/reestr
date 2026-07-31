@@ -17,6 +17,13 @@ export async function zbody<S extends z.ZodType>(
   if (!p.success) {
     const msg = p.error.issues.slice(0, 3)
       .map((i) => `${i.path.join(".") || "body"}: ${i.message}`).join("; ");
+    // диагностика в серверные логи: форма полей (типы, не значения) — ловим
+    // «invalid input» случаи, невоспроизводимые статикой (кейс P030000993_)
+    const shape = raw && typeof raw === "object"
+      ? Object.fromEntries(Object.entries(raw as Record<string, unknown>).map(
+          ([k, v]) => [k, v === null ? "null" : Array.isArray(v) ? "array" : typeof v]))
+      : typeof raw;
+    console.warn(`[zbody] 400 ${new URL(req.url).pathname}: ${msg} | shape=${JSON.stringify(shape)}`);
     return { ok: false, res: NextResponse.json({ error: `Некорректный запрос — ${msg}` }, { status: 400 }) };
   }
   return { ok: true, data: p.data };
@@ -44,14 +51,16 @@ export const ReviewBody = z.object({
 
 /* ——— Подача НПА ——— */
 export const SubmissionBody = z.object({
-  ngr: z.string().min(3).max(250),
+  // coerce: терпим число/иные скаляры от нестандартных клиентов — дальше всё
+  // равно нормализация ссылки и проверка NGR_RE в роуте
+  ngr: z.coerce.string().min(3).max(250),
   npa_title: z.string().max(300).nullish(),
   org_id: z.coerce.number().int().positive(),
   sphere_code: z.string().max(40).nullish(),
   ara_deadline: dateStr.nullish(),
   preview_json: z.unknown().optional(),
 });
-export const PreviewBody = z.object({ ngr: z.string().min(3).max(250) });
+export const PreviewBody = z.object({ ngr: z.coerce.string().min(3).max(250) });
 
 /* ——— Справочник организаций ——— */
 export const OrgCreateBody = z.object({
