@@ -22,7 +22,7 @@ export default function SubmitMode() {
 
   const runPreview = () => {
     setSubBusy(true); setSubMsg(""); setSubPrev(null); setSubTried(false);
-    fetch("/api/npa-submission/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ngr: subNgr }) })
+    fetch("/api/npa-submission/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ngr: String(subNgr || "").trim() }) })
       .then((r) => r.json()).then((d) => { if (d.error) setSubMsg(d.error); else setSubPrev(d); }).catch(() => setSubMsg("Сбой превью"))
       .finally(() => { setSubBusy(false); setSubTried(true); });
   };
@@ -30,8 +30,8 @@ export default function SubmitMode() {
     if (!subOrgId) { setSubMsg("Выберите орган"); return; }
     setSubBusy(true); setSubMsg("");
     fetch("/api/npa-submission", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ngr: subNgr, npa_title: subPrev?.title, org_id: Number(subOrgId), sphere_code: subSphere || null, ara_deadline: subAra || null, preview_json: subPrev }) })
-      .then((r) => r.json()).then((d) => { if (d.error) setSubMsg(d.error); else { setSubMsg("Подано. Авторитетный парсинг выполнит оператор."); setSubNgr(""); setSubPrev(null); loadSubs(); } })
+      body: JSON.stringify({ ngr: String(subNgr || "").trim(), npa_title: subPrev?.title, org_id: Number(subOrgId), sphere_code: subSphere || null, ara_deadline: subAra || null, preview_json: subPrev }) })
+      .then((r) => r.json()).then((d) => { if (d.error) setSubMsg(d.error); else { setSubMsg("Подано. Обработка автоматическая, около минуты — карточки попадут в очередь ревью вашего органа."); setSubNgr(""); setSubPrev(null); loadSubs(); } })
       .finally(() => setSubBusy(false));
   };
 
@@ -39,7 +39,7 @@ export default function SubmitMode() {
     <div className="reg-biz">
       <div className="reg-biz-hero">
         <h1>Подача НПА на включение в реестр</h1>
-        <p>Укажите ngr или ссылку adilet — система покажет черновой разбор на требования. После подачи авторитетный парсинг выполнит оператор, извлечённые карточки попадут в очередь ревью вашего органа.</p>
+        <p>Укажите ngr или ссылку adilet — система покажет черновой разбор на требования. После подачи система автоматически разберёт документ (обычно до минуты), извлечённые карточки попадут в очередь ревью вашего органа.</p>
       </div>
       <div className="reg-cost-params">
         <div className="reg-cost-params-h"><span>Новый НПА</span><span className="reg-cost-hint">по государственному регистрационному номеру</span></div>
@@ -68,7 +68,7 @@ export default function SubmitMode() {
           <div style={{ marginTop: 6 }}>
             {!subPrev && (
               <div className="reg-cost-hint" style={{ margin: "6px 0 10px" }}>
-                Превью недоступно — НПА можно подать без него: полный разбор выполнит оператор.
+                Превью недоступно — НПА можно подать без него: полный разбор выполнится автоматически.
               </div>
             )}
             <div className="reg-cost-params-grid">
@@ -85,7 +85,7 @@ export default function SubmitMode() {
                     walk(m, 1);
                     return (
                       <optgroup key={m.id} label={m.short_name || m.name_ru}>
-                        <option value={m.id}>{m.short_name || m.name_ru} (само министерство)</option>
+                        <option key={`m-${m.id}`} value={m.id}>{m.short_name || m.name_ru} (само министерство)</option>
                         {branch.map(({ o, d }) => (
                           <option key={o.id} value={o.id}>{" ".repeat(d * 2)}└ {o.short_name || o.name_ru}</option>
                         ))}
