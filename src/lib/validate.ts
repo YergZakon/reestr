@@ -49,6 +49,19 @@ export const ReviewBody = z.object({
   fields: z.record(z.string().max(40), z.union([z.string().max(8000), z.null()])).optional(),
 }).refine((b) => b.id != null || (b.ids && b.ids.length), { message: "id или ids обязательны" });
 
+/* ——— Админ-управление НПА (перенос/исключение, в т.ч. по статьям) ——— */
+export const NpaAdminBody = z.object({
+  action: z.enum(["transfer", "exclude", "restore"]),
+  ngr: z.string().min(3).max(24),
+  // null/отсутствует = весь НПА; массив = выбранные метки статей (rr.article)
+  articles: z.array(z.string().min(1).max(160)).min(1).max(200).nullish(),
+  target_org_id: z.coerce.number().int().positive().optional(),
+  reason: z.string().max(500).nullish(),
+}).refine((b) => b.action !== "transfer" || b.target_org_id != null,
+  { message: "target_org_id обязателен для transfer" })
+  .refine((b) => b.action !== "exclude" || (b.reason && b.reason.trim().length >= 5),
+  { message: "причина обязательна для исключения (≥5 символов)" });
+
 /* ——— Подача НПА ——— */
 export const SubmissionBody = z.object({
   // coerce: терпим число/иные скаляры от нестандартных клиентов — дальше всё
