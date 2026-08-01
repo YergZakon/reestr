@@ -335,6 +335,49 @@ paths:
         "200": { description: "{ ok, cascaded, back_to }" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/npa-admin:
+    get:
+      tags: [Администрирование]
+      summary: "Управление НПА (только admin): список НПА органа или статьи одного НПА"
+      description: >
+        Без ngr — НПА корневого органа (подразделение-путь, счётчики, действующие
+        назначения). С ngr и articles=1 — разбивка НПА по статьям (метка, нормы,
+        исключено, текущий орган).
+      parameters:
+        - { name: org_id, in: query, schema: { type: integer }, description: Корневой орган (без ngr — обязателен) }
+        - { name: q, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer } }
+        - { name: ngr, in: query, schema: { type: string } }
+        - { name: articles, in: query, schema: { type: string, enum: ["1"] } }
+      responses:
+        "200": { description: "items[], log[] | articles[]" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [Администрирование]
+      summary: "Передать НПА/статьи любому органу; исключить или вернуть (только admin)"
+      description: >
+        transfer — межминистерский каскад authority_code (целиком или по меткам статей;
+        пересекающиеся статейные назначения закрываются, орган получает уведомление);
+        exclude/restore — excluded с причиной (для exclude обязательна), датой и автором.
+        Статусы ревью сохраняются; ministry пересчитывает триггер БД.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action, ngr]
+              properties:
+                action: { type: string, enum: [transfer, exclude, restore] }
+                ngr: { type: string }
+                articles: { type: array, items: { type: string }, maxItems: 200, nullable: true, description: "null/нет — весь НПА" }
+                target_org_id: { type: integer, description: Обязателен для transfer }
+                reason: { type: string, maxLength: 500 }
+      responses:
+        "200": { description: "{ ok, cascaded, target } | { ok, affected }" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /api/notifications:
     get:
       tags: [Ревью и АРА]
@@ -412,6 +455,26 @@ paths:
       responses:
         "200": { description: Создан }
         "403": { $ref: "#/components/responses/Forbidden" }
+    patch:
+      tags: [Администрирование]
+      summary: Переименовать или деактивировать узел (admin; moderator — своё поддерево)
+      description: Деактивация блокируется, если на узле есть требования, пользователи или дочерние узлы.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id: { type: integer }
+                name_ru: { type: string }
+                short_name: { type: string }
+                active: { type: boolean }
+      responses:
+        "200": { description: Обновлён }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { description: Деактивация невозможна (узел занят) }
 
   # ══════════════════ Администрирование ══════════════════
   /api/admin/users:
@@ -510,6 +573,18 @@ paths:
       tags: [Легаси-экспертиза]
       summary: Массовые голоса v1
       responses: { "200": { description: OK } }
+  /api/admin/monitor:
+    get:
+      tags: [Администрирование]
+      summary: "Панель мониторинга МНЭ (только admin): активность органов и пользователей"
+      description: >
+        KPI реестра (база подсчёта — как в очередях ревью, с дублями), разбивка по
+        органам (пользователи, требования, confirmed/rejected/edited), поданные НПА
+        по пользователям и системным прогонам.
+      responses:
+        "200": { description: Сводные блоки панели }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
   /api/admin/stats:
     get: { tags: [Легаси-экспертиза], summary: Статистика v1-контура, responses: { "200": { description: OK } } }
   /api/admin/agreement:
