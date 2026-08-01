@@ -9,6 +9,10 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
+  // массовая выгрузка каталога — только администратор МНЭ (решение 2026-08-01;
+  // кнопка в каталоге скрыта для остальных ролей, гейт закрывает и прямой URL)
+  if (user.role !== "admin")
+    return NextResponse.json({ error: "Экспорт доступен только администратору" }, { status: 403 });
 
   const { searchParams } = new URL(req.url);
   const conds: string[] = ["NOT COALESCE(rr.excluded, false)", "(rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')"];

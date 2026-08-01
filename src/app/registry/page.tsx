@@ -188,7 +188,9 @@ export default function RegistryPage() {
                   </select>
                   <I.chevDown />
                 </div>
-                <a className="reg-tool-btn" href={`/api/registry/export?${params(true)}`}><I.download />Экспорт CSV</a>
+                {me?.role === "admin" && (
+                  <a className="reg-tool-btn" href={`/api/registry/export?${params(true)}`}><I.download />Экспорт CSV</a>
+                )}
               </div>
 
               <div className="reg-results-bar">
