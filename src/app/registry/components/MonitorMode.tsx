@@ -109,7 +109,7 @@ export default function MonitorMode() {
           <I.search />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск по органу, НПА, пользователю…" />
         </div>
-        <a className="reg-tool-btn" href="/api/registry/export" title="Выгрузить требования реестра"><I.download />Экспорт CSV</a>
+        <a className="reg-tool-btn" href="/api/admin/monitor/export" title="Выгрузить данные мониторинга (5 листов Excel)"><I.download />Экспорт Excel</a>
       </div>
 
       {tab === "orgs" && (
