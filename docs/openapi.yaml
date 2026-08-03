@@ -585,6 +585,30 @@ paths:
         "200": { description: Сводные блоки панели }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+  /api/dashboard:
+    get:
+      tags: [Администрирование]
+      summary: "Снапшот демонстрационной витрины /dashboard (только admin)"
+      description: >
+        Агрегаты пяти экранов витрины (нагрузка, карта, профили, чистка, сервис);
+        кэш в памяти процесса 10 минут. Денежные оценки (SCM, % ВВП) сознательно
+        не отдаются.
+      responses:
+        "200": { description: "Снапшот витрины" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/admin/monitor/export:
+    get:
+      tags: [Администрирование]
+      summary: "Excel-выгрузка панели мониторинга (только admin): 5 листов"
+      description: >
+        Сводка, По органам, Сотрудники, Поданные НПА, Подающие. Данные — общий
+        сборщик monitorData (числа совпадают с JSON-панелью). Ответ — .xlsx
+        (attachment, Content-Disposition).
+      responses:
+        "200": { description: "Файл .xlsx" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
   /api/admin/stats:
     get: { tags: [Легаси-экспертиза], summary: Статистика v1-контура, responses: { "200": { description: OK } } }
   /api/admin/agreement:
