@@ -14,6 +14,7 @@ export default function ReviewMode({ onOpen, registerReload }:
   const [rqSel, setRqSel] = useState<number[]>([]);
   const [rqAra, setRqAra] = useState<string>(() => { const d = new Date(); d.setFullYear(d.getFullYear() + 2); return d.toISOString().slice(0, 10); });
   const [rqBusy, setRqBusy] = useState(false);
+  const [pageInput, setPageInput] = useState("1"); // прямой переход к странице
   // каскадный фильтр: орган → комитет → НПА (видимость селектов зависит от скоупа роли)
   const [rqOrg, setRqOrg] = useState("");
   const [rqCom, setRqCom] = useState("");
@@ -29,6 +30,14 @@ export default function ReviewMode({ onOpen, registerReload }:
     fetch(`/api/registry/review-queue?${p}`).then((r) => r.json()).then((d) => { setRq(d); setRqSel([]); }).catch(() => {});
   }, [rqStatus, rqPage, rqQd, rqOrg, rqCom, rqNgr]);
   useEffect(() => { loadReviewQueue(); }, [loadReviewQueue]);
+  useEffect(() => { setPageInput(String(rqPage)); }, [rqPage]);
+
+  const jumpTo = (raw: string) => {
+    const pages = Number(rq?.pages || 1);
+    const n = Math.min(pages, Math.max(1, parseInt(raw, 10) || 1));
+    setPageInput(String(n));
+    if (n !== rqPage) setRqPage(n);
+  };
   useEffect(() => { registerReload(loadReviewQueue); }, [registerReload, loadReviewQueue]);
 
   const reviewBulk = (action: string) => {
@@ -125,9 +134,22 @@ export default function ReviewMode({ onOpen, registerReload }:
           </div>
           {rq.pages > 1 && (
             <div className="reg-rev-pager">
+              <button disabled={rqPage <= 1} onClick={() => setRqPage(1)} title="В начало">⇤</button>
               <button disabled={rqPage <= 1} onClick={() => setRqPage(rqPage - 1)}>←</button>
-              <span>{rqPage} / {rq.pages}</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <input
+                  value={pageInput}
+                  onChange={(e) => setPageInput(e.target.value.replace(/[^0-9]/g, ""))}
+                  onKeyDown={(e) => { if (e.key === "Enter") jumpTo(pageInput); }}
+                  onBlur={() => jumpTo(pageInput)}
+                  inputMode="numeric"
+                  title="Введите номер страницы и нажмите Enter"
+                  style={{ width: 64, height: 30, textAlign: "center", border: "1px solid var(--line)", borderRadius: 7, fontSize: 13, fontWeight: 600 }}
+                />
+                <span>/ {Number(rq.pages).toLocaleString("ru")}</span>
+              </span>
               <button disabled={rqPage >= rq.pages} onClick={() => setRqPage(rqPage + 1)}>→</button>
+              <button disabled={rqPage >= rq.pages} onClick={() => setRqPage(rq.pages)} title="В конец">⇥</button>
             </div>
           )}
         </>
