@@ -33,18 +33,26 @@ export default function RegistryCard({
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(item.canon_text || item.legal_text || "");
+  // сохранённый текст: карточка держит старый item до перезагрузки списка
+  const [savedText, setSavedText] = useState<string | null>(null);
 
   const heading = item.title || `${item.subject || ""} ${item.action ? "→ " + item.action : ""}`.trim();
-  const body = item.canon_text || item.legal_text || "";
+  const body = savedText ?? (item.canon_text || item.legal_text || "");
   const adiletUrl = item.ngr ? `https://adilet.zan.kz/rus/docs/${item.ngr}` : null;
 
   async function save() {
     setBusy(true);
     try {
-      await fetch("/api/registry/review", {
+      const res = await fetch("/api/registry/review", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: item.id, action: "edit", fields: { canon_text: text } }),
       });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        alert(e.error || "Не удалось сохранить формулировку");
+        return;
+      }
+      setSavedText(text);
       onChanged?.();
       setEditing(false);
     } finally { setBusy(false); }

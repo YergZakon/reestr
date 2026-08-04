@@ -136,6 +136,9 @@ export function Card({ r, onOpen }: { r: Req; onOpen: (r: Req) => void }) {
 export function Drawer({ r, onClose, onSaved, role }: { r: Req; onClose: () => void; onSaved: () => void; role?: string }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(r.canon_text || r.legal_text || "");
+  // сохранённая формулировка: дровер держит старый проп r до переоткрытия,
+  // из-за чего правка «исчезала» на экране (жалобы аналитиков 2026-08-04)
+  const [savedText, setSavedText] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [rbusy, setRbusy] = useState(false);
   const [araDate, setAraDate] = useState<string>(() => {
@@ -152,8 +155,15 @@ export function Drawer({ r, onClose, onSaved, role }: { r: Req; onClose: () => v
   async function save() {
     setBusy(true);
     try {
-      await fetch("/api/registry/review", { method: "POST", headers: { "Content-Type": "application/json" },
+      const res = await fetch("/api/registry/review", { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: r.id, action: "edit", fields: { canon_text: text } }) });
+      if (!res.ok) {
+        // раньше ошибка глоталась: редактор закрывался как будто сохранено
+        const e = await res.json().catch(() => ({}));
+        alert(e.error || "Не удалось сохранить формулировку");
+        return;
+      }
+      setSavedText(text);
       onSaved(); setEditing(false);
     } finally { setBusy(false); }
   }
@@ -199,7 +209,10 @@ export function Drawer({ r, onClose, onSaved, role }: { r: Req; onClose: () => v
             <div className="reg-d-section-h">Текст требования</div>
             {editing
               ? <textarea className="reg-edit-area" rows={5} value={text} onChange={(e) => setText(e.target.value)} />
-              : <p className="reg-d-legal">{r.canon_text || r.legal_text}</p>}
+              : <p className="reg-d-legal">{savedText ?? (r.canon_text || r.legal_text)}</p>}
+            {savedText != null && !editing && (
+              <div style={{ fontSize: 12, color: "#2E6B4F", marginTop: 4 }}>✓ Формулировка сохранена</div>
+            )}
           </div>
           <div className="reg-d-section">
             <div className="reg-d-section-h">Структура</div>
