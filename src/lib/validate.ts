@@ -62,6 +62,13 @@ export const NpaAdminBody = z.object({
   .refine((b) => b.action !== "exclude" || (b.reason && b.reason.trim().length >= 5),
   { message: "причина обязательна для исключения (≥5 символов)" });
 
+/* ——— Сшивка ЕРСОП↔НПА ——— */
+export const ErsopLinkBody = z.object({
+  link_id: z.coerce.number().int().positive(),
+  action: z.enum(["accept", "reject"]),
+  reason: z.string().max(500).nullish(),
+});
+
 /* ——— Подача НПА ——— */
 export const SubmissionBody = z.object({
   // coerce: терпим число/иные скаляры от нестандартных клиентов — дальше всё
