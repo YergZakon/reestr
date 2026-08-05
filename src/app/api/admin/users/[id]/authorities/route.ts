@@ -8,7 +8,7 @@
  * Доступно только админу.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isMne } from "@/lib/auth";
 import pool, { query } from "@/lib/db";
 import { zbody, AuthoritiesAssignBody } from "@/lib/validate";
 
@@ -20,7 +20,7 @@ export async function PUT(
 ) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
-  if (user.role !== "admin")
+  if (!isMne(user.role))
     return NextResponse.json({ error: "Нет доступа" }, { status: 403 });
 
   const { id } = await params;

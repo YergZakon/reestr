@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isMne } from "@/lib/auth";
 import { moderatorScopeOrgIds } from "@/lib/orgs";
 import { zbody, OrgCreateBody, OrgUpdateBody } from "@/lib/validate";
 
@@ -21,9 +21,9 @@ const UNIT_TYPES = ["committee", "department"];
 async function requireOrgManager() {
   const user = await getCurrentUser();
   if (!user) return { err: NextResponse.json({ error: "Не авторизован" }, { status: 401 }) };
-  if (user.role !== "admin" && user.role !== "moderator")
+  if (!isMne(user.role) && user.role !== "moderator")
     return { err: NextResponse.json({ error: "Нет прав" }, { status: 403 }) };
-  const isAdmin = user.role === "admin";
+  const isAdmin = isMne(user.role);
   const scope = isAdmin ? [] : await moderatorScopeOrgIds(user.id);
   if (!isAdmin && scope.length === 0)
     return { err: NextResponse.json({ error: "За вами не закреплён ни один орган — обратитесь к администратору" }, { status: 403 }) };

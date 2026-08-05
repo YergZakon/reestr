@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isMne } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { moderatorScopeOrgIds } from "@/lib/orgs";
 import { zbody, OrgsAssignBody } from "@/lib/validate";
@@ -8,7 +8,7 @@ import { zbody, OrgsAssignBody } from "@/lib/validate";
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
-  if (user.role !== "admin" && user.role !== "moderator")
+  if (!isMne(user.role) && user.role !== "moderator")
     return NextResponse.json({ error: "Нет доступа" }, { status: 403 });
 
   const { id } = await params;
@@ -17,7 +17,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!vb.ok) return vb.res;
   const orgIds: number[] = vb.data.assigned_orgs;
 
-  const isAdmin = user.role === "admin";
+  const isAdmin = isMne(user.role);
   if (!isAdmin) {
     const scope = await moderatorScopeOrgIds(user.id);
     const inScope = await query("SELECT 1 FROM user_orgs WHERE user_id=$1 AND org_id = ANY($2::int[]) LIMIT 1", [uid, scope]);

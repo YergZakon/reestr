@@ -101,7 +101,7 @@ export const UserCreateBody = z.object({
   email: z.string().email("некорректный email").max(160).nullish()
     .or(z.literal("").transform(() => null)),
   fullName: z.string().max(150).nullish(),
-  role: z.enum(["admin", "moderator", "expert"]).default("expert"),
+  role: z.enum(["admin", "mne", "moderator", "expert"]).default("expert"),
   assigned_spheres: z.array(z.string().max(40)).max(50).default([]),
   assigned_authorities: z.array(z.string().max(40)).max(50).default([]),
   assigned_orgs: z.array(z.coerce.number().int().positive()).max(50).default([]),

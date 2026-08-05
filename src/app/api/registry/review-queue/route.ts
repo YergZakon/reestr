@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { getCurrentUserWithAccess } from "@/lib/auth";
+import { getCurrentUserWithAccess, isMne } from "@/lib/auth";
 import { escapeLike } from "@/lib/validate";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +21,7 @@ const ACTIVE = `NOT COALESCE(rr.excluded, false) AND (rr.npa_status IS NULL OR r
 export async function GET(req: NextRequest) {
   const user = await getCurrentUserWithAccess();
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
-  const isAdmin = user.role === "admin";
+  const isAdmin = isMne(user.role);
   if (!isAdmin && user.assigned_authorities.length === 0)
     return NextResponse.json({ items: [], total: 0, page: 1, pages: 0, counts: {}, noAuthorities: true });
 

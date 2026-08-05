@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { getCurrentUserWithAccess } from "@/lib/auth";
+import { getCurrentUserWithAccess, isMne } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +15,7 @@ export async function GET() {
   const user = await getCurrentUserWithAccess();
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
 
-  const scoped = user.role !== "admin";
+  const scoped = !isMne(user.role);
   const params: unknown[] = [];
   let scopeCond = "";
   if (scoped) {

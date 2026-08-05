@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { getCurrentUserWithAccess } from "@/lib/auth";
+import { getCurrentUserWithAccess, isMne } from "@/lib/auth";
 import { escapeLike } from "@/lib/validate";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   const sp = new URL(req.url).searchParams;
   const authority = (sp.get("authority") || "").trim();
   if (!authority) return NextResponse.json({ error: "authority обязателен" }, { status: 400 });
-  if (user.role !== "admin" && !user.assigned_authorities.includes(authority))
+  if (!isMne(user.role) && !user.assigned_authorities.includes(authority))
     return NextResponse.json({ error: "Орган вне вашего доступа" }, { status: 403 });
 
   // коды поддерева выбранного узла (сам узел + все потомки)

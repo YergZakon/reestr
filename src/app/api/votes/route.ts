@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isMne } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { checkRateLimit } from "@/lib/rate-limit";
 
@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
   // легаси-контур голосования: те же роли, что и ревью реестра (moderator не голосует)
-  if (user.role !== "expert" && user.role !== "admin")
+  if (user.role !== "expert" && !isMne(user.role))
     return NextResponse.json({ error: "Нет прав" }, { status: 403 });
 
   // Rate-limit: защита от случайного цикла или вредоносного спама
@@ -61,7 +61,7 @@ export async function PUT(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
   // легаси-контур голосования: те же роли, что и ревью реестра (moderator не голосует)
-  if (user.role !== "expert" && user.role !== "admin")
+  if (user.role !== "expert" && !isMne(user.role))
     return NextResponse.json({ error: "Нет прав" }, { status: 403 });
 
   const rl = await checkRateLimit(user.id, "PUT /api/votes", BULK_LIMIT_PER_MIN);

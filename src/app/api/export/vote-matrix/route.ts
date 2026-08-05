@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isMne } from "@/lib/auth";
 import { query, initDB } from "@/lib/db";
 import { computeGoldLabel } from "@/lib/agreement";
 
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     await initDB();
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
-    if (user.role !== "admin") return NextResponse.json({ error: "Нет доступа" }, { status: 403 });
+    if (!isMne(user.role)) return NextResponse.json({ error: "Нет доступа" }, { status: 403 });
 
     const url = new URL(req.url);
     const format = url.searchParams.get("format") || "csv";

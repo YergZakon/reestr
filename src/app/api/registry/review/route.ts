@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { getCurrentUserWithAccess } from "@/lib/auth";
+import { getCurrentUserWithAccess, isMne } from "@/lib/auth";
 import { zbody, ReviewBody } from "@/lib/validate";
 
 export const dynamic = "force-dynamic";
@@ -23,9 +23,9 @@ const araMaxYears = (ngr: string): number => (/^[KZ]/i.test(ngr || "") ? 3 : 2);
 export async function POST(req: NextRequest) {
   const user = await getCurrentUserWithAccess();
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
-  if (user.role !== "expert" && user.role !== "admin")
+  if (user.role !== "expert" && !isMne(user.role))
     return NextResponse.json({ error: "Нет прав" }, { status: 403 });
-  const isAdmin = user.role === "admin";
+  const isAdmin = isMne(user.role);
 
   const v = await zbody(req, ReviewBody);
   if (!v.ok) return v.res;

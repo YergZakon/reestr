@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { query } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isMne } from "@/lib/auth";
 import { moderatorScopeOrgIds } from "@/lib/orgs";
 import { zbody, escapeLike } from "@/lib/validate";
 import { z } from "zod";
@@ -33,7 +33,7 @@ async function subtree(orgId: number): Promise<{ ids: number[]; codes: string[] 
 async function requireManager(orgId: number | null) {
   const user = await getCurrentUser();
   if (!user) return { err: NextResponse.json({ error: "Не авторизован" }, { status: 401 }) };
-  if (user.role !== "admin" && user.role !== "moderator")
+  if (!isMne(user.role) && user.role !== "moderator")
     return { err: NextResponse.json({ error: "Нет прав" }, { status: 403 }) };
   if (user.role === "moderator" && orgId != null) {
     const scope = await moderatorScopeOrgIds(user.id);
@@ -49,7 +49,7 @@ async function requireManager(orgId: number | null) {
  * и каскадом перевести требования другого министерства на свой комитет.
  */
 async function assertOwnsNpa(user: { id: number; role: string }, ngr: string) {
-  if (user.role === "admin") return null;
+  if (isMne(user.role)) return null;
   const scope = await moderatorScopeOrgIds(user.id);
   if (!scope.length)
     return NextResponse.json({ error: "За вами не закреплён ни один орган" }, { status: 403 });

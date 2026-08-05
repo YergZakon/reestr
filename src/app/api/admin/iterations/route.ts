@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isMne } from "@/lib/auth";
 import { query, initDB } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +9,7 @@ export async function GET() {
     await initDB();
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
-    if (user.role !== "admin") return NextResponse.json({ error: "Нет доступа" }, { status: 403 });
+    if (!isMne(user.role)) return NextResponse.json({ error: "Нет доступа" }, { status: 403 });
 
     const result = await query(`
       SELECT i.*,
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     await initDB();
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
-    if (user.role !== "admin") return NextResponse.json({ error: "Нет доступа" }, { status: 403 });
+    if (!isMne(user.role)) return NextResponse.json({ error: "Нет доступа" }, { status: 403 });
 
     const body = await req.json();
     const { description } = body;
@@ -69,7 +69,7 @@ export async function PUT(req: NextRequest) {
     await initDB();
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
-    if (user.role !== "admin") return NextResponse.json({ error: "Нет доступа" }, { status: 403 });
+    if (!isMne(user.role)) return NextResponse.json({ error: "Нет доступа" }, { status: 403 });
 
     const body = await req.json();
     const { iterationId, action } = body; // action: 'complete' | 'archive'

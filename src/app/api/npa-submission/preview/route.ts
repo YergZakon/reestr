@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isMne } from "@/lib/auth";
 import { parseArticles, parseTitle } from "@/lib/npaParse";
 import { zbody, PreviewBody, NGR_RE } from "@/lib/validate";
 import { fetchAdilet } from "@/lib/adilet";
@@ -20,7 +20,7 @@ const SYSTEM = `Ты юрист-аналитик регуляторики РК. 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
-  if (user.role !== "admin" && user.role !== "moderator")
+  if (!isMne(user.role) && user.role !== "moderator")
     return NextResponse.json({ error: "Нет прав" }, { status: 403 });
   if (!process.env.DEEPSEEK_API_KEY)
     return NextResponse.json({ error: "ИИ-сервис не настроен" }, { status: 503 });

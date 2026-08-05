@@ -34,7 +34,7 @@ function AudTag({ aud }: { aud: Aud }) {
 
 export default function HelpMode({ role }: { role?: string }) {
   const [sec, setSec] = useState("start");
-  const roleName = role === "admin" ? "МНЭ (Администратор)" : role === "moderator" ? "Модератор" : "Аналитик";
+  const roleName = (role === "admin" || role === "mne") ? "МНЭ (Администратор)" : role === "moderator" ? "Модератор" : "Аналитик";
 
   return (
     <div className="reg-shell">

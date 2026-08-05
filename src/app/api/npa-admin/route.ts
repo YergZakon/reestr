@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { query } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isMne } from "@/lib/auth";
 import { zbody, NpaAdminBody, escapeLike } from "@/lib/validate";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic";
 async function requireAdmin() {
   const user = await getCurrentUser();
   if (!user) return { err: NextResponse.json({ error: "Не авторизован" }, { status: 401 }) };
-  if (user.role !== "admin")
+  if (!isMne(user.role))
     return { err: NextResponse.json({ error: "Только для администратора МНЭ" }, { status: 403 }) };
   return { user };
 }

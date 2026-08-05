@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isMne } from "@/lib/auth";
 import { query, initDB } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +10,7 @@ export async function GET() {
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
     // сводка по всем органам и пофамильный прогресс экспертов — только уполномоченному органу
-    if (user.role !== "admin")
+    if (!isMne(user.role))
       return NextResponse.json({ error: "Нет доступа" }, { status: 403 });
 
     // Общая статистика
