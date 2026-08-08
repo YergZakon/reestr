@@ -10,7 +10,10 @@ import { MongoClient, Binary, ObjectId } from "mongodb";
 import { query } from "@/lib/db";
 
 const BATCH = 500;
-const LOST_RE = /утратил[аои]?\s+силу|утратившим\s+силу/i;
+// Канон mark_repealed.py: «Утратил силу <актом>» в статус-плашке (первые ~700
+// симв. чистого текста). Простое вхождение «утратил силу» в шапке ловит сноски
+// о ДРУГИХ актах (техрегламенты ТС) — 215 ложных на baseline 2026-08-08.
+const LOST_RE = /Утративший силу|Утратил[аио]? силу (?:приказом|постановлением|Закон|указом|решением|совместн)/;
 
 interface ZanMeta {
   ngr: string;
@@ -30,14 +33,13 @@ interface SnapRow {
   missing: boolean;
 }
 
-function normText(html: string): string {
+function normTextKeepCase(html: string): string {
   return html
     .replace(/&nbsp;|&#160;/g, " ")
     .replace(/&[a-z]+;|&#\d+;/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
+    .trim();
 }
 
 const ymd = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
@@ -137,8 +139,9 @@ export async function zanWatchTick(): Promise<void> {
         if (bin) {
           try {
             const html = gunzipSync(Buffer.from(bin.buffer)).toString("utf-8");
-            hash = createHash("md5").update(normText(html)).digest("hex");
-            lost = LOST_RE.test(html.slice(0, 8000));
+            const clean = normTextKeepCase(html);
+            hash = createHash("md5").update(clean.toLowerCase()).digest("hex");
+            lost = LOST_RE.test(clean.slice(0, 700));
             texts++;
           } catch { /* битый gzip — оставляем прежний hash */ }
         }
