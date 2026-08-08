@@ -3,6 +3,7 @@
 // зависшие задачи возвращаются в очередь по истечении lease (claimNext).
 import { processOne } from "./pipeline";
 import { notifyTick } from "./notify";
+import { zanWatchTick } from "./zanWatch";
 
 let started = false;
 let busy = false;
@@ -13,6 +14,8 @@ export function startWorkerLoop() {
   console.log("[worker] цикл запущен (тик 30 с; уведомления — каждый час)");
   setInterval(notifyTick, 60 * 60_000);
   setTimeout(notifyTick, 120_000); // первый прогон уведомлений через 2 мин после старта
+  setInterval(zanWatchTick, 24 * 60 * 60_000); // суточная сверка НПА с базой ЗАН
+  setTimeout(zanWatchTick, 5 * 60_000); // первый прогон через 5 мин после старта
   const tick = async () => {
     if (busy) return;
     busy = true;

@@ -1,5 +1,9 @@
 "use client";
-// Колокольчик уведомлений органа (new_pending / ara_soon). Данные — /api/notifications
+// Колокольчик уведомлений органа. Данные — /api/notifications
+const TYPE_LABELS: Record<string, string> = {
+  new_pending: "новые в очереди", ara_soon: "срок АРА", npa_assigned: "передача НПА",
+  npa_repealed: "утрата силы", npa_amended: "новая редакция",
+};
 // (генерирует облачный воркер; email-канал дублирует при заданном SMTP_URL).
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -84,7 +88,7 @@ export default function NotificationsBell() {
             }}>
               <div style={{ fontSize: 12.5, fontWeight: n.is_read ? 450 : 650, lineHeight: 1.35 }}>{n.title}</div>
               <div style={{ fontSize: 11, color: "#8A877E", marginTop: 2 }}>
-                {n.authority_code} · {n.type === "ara_soon" ? "срок АРА" : "новые в очереди"} · {String(n.created_at).slice(0, 10)}
+                {n.authority_code} · {TYPE_LABELS[n.type] || n.type} · {String(n.created_at).slice(0, 10)}
               </div>
             </div>
           ))}
