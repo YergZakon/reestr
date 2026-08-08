@@ -93,7 +93,64 @@ export interface Req {
   authority_code?: string | null; review_status?: string | null; ara_status?: string | null;
   ara_deadline?: string | null; review_comment?: string | null; norm_url?: string | null;
   is_canonical?: boolean | null; dup_group_id?: number | null;
+  source?: string | null; ersop_confirmed?: boolean | null;
 }
+/** Предлагаемое правовое основание для ЕРСОП-карточки без ngr (сшивка ЕРСОП↔НПА).
+ *  proposed — орган принимает/отклоняет; accepted/auto основание уже на карточке. */
+export function ErsopLinkBlock({ r, onSaved }: { r: Req; onSaved: () => void }) {
+  const [link, setLink] = useState<{ id: number; status: string; cosine: number | null;
+    llm_confidence: number | null; reason: string | null; ngr: string | null;
+    npa_title: string | null; article: string | null; npa_text: string | null } | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    fetch(`/api/ersop-link?card_id=${r.id}`).then((x) => x.json())
+      .then((d) => setLink(d.link || null)).catch(() => {});
+  }, [r.id]);
+  if (!link || link.status !== "proposed") return null;
+  const act = async (action: "accept" | "reject") => {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/ersop-link", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ link_id: link.id, action }),
+      }).then((x) => x.json());
+      if (res.error) alert(res.error);
+      else { setLink(null); onSaved(); }
+    } finally { setBusy(false); }
+  };
+  const skeptic = (link.reason || "").split("| скептик:").pop()?.trim();
+  return (
+    <div className="reg-d-section">
+      <div className="reg-d-section-h">Предлагаемое правовое основание</div>
+      <div className="reg-npa-card">
+        <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.4 }}>
+          {link.npa_title || link.ngr}{link.article ? `, ${link.article}` : ""}
+        </div>
+        {link.npa_text && (
+          <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginTop: 6, lineHeight: 1.45 }}>
+            «{link.npa_text.slice(0, 400)}{link.npa_text.length > 400 ? "…" : ""}»
+          </div>
+        )}
+        <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 6 }}>
+          Сходство {link.cosine != null ? Math.round(link.cosine * 100) + " %" : "—"}
+          {link.llm_confidence != null ? ` · уверенность ИИ ${Math.round(link.llm_confidence * 100)} %` : ""}
+          {link.ngr && <> · <a className="reg-d-link" href={`https://adilet.zan.kz/rus/docs/${link.ngr}`} target="_blank" rel="noreferrer">adilet →</a></>}
+        </div>
+        {skeptic && skeptic !== (link.reason || "").trim() && (
+          <div style={{ fontSize: 12, color: "#A32D2D", marginTop: 6 }}>Возможное различие: {skeptic}</div>
+        )}
+        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+          <button className="reg-rev-confirm" disabled={busy} onClick={() => act("accept")}
+            title="Установить это требование законодательства правовым основанием; дубль из НПА-контура будет скрыт">
+            Принять основание
+          </button>
+          <button className="reg-rev-reject" disabled={busy} onClick={() => act("reject")}>Отклонить</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export const REVIEW_LABEL: Record<string, string> = {
   pending: "на подтверждении", confirmed: "подтверждено", rejected: "отклонено", edited: "отредактировано",
 };
@@ -123,6 +180,7 @@ export function Card({ r, onOpen }: { r: Req; onOpen: (r: Req) => void }) {
         {(!r.review_status || r.review_status === "pending" || r.review_status === "edited") && <span className="reg-rb reg-rb-pending">на подтверждении</span>}
         {r.ara_status === "исключён" && <span className="reg-rb reg-rb-rejected">исключён</span>}
         {r.is_canonical === false && <span className="reg-rb reg-rb-pending" title="Требование дублирует норму другого акта — подлежит устранению госорганом в установленном порядке">дубль</span>}
+        {r.source === "ersop" && <span className="reg-rb reg-rb-pending" title="Требование из проверочного листа ЕРСОП. В первоисточнике ЕРСОП нет привязки к НПА — правовое основание устанавливается сшивкой с требованием из законодательства">проверочный лист ЕРСОП</span>}
         {r.sphere_name && <MetaChip color={SPHERE_COLOR[r.sphere_code || ""]}>{r.sphere_name}</MetaChip>}
         {r.ministry && <MetaChip>{minShort(r.ministry)}</MetaChip>}
         {(r.stages || []).slice(0, 3).map((s) => <MetaChip key={s} stage>{STAGE_LABEL[s] || s}</MetaChip>)}
@@ -246,9 +304,15 @@ export function Drawer({ r, onClose, onSaved, role }: { r: Req; onClose: () => v
                   Госрегномер: <b style={{ color: "var(--ink-2)" }}>{r.ngr}</b>
                   {adilet && <> · <a className="reg-d-link" href={adilet} target="_blank" rel="noreferrer">Открыть на adilet.zan.kz →</a></>}
                 </div>
+                {r.source === "ersop" && r.ersop_confirmed && (
+                  <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 6 }}>
+                    Основание установлено сшивкой с требованием законодательства (проверочный лист ЕРСОП).
+                  </div>
+                )}
               </div>
             </div>
           )}
+          {r.source === "ersop" && !r.ngr && <ErsopLinkBlock r={r} onSaved={onSaved} />}
           {r.okeds && r.okeds.length > 0 && (
             <div className="reg-d-section">
               <div className="reg-d-section-h">Применимые виды деятельности (ОКЭД)</div>
