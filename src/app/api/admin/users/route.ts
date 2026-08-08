@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser, hashPassword } from "@/lib/auth";
+import { getCurrentUser, hashPassword, isMne } from "@/lib/auth";
 import { query, initDB } from "@/lib/db";
 import { moderatorScopeOrgIds } from "@/lib/orgs";
 import { zbody, UserCreateBody, UserToggleBody } from "@/lib/validate";
@@ -10,9 +10,9 @@ import { zbody, UserCreateBody, UserToggleBody } from "@/lib/validate";
 async function requireManager() {
   const user = await getCurrentUser();
   if (!user) return { err: NextResponse.json({ error: "Не авторизован" }, { status: 401 }) };
-  if (user.role !== "admin" && user.role !== "moderator")
+  if (!isMne(user.role) && user.role !== "moderator")
     return { err: NextResponse.json({ error: "Нет доступа" }, { status: 403 }) };
-  const isAdmin = user.role === "admin";
+  const isAdmin = isMne(user.role);
   const scope = isAdmin ? [] : await moderatorScopeOrgIds(user.id);
   return { user, isAdmin, scope };
 }
@@ -56,8 +56,12 @@ export async function POST(req: NextRequest) {
   let assignedAuthorities: string[] = vb.data.assigned_authorities;
   const assignedOrgs: number[] = vb.data.assigned_orgs;
 
+  // Учётки уровня МНЭ (admin/mne) создаёт ТОЛЬКО супер-админ (решение 2026-08-05):
+  // «Сотрудник МНЭ» делает всё, кроме выгрузки реестра и создания admin/mne
+  if (user.role !== "admin" && (role === "admin" || role === "mne"))
+    return NextResponse.json({ error: "Учётки уровня МНЭ создаёт только администратор" }, { status: 403 });
   // Модератор: может создавать только рецензентов и только в своём поддереве
-  if (!isAdmin) {
+  if (user.role === "moderator") {
     role = "expert";
     // Плоские оси доступа (user_authorities/user_spheres) объединяются в
     // assigned_authorities наравне с орг-поддеревом (lib/auth.ts). Разрешать их
@@ -129,6 +133,14 @@ export async function PUT(req: NextRequest) {
   const { userId, isActive, email, password } = vb.data;
   if (userId === m.user!.id && isActive === false)
     return NextResponse.json({ error: "Нельзя деактивировать свой аккаунт" }, { status: 400 });
+
+  // «Сотрудник МНЭ» не трогает учётки уровня МНЭ — иначе сбросом пароля
+  // перехватывается аккаунт супер-админа (решение 2026-08-05)
+  if (m.user!.role === "mne") {
+    const tgt = await query("SELECT role FROM users WHERE id=$1", [userId]);
+    if (tgt.rows[0] && ["admin", "mne"].includes(tgt.rows[0].role))
+      return NextResponse.json({ error: "Учётки уровня МНЭ изменяет только администратор" }, { status: 403 });
+  }
 
   // модератор — только пользователи своего поддерева
   if (!m.isAdmin) {

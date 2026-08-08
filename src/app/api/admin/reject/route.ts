@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isMne } from "@/lib/auth";
 import { query } from "@/lib/db";
 
 // Админ: отклонить требование
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user || user.role !== "admin") {
+  if (!user || !isMne(user.role)) {
     return NextResponse.json({ error: "Доступ запрещён" }, { status: 403 });
   }
 
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
 // Админ: восстановить требование
 export async function DELETE(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user || user.role !== "admin") {
+  if (!user || !isMne(user.role)) {
     return NextResponse.json({ error: "Доступ запрещён" }, { status: 403 });
   }
 

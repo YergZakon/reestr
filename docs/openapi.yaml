@@ -7,7 +7,7 @@ info:
     Составлена по коду `src/app/api/**` (2026-07-02), см. docs/architecture (комплект ГОСТ 34).
 
     **Аутентификация:** JWT в httpOnly-cookie `auth_token` (выдаётся `/api/auth/login`, срок 7 суток).
-    **Роли:** `admin` (МНЭ, без ограничений) · `moderator` (орган + поддерево организаций) ·
+    **Роли:** `admin` (супер-админ МНЭ) · `mne` (сотрудник МНЭ: всё как admin, кроме выгрузки каталога и создания учёток уровня МНЭ) · `moderator` (орган + поддерево организаций) ·
     `expert` (назначенные сферы ∩ органы). Скоупы возвращает `/api/auth/me`.
     **Ошибки:** единый формат `{ "error": string }`; 401 — не авторизован, 403 — нет прав/чужой орган,
     404 — не найдено, 429 — превышен лимит (голосование), 5xx — внутренняя/внешний сервис.
@@ -166,14 +166,38 @@ paths:
         - { name: cross, in: query, schema: { type: string, enum: ["1"] }, description: Только межведомственные }
         - { name: group, in: query, schema: { type: integer }, description: Конкретная группа }
       responses: { "200": { description: Группы с участниками и косинус-близостью } }
-  /api/registry/{id}/duplicates:
+  /api/ersop-link:
     get:
-      tags: [Реестр]
-      summary: Дубли конкретного требования
+      tags: [Ревью и АРА]
+      summary: Активная связь сшивки ЕРСОП↔НПА для карточки
+      description: >
+        Для ЕРСОП-карточки без правового основания — предлагаемая/принятая пара:
+        НПА-карточка (титул, ngr, статья, текст), уверенность ИИ, различия скептика.
       parameters:
-        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: card_id, in: query, required: true, schema: { type: integer } }
       responses:
-        "200": { description: Список дублей группы }
+        "200": { description: "{ link | null }" }
+    post:
+      tags: [Ревью и АРА]
+      summary: "Решение органа по предложенному основанию (accept | reject)"
+      description: >
+        accept (транзакция): правовое основание переносится на ЕРСОП-карточку,
+        наследуется ревью-статус, НПА-дубль скрывается (excluded) со снимком для
+        отката; reject — отказ с причиной. Доступ: admin; expert — в скоупе органа.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [link_id, action]
+              properties:
+                link_id: { type: integer }
+                action: { type: string, enum: [accept, reject] }
+                reason: { type: string, maxLength: 500 }
+      responses:
+        "200": { description: "{ ok, status }" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
   # ══════════════════ Ревью и АРА ══════════════════

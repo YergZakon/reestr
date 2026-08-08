@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isMne } from "@/lib/auth";
 import { escapeLike } from "@/lib/validate";
 
 export const dynamic = "force-dynamic";
@@ -9,10 +9,11 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
-  // массовая выгрузка каталога — только администратор МНЭ (решение 2026-08-01;
-  // кнопка в каталоге скрыта для остальных ролей, гейт закрывает и прямой URL)
+  // массовая выгрузка каталога — ТОЛЬКО супер-админ (решения 2026-08-01 и
+  // 2026-08-05: роль mne видит и делает всё, кроме выгрузки реестра);
+  // кнопка в каталоге скрыта, гейт закрывает и прямой URL
   if (user.role !== "admin")
-    return NextResponse.json({ error: "Экспорт доступен только администратору" }, { status: 403 });
+    return NextResponse.json({ error: "Экспорт реестра доступен только администратору" }, { status: 403 });
 
   const { searchParams } = new URL(req.url);
   const conds: string[] = ["NOT COALESCE(rr.excluded, false)", "(rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')"];
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest) {
             COALESCE(rr.canon_text, rr.legal_text, rr.title) AS text,
             rr.subject, rr.action, rr.object, rr.condition,
             array_to_string(rr.stages, '|') AS stages,
-            array_to_string(rr.okeds, '|') AS okeds,
+            array_to_string(rr.okeds, '|') AS okeds, rr.source,
             CASE WHEN NOT rr.is_canonical THEN 'дубль группы ' || rr.dup_group_id ELSE '' END AS duplicate
      FROM requirement_registry rr LEFT JOIN spheres s ON s.code = rr.sphere_code
      WHERE ${conds.join(" AND ")} ORDER BY rr.ministry, rr.ngr`,
@@ -48,7 +49,8 @@ export async function GET(req: NextRequest) {
   );
 
   const cols = ["ministry", "sphere", "npa_title", "ngr", "article",
-    "text", "subject", "action", "object", "condition", "stages", "okeds"];
+    "text", "subject", "action", "object", "condition", "stages", "okeds",
+    "source", "duplicate"];  // duplicate вычислялась в SQL, но в файл не попадала (фикс 2026-08-04)
   const esc = (v: unknown) => {
     const s = v == null ? "" : String(v);
     return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import ExcelJS from "exceljs";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isMne } from "@/lib/auth";
 import { buildMonitorData } from "@/lib/monitorData";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +32,7 @@ const dt = (v: unknown) => (v ? String(v).slice(0, 16).replace("T", " ") : "");
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
-  if (user.role !== "admin")
+  if (!isMne(user.role))
     return NextResponse.json({ error: "Раздел доступен только уполномоченному органу (МНЭ)" }, { status: 403 });
 
   const d = await buildMonitorData();

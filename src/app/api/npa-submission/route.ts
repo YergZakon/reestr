@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isMne } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { moderatorScopeOrgIds } from "@/lib/orgs";
 import { zbody, SubmissionBody, NGR_RE } from "@/lib/validate";
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
-  if (user.role !== "admin" && user.role !== "moderator")
+  if (!isMne(user.role) && user.role !== "moderator")
     return NextResponse.json({ error: "Нет прав" }, { status: 403 });
 
   const v = await zbody(req, SubmissionBody);
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
-  if (user.role !== "admin" && user.role !== "moderator")
+  if (!isMne(user.role) && user.role !== "moderator")
     return NextResponse.json({ error: "Нет прав" }, { status: 403 });
 
   const params: unknown[] = [];

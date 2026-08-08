@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isMne } from "@/lib/auth";
 import { zbody, CostParamsBody } from "@/lib/validate";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
   // параметры SCM влияют на расчёт стоимости ВСЕГО реестра — только admin (МНЭ)
-  if (user.role !== "admin") return NextResponse.json({ error: "Нет прав" }, { status: 403 });
+  if (!isMne(user.role)) return NextResponse.json({ error: "Нет прав" }, { status: 403 });
   const vb = await zbody(req, CostParamsBody);
   if (!vb.ok) return vb.res;
   const b = vb.data as Record<string, number | undefined>;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { getCurrentUserWithAccess } from "@/lib/auth";
+import { getCurrentUserWithAccess, isMne } from "@/lib/auth";
 import { escapeLike } from "@/lib/validate";
 
 export const dynamic = "force-dynamic";
@@ -15,13 +15,13 @@ const FIELDS = `rr.id, rr.ngr, rr.npa_title, rr.article, rr.ministry, rr.authori
   s.name_ru AS sphere_name, rr.okeds, rr.stages, rr.title, rr.legal_text, rr.canon_text,
   rr.subject, rr.action, rr.object, rr.condition, rr.is_permit, rr.norm_url,
   rr.review_status, rr.ara_status, rr.ara_deadline, rr.review_comment, rr.reviewed_at,
-  rr.dup_suspect, rr.is_canonical, rr.dup_group_id, rr.source`;
+  rr.dup_suspect, rr.is_canonical, rr.dup_group_id, rr.source, rr.ersop_confirmed`;
 const ACTIVE = `NOT COALESCE(rr.excluded, false) AND (rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')`;
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUserWithAccess();
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
-  const isAdmin = user.role === "admin";
+  const isAdmin = isMne(user.role);
   if (!isAdmin && user.assigned_authorities.length === 0)
     return NextResponse.json({ items: [], total: 0, page: 1, pages: 0, counts: {}, noAuthorities: true });
 

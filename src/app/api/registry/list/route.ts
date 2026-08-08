@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
   const dataSql = `
     SELECT rr.id, rr.ngr, rr.npa_title, rr.article, rr.ministry, rr.sphere_code,
       rr.okeds, rr.stages, rr.title, rr.legal_text, rr.canon_text,
-      rr.subject, rr.action, rr.object, rr.condition,
+      rr.subject, rr.action, rr.object, rr.condition, rr.source, rr.ersop_confirmed,
       rr.norm_url, rr.review_status, rr.ara_status, rr.is_canonical, rr.dup_group_id,
       s.name_ru AS sphere_name
     FROM requirement_registry rr

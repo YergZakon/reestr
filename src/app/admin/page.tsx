@@ -506,7 +506,7 @@ function UsersTab({ router }: { router: ReturnType<typeof useRouter> }) {
                         : "bg-blue-100 text-blue-700"
                     }`}
                   >
-                    {u.role === "admin" ? "Админ" : "Эксперт"}
+                    {u.role === "admin" ? "Админ" : u.role === "mne" ? "Сотрудник МНЭ" : "Эксперт"}
                   </span>
                 </td>
                 <td className="px-4 py-2 text-center">
