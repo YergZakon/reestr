@@ -6,7 +6,7 @@ import NotificationsBell from "./NotificationsBell";
 interface User {
   id: number;
   username: string;
-  role: "admin" | "moderator" | "expert";
+  role: "admin" | "mne" | "moderator" | "expert";
 }
 
 export default function Header() {
@@ -50,7 +50,7 @@ export default function Header() {
               >
                 Реестр
               </button>
-              {user.role === "admin" && (
+              {(user.role === "admin" || user.role === "mne") && (
                 <button
                   onClick={() => router.push("/admin/moderators")}
                   className="px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
@@ -74,14 +74,14 @@ export default function Header() {
               {user.username}{" "}
               <span
                 className={`inline-block px-1.5 py-0.5 text-xs rounded ${
-                  user.role === "admin"
+                  (user.role === "admin" || user.role === "mne")
                     ? "bg-purple-100 text-purple-700"
                     : user.role === "moderator"
                     ? "bg-teal-100 text-teal-700"
                     : "bg-blue-100 text-blue-700"
                 }`}
               >
-                {user.role === "admin" ? "Админ" : user.role === "moderator" ? "Модератор" : "Аналитик"}
+                {(user.role === "admin" || user.role === "mne") ? "Админ" : user.role === "moderator" ? "Модератор" : "Аналитик"}
               </span>
             </span>
             <button

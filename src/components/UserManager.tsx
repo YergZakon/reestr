@@ -42,6 +42,10 @@ export default function UserManager({ kind }: { kind: "moderators" | "analysts" 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState(genPassword);
   const [orgId, setOrgId] = useState<string>("");
+  // тип создаваемой учётки на странице модераторов: модератор органа или
+  // «Сотрудник МНЭ» (mne = все права admin, кроме выгрузки реестра и
+  // создания учёток уровня МНЭ). Выбор виден только супер-админу.
+  const [newRole, setNewRole] = useState<"moderator" | "mne">("moderator");
   // одноразовый показ выданных кредов (создание / сброс пароля)
   const [creds, setCreds] = useState<{ username: string; password: string } | null>(null);
   const [emailEdit, setEmailEdit] = useState<{ id: number; value: string } | null>(null);
@@ -53,8 +57,8 @@ export default function UserManager({ kind }: { kind: "moderators" | "analysts" 
       const u: Me | null = d?.user || null;
       if (!u) { router.replace("/login"); return; }
       // гвард ролей: страница модераторов — admin; страница аналитиков — moderator
-      if (isMods && u.role !== "admin") { router.replace(u.role === "moderator" ? "/moderator/analysts" : "/registry"); return; }
-      if (!isMods && u.role !== "moderator") { router.replace(u.role === "admin" ? "/admin/moderators" : "/registry"); return; }
+      if (isMods && u.role !== "admin" && u.role !== "mne") { router.replace(u.role === "moderator" ? "/moderator/analysts" : "/registry"); return; }
+      if (!isMods && u.role !== "moderator") { router.replace(u.role === "admin" || u.role === "mne" ? "/admin/moderators" : "/registry"); return; }
       setMe(u);
     }).catch(() => router.replace("/login"));
   }, [isMods, router]);
@@ -113,17 +117,19 @@ export default function UserManager({ kind }: { kind: "moderators" | "analysts" 
     return names.join(", ") || "—";
   }, [orgs]);
 
-  const list = rows.filter((u) => (isMods ? u.role === "moderator" : u.role === "expert"));
+  const list = rows.filter((u) => (isMods ? u.role === "moderator" || u.role === "mne" : u.role === "expert"));
+  const creatingMne = isMods && newRole === "mne";
 
   const create = () => {
     setErr(""); setCreds(null);
-    if (!username || !password || !orgId) { setErr("Заполните логин, пароль и орган"); return; }
+    if (!username || !password || (!orgId && !creatingMne)) { setErr("Заполните логин, пароль и орган"); return; }
     setBusy(true);
     fetch("/api/admin/users", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         username, password, email: email || null, fullName: fullName || null,
-        role: isMods ? "moderator" : "expert", assigned_orgs: [Number(orgId)],
+        role: isMods ? newRole : "expert",
+        assigned_orgs: creatingMne ? [] : [Number(orgId)],
       }),
     }).then((r) => r.json()).then((d) => {
       if (d.error) { setErr(d.error); return; }
@@ -173,7 +179,19 @@ export default function UserManager({ kind }: { kind: "moderators" | "analysts" 
 
       {/* создание */}
       <div className="mt-5 rounded-lg border border-slate-200 bg-white p-5">
-        <div className="text-sm font-semibold text-slate-700">Новый {noun}</div>
+        <div className="text-sm font-semibold text-slate-700">Новый {creatingMne ? "сотрудник МНЭ" : noun}</div>
+        {isMods && me.role === "admin" && (
+          <div className="mt-2 flex gap-4 text-sm">
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input type="radio" checked={newRole === "moderator"} onChange={() => setNewRole("moderator")} />
+              Модератор госоргана
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer" title="Все права администратора, кроме выгрузки реестра и создания учёток уровня МНЭ">
+              <input type="radio" checked={newRole === "mne"} onChange={() => setNewRole("mne")} />
+              Сотрудник МНЭ
+            </label>
+          </div>
+        )}
         <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label className="text-xs text-slate-500">Логин *
             <input value={username} onChange={(e) => setUsername(e.target.value.trim())} placeholder="латиница, цифры, ._-"
@@ -195,7 +213,7 @@ export default function UserManager({ kind }: { kind: "moderators" | "analysts" 
                 className="h-9 px-3 rounded-md border border-slate-300 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">сгенерировать</button>
             </span>
           </label>
-          <label className="text-xs text-slate-500 sm:col-span-2">{isMods ? "Госорган *" : "Узел органа *"}
+          <label className="text-xs text-slate-500 sm:col-span-2" style={creatingMne ? { display: "none" } : undefined}>{isMods ? "Госорган *" : "Узел органа *"}
             <select value={orgId} onChange={(e) => setOrgId(e.target.value)}
               className="mt-1 w-full h-9 rounded-md border border-slate-300 px-2 text-sm text-slate-800 bg-white">
               {Object.entries(

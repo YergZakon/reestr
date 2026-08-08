@@ -109,12 +109,12 @@ export default function RegistryPage() {
           {SHOW_TABS.dupes && <button className={mode === "dupes" ? "on" : ""} onClick={() => setMode("dupes")}><I.copy />Дубли</button>}
           <button className={mode === "review" ? "on" : ""} onClick={() => setMode("review")}><I.check />Ревью</button>
           {SHOW_TABS.business && process.env.NEXT_PUBLIC_BUSINESS_URL && <a className="reg-mode-ext" href={process.env.NEXT_PUBLIC_BUSINESS_URL} target="_blank" rel="noreferrer"><I.briefcase />Бизнес<I.chevRight style={{ width: 13, height: 13, opacity: 0.55 }} /></a>}
-          {(me?.role === "admin" || me?.role === "moderator") && <button className={mode === "submit" ? "on" : ""} onClick={() => setMode("submit")}><I.download />Подача НПА</button>}
-          {(me?.role === "admin" || me?.role === "moderator") && <button className={mode === "assign" ? "on" : ""} onClick={() => setMode("assign")}><I.layers />Назначения</button>}
-          {(me?.role === "admin" || me?.role === "moderator") && <button className={mode === "units" ? "on" : ""} onClick={() => setMode("units")}><I.sitemap />Подразделения</button>}
-          {me?.role === "admin" && <button className={mode === "npaadmin" ? "on" : ""} onClick={() => setMode("npaadmin")}><I.layers />Управление НПА</button>}
-          {me?.role === "admin" && <button className={mode === "monitor" ? "on" : ""} onClick={() => setMode("monitor")}><I.chart />Мониторинг</button>}
-          {me?.role === "admin" && <button onClick={() => (window.location.href = "/admin/moderators")}><I.building />Модераторы</button>}
+          {((me?.role === "admin" || me?.role === "mne") || me?.role === "moderator") && <button className={mode === "submit" ? "on" : ""} onClick={() => setMode("submit")}><I.download />Подача НПА</button>}
+          {((me?.role === "admin" || me?.role === "mne") || me?.role === "moderator") && <button className={mode === "assign" ? "on" : ""} onClick={() => setMode("assign")}><I.layers />Назначения</button>}
+          {((me?.role === "admin" || me?.role === "mne") || me?.role === "moderator") && <button className={mode === "units" ? "on" : ""} onClick={() => setMode("units")}><I.sitemap />Подразделения</button>}
+          {(me?.role === "admin" || me?.role === "mne") && <button className={mode === "npaadmin" ? "on" : ""} onClick={() => setMode("npaadmin")}><I.layers />Управление НПА</button>}
+          {(me?.role === "admin" || me?.role === "mne") && <button className={mode === "monitor" ? "on" : ""} onClick={() => setMode("monitor")}><I.chart />Мониторинг</button>}
+          {(me?.role === "admin" || me?.role === "mne") && <button onClick={() => (window.location.href = "/admin/moderators")}><I.building />Модераторы</button>}
           {me?.role === "moderator" && <button onClick={() => (window.location.href = "/moderator/analysts")}><I.building />Аналитики</button>}
           <button className={mode === "help" ? "on" : ""} onClick={() => setMode("help")}><I.help />Помощь</button>
         </div>
@@ -127,7 +127,7 @@ export default function RegistryPage() {
           <div className="reg-user">
             <span className="reg-user-name">{me.username}</span>
             <span className={`reg-user-role reg-user-role-${me.role}`}>
-              {me.role === "admin" ? "Админ" : me.role === "moderator" ? "Модератор" : "Аналитик"}
+              {me.role === "admin" ? "Админ" : me.role === "mne" ? "Сотрудник МНЭ" : me.role === "moderator" ? "Модератор" : "Аналитик"}
             </span>
             <button
               className="reg-user-exit"
@@ -188,7 +188,7 @@ export default function RegistryPage() {
                   </select>
                   <I.chevDown />
                 </div>
-                {me?.role === "admin" && (
+                {me?.role === "admin" && (  /* выгрузка реестра — только супер-админ (mne не может) */
                   <a className="reg-tool-btn" href={`/api/registry/export?${params(true)}`}><I.download />Экспорт CSV</a>
                 )}
               </div>

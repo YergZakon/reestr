@@ -19,7 +19,7 @@ function requireJwtSecret(): string {
 export interface UserPayload {
   id: number;
   username: string;
-  role: "admin" | "moderator" | "expert";
+  role: "admin" | "mne" | "moderator" | "expert";
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -42,6 +42,10 @@ export function verifyToken(token: string): UserPayload | null {
     return null;
   }
 }
+
+/** Уровень МНЭ: супер-админ и «Сотрудник МНЭ» (mne). mne = все права admin,
+ *  КРОМЕ выгрузки каталога реестра и создания учёток уровня МНЭ (admin/mne). */
+export const isMne = (role?: string | null) => role === "admin" || role === "mne";
 
 export async function getCurrentUser(): Promise<UserPayload | null> {
   const cookieStore = await cookies();

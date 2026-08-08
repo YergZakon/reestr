@@ -47,7 +47,7 @@ export default function OrgUnitsMode({ me }: { me: Me | null }) {
   const [editName, setEditName] = useState("");
   const [editShort, setEditShort] = useState("");
 
-  const isAdmin = me?.role === "admin";
+  const isAdmin = (me?.role === "admin" || me?.role === "mne");
 
   const load = () => {
     fetch("/api/organizations").then((r) => r.json())

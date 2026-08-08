@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isMne } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -127,7 +127,7 @@ async function buildSnapshot() {
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
-  if (user.role !== "admin")
+  if (!isMne(user.role))
     return NextResponse.json({ error: "Витрина доступна только администратору" }, { status: 403 });
 
   if (cache && Date.now() - cache.at < TTL_MS) return NextResponse.json(cache.data);

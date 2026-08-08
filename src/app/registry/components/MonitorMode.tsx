@@ -165,7 +165,7 @@ export default function MonitorMode() {
                   <tr key={r.id}>
                     <td className="t-name">{r.username}{r.full_name ? <span className="t-code">{r.full_name}</span> : null}</td>
                     <td>{r.org || "—"}</td>
-                    <td>{r.role === "admin" ? "Админ" : r.role === "moderator" ? "Модератор" : "Аналитик"}</td>
+                    <td>{r.role === "admin" ? "Админ" : r.role === "mne" ? "Сотрудник МНЭ" : r.role === "moderator" ? "Модератор" : "Аналитик"}</td>
                     <td className="num ok">{r.confirmed || "—"}</td>
                     <td className="num bad">{r.rejected || "—"}</td>
                     <td className="num">{r.edited || "—"}</td>

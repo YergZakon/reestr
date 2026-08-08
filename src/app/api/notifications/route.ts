@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { getCurrentUserWithAccess } from "@/lib/auth";
+import { getCurrentUserWithAccess, isMne } from "@/lib/auth";
 import { zbody } from "@/lib/validate";
 import { z } from "zod";
 
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 
   const conds: string[] = [];
   const params: unknown[] = [];
-  if (user.role !== "admin") {
+  if (!isMne(user.role)) {
     if (!user.assigned_authorities.length) return NextResponse.json({ items: [], unread: 0 });
     params.push(user.assigned_authorities);
     conds.push(`n.authority_code = ANY($${params.length}::text[])`);
@@ -49,7 +49,7 @@ export async function PUT(req: NextRequest) {
   // отмечать можно только уведомления доступных органов (admin — любые)
   const params: unknown[] = [vb.data.ids, user.id];
   let scope = "";
-  if (user.role !== "admin") {
+  if (!isMne(user.role)) {
     params.push(user.assigned_authorities);
     scope = `AND authority_code = ANY($3::text[])`;
   }
