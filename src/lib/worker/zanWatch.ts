@@ -141,7 +141,9 @@ export async function zanWatchTick(): Promise<void> {
             const html = gunzipSync(Buffer.from(bin.buffer)).toString("utf-8");
             const clean = normTextKeepCase(html);
             hash = createHash("md5").update(clean.toLowerCase()).digest("hex");
-            lost = LOST_RE.test(clean.slice(0, 700));
+            // плашка настоящей утраты стоит В НАЧАЛЕ текста («Сноска. Утратил силу…»);
+            // дальше 160 симв. — аннотации пунктов («2. Утратил силу решением…»), не утрата акта
+            lost = LOST_RE.test(clean.slice(0, 160));
             texts++;
           } catch { /* битый gzip — оставляем прежний hash */ }
         }
