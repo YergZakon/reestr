@@ -60,18 +60,39 @@ export async function zanWatchTick(): Promise<void> {
       `SELECT DISTINCT ngr FROM requirement_registry WHERE ngr IS NOT NULL AND ngr <> ''`);
     const ngrs: string[] = ngrRows.rows.map((r) => r.ngr as string);
     const liveRows = await query(`
-      SELECT ngr, authority_code, count(*)::int AS cnt, max(npa_title) AS title
+      SELECT ngr, authority_code, count(*)::int AS cnt, max(npa_title) AS title,
+             count(*) FILTER (WHERE review_status = 'confirmed')::int AS confirmed,
+             count(*) FILTER (WHERE review_status = 'pending')::int AS pending,
+             count(*) FILTER (WHERE review_status = 'rejected')::int AS rejected
       FROM requirement_registry
       WHERE ngr IS NOT NULL AND NOT COALESCE(excluded, false)
         AND (npa_status IS NULL OR npa_status <> 'утратил силу')
       GROUP BY 1, 2`);
-    const liveByNgr = new Map<string, { auth: string; cnt: number; title: string }[]>();
+    const liveByNgr = new Map<string, { auth: string; cnt: number; title: string;
+      confirmed: number; pending: number; rejected: number }[]>();
     for (const r of liveRows.rows) {
       if (!r.authority_code) continue;
       const arr = liveByNgr.get(r.ngr as string) || [];
-      arr.push({ auth: r.authority_code as string, cnt: r.cnt as number, title: (r.title as string) || "" });
+      arr.push({ auth: r.authority_code as string, cnt: r.cnt as number,
+        title: (r.title as string) || "", confirmed: r.confirmed as number,
+        pending: r.pending as number, rejected: r.rejected as number });
       liveByNgr.set(r.ngr as string, arr);
     }
+
+    // resolve-фаза: событие — зеркало РАСХОЖДЕНИЯ ЗАН↔реестр (решение заказчика
+    // 2026-08-08). Гэп устранён любым путём (кнопка, ревью, чистка) → событие
+    // закрывается само; «просто утратившие силу» без живых карточек не висят.
+    const resolved = await query(`
+      UPDATE npa_zan_event e
+      SET status = 'processed', status_at = now(),
+          status_note = 'расхождение устранено в реестре (живых карточек не осталось)'
+      WHERE e.status IN ('new', 'acked') AND e.event_type = 'repealed'
+        AND NOT EXISTS (
+          SELECT 1 FROM requirement_registry rr
+          WHERE rr.ngr = e.ngr AND rr.authority_code = e.authority_code
+            AND NOT COALESCE(rr.excluded, false)
+            AND (rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу'))`);
+    if (resolved.rowCount) console.log(`[zan] авто-закрыто событий (гэп устранён): ${resolved.rowCount}`);
 
     // 2. снапшот
     const snapRows = await query(`SELECT ngr, zan_st, zan_dl::text, text_hash, lost_marker, missing FROM npa_zan_status`);
@@ -167,14 +188,15 @@ export async function zanWatchTick(): Promise<void> {
 
 async function emitEvent(
   type: "repealed" | "amended", ngr: string,
-  l: { auth: string; cnt: number; title: string },
+  l: { auth: string; cnt: number; title: string; confirmed?: number; pending?: number; rejected?: number },
   m: ZanMeta, dedup: string, details: Record<string, unknown>,
 ): Promise<number> {
   const title = (m.zg || l.title || ngr).slice(0, 300);
+  const full = { ...details, confirmed: l.confirmed ?? 0, pending: l.pending ?? 0, rejected: l.rejected ?? 0 };
   const ins = await query(`
     INSERT INTO npa_zan_event (ngr, authority_code, event_type, dedup_key, npa_title, req_count, details)
     VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb) ON CONFLICT (dedup_key) DO NOTHING RETURNING id`,
-    [ngr, l.auth, type, dedup, title, l.cnt, JSON.stringify(details)]);
+    [ngr, l.auth, type, dedup, title, l.cnt, JSON.stringify(full)]);
   if (!ins.rows.length) return 0;
   const notifTitle = type === "repealed"
     ? `НПА утратил силу (по базе ЗАН): ${title.slice(0, 150)}`

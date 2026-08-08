@@ -9,6 +9,8 @@ interface ZanEvent {
   event_type: "repealed" | "amended"; npa_title: string | null; req_count: number | null;
   details: Record<string, unknown> | null; detected_at: string; status: string;
   status_note: string | null; status_by_name: string | null; status_at: string | null;
+  live_total: number | null; live_confirmed: number | null;
+  live_pending: number | null; live_rejected: number | null;
 }
 
 const dt = (s: string | null) => (s ? new Date(s).toLocaleDateString("ru",
@@ -83,9 +85,19 @@ export default function ZanMonitorMode() {
               <div className="reg-rev-m">
                 <a className="reg-d-link" href={`https://adilet.zan.kz/rus/docs/${e.ngr}`} target="_blank" rel="noreferrer">{e.ngr}</a>
                 {" · "}{e.authority_name || e.authority_code}
-                {" · требований на учёте: "}{e.req_count ?? "—"}
                 {" · обнаружено "}{dt(e.detected_at)}
                 {e.status !== "new" && <> · {e.status === "acked" ? "принято" : "обработано"} {e.status_by_name ? `(${e.status_by_name})` : ""}{e.status_note ? ` — ${e.status_note}` : ""}</>}
+              </div>
+              {/* сопоставление со стороны реестра: что сейчас стоит на учёте по акту */}
+              <div className="reg-rev-m" style={{ marginTop: 2 }}>
+                {e.live_total ? (
+                  <>В реестре на учёте: <b>{e.live_total}</b> требований
+                    {e.live_confirmed ? ` · ${e.live_confirmed} подтверждено` : ""}
+                    {e.live_pending ? ` · ${e.live_pending} ожидает` : ""}
+                    {e.live_rejected ? ` · ${e.live_rejected} отклонено` : ""}</>
+                ) : (
+                  <span style={{ color: "#2E7D46" }}>В реестре живых карточек не осталось — расхождение устранено.</span>
+                )}
               </div>
             </div>
             {e.status !== "processed" && (
@@ -112,7 +124,13 @@ export default function ZanMonitorMode() {
             )}
           </div>
         ))}
-        {!items.length && <div className="reg-empty">Событий нет.</div>}
+        {!items.length && (
+          <div className="reg-empty">
+            {tab === "new"
+              ? "Расхождений с базой ЗАН нет — реестр синхронизирован: все утратившие силу акты сняты с учёта."
+              : "Событий нет."}
+          </div>
+        )}
       </div>
     </div>
   );
