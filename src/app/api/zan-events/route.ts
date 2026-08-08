@@ -41,10 +41,23 @@ export async function GET(req: NextRequest) {
   const items = await query(`
     SELECT e.id, e.ngr, e.authority_code, o.name_ru AS authority_name,
            e.event_type, e.npa_title, e.req_count, e.details, e.detected_at,
-           e.status, e.status_note, u.username AS status_by_name, e.status_at
+           e.status, e.status_note, u.username AS status_by_name, e.status_at,
+           live.total AS live_total, live.confirmed AS live_confirmed,
+           live.pending AS live_pending, live.rejected AS live_rejected
     FROM npa_zan_event e
     LEFT JOIN organizations o ON o.code = e.authority_code
     LEFT JOIN users u ON u.id = e.status_by
+    -- сопоставление со стороны реестра: что СЕЙЧАС стоит на учёте по этому акту у органа
+    LEFT JOIN LATERAL (
+      SELECT count(*)::int AS total,
+             count(*) FILTER (WHERE rr.review_status = 'confirmed')::int AS confirmed,
+             count(*) FILTER (WHERE rr.review_status = 'pending')::int AS pending,
+             count(*) FILTER (WHERE rr.review_status = 'rejected')::int AS rejected
+      FROM requirement_registry rr
+      WHERE rr.ngr = e.ngr AND rr.authority_code = e.authority_code
+        AND NOT COALESCE(rr.excluded, false)
+        AND (rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')
+    ) live ON true
     ${where}
     ORDER BY e.detected_at DESC
     LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
