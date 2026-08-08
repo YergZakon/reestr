@@ -127,6 +127,9 @@ export default function ReviewMode({ onOpen, registerReload }:
                 {(r as Req & { dup_suspect?: boolean | null }).dup_suspect && r.is_canonical !== false && (
                   <span className="reg-rb reg-rb-ara" title="Похожее требование уже есть в реестре — проверьте перед подтверждением">возможный дубль</span>
                 )}
+                {r.source === "manual" && (
+                  <span className="reg-rb reg-rb-edited" title="Требование введено модератором вручную (автоматический разбор не извлёк норму) — проверьте формулировку по тексту акта">добавлено вручную</span>
+                )}
                 <span className={"reg-rb reg-rb-" + (r.review_status || "")}>{REVIEW_LABEL[r.review_status || ""] || r.review_status}</span>
               </div>
             ))}

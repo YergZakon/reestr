@@ -264,6 +264,7 @@ paths:
                 sphere_code: { type: string }
                 ara_deadline: { type: string, format: date }
                 preview_json: { type: object, description: Результат превью (опционально) }
+                articles: { type: string, description: Направленная доподача — только эти статьи, через запятую (напр. «20,27-1»); пусто = весь акт }
       responses:
         "200": { content: { application/json: { schema: { $ref: "#/components/schemas/Submission" } } } }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -275,6 +276,40 @@ paths:
           content:
             application/json:
               schema: { type: array, items: { $ref: "#/components/schemas/Submission" } }
+  /api/registry/manual:
+    post:
+      tags: [Подача НПА]
+      summary: Ручное добавление требования (когда парсер не справился)
+      description: |
+        Последний рубеж после направленной доподачи (таблицы, приложения, перечни).
+        Похожие карточки того же НПА возвращаются со статусом 409 (need_confirm) —
+        создание поверх похожих только с force=true. Карточка создаётся pending,
+        source='manual' (бейдж «добавлено вручную»), authority_code = орган org_id.
+        Доступ: admin; moderator — org_id только из своего поддерева.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ngr, org_id, article, action, subject]
+              properties:
+                ngr: { type: string }
+                org_id: { type: integer }
+                article: { type: string, description: Статья/пункт (напр. «ст.20 п.8») }
+                action: { type: string, description: Формулировка требования (15-2000 симв.) }
+                subject: { type: string, description: Кто обязан }
+                condition: { type: string, nullable: true }
+                npa_title: { type: string, nullable: true }
+                force: { type: boolean, description: Создать несмотря на похожие }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, properties: { ok: { type: boolean }, id: { type: integer } } }
+        "409":
+          description: Найдены похожие требования (need_confirm + similar)
+        "403": { $ref: "#/components/responses/Forbidden" }
   /api/npa-submission/preview:
     post:
       tags: [Подача НПА]

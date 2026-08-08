@@ -79,8 +79,23 @@ export const SubmissionBody = z.object({
   sphere_code: z.string().max(40).nullish(),
   ara_deadline: dateStr.nullish(),
   preview_json: z.unknown().optional(),
+  // направленная доподача: только эти статьи («20, 27-1»); пусто = весь акт
+  articles: z.string().max(200).regex(/^[0-9,\s-]*$/, "статьи: числа через запятую").nullish(),
 });
 export const PreviewBody = z.object({ ngr: z.coerce.string().min(3).max(250) });
+
+/** Ручное добавление требования (когда парсер не справился). */
+export const ManualCardBody = z.object({
+  ngr: z.coerce.string().min(3).max(250),
+  org_id: z.coerce.number().int().positive(),
+  article: z.string().min(1).max(120),
+  action: z.string().min(15).max(2000),
+  subject: z.string().min(3).max(200),
+  condition: z.string().max(1000).nullish(),
+  npa_title: z.string().max(300).nullish(),
+  // true = создать несмотря на найденные похожие карточки
+  force: z.boolean().optional(),
+});
 
 /* ——— Справочник организаций ——— */
 export const OrgCreateBody = z.object({
