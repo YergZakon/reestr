@@ -62,6 +62,13 @@ export const NpaAdminBody = z.object({
   .refine((b) => b.action !== "exclude" || (b.reason && b.reason.trim().length >= 5),
   { message: "причина обязательна для исключения (≥5 символов)" });
 
+/* ——— Правовой мониторинг ЗАН ——— */
+export const ZanEventActionBody = z.object({
+  event_id: z.coerce.number().int().positive(),
+  action: z.enum(["ack", "processed", "exclude_cards", "resubmit"]),
+  note: z.string().max(500).nullish(),
+});
+
 /* ——— Сшивка ЕРСОП↔НПА ——— */
 export const ErsopLinkBody = z.object({
   link_id: z.coerce.number().int().positive(),

@@ -310,6 +310,45 @@ paths:
         "409":
           description: Найдены похожие требования (need_confirm + similar)
         "403": { $ref: "#/components/responses/Forbidden" }
+  /api/zan-events:
+    get:
+      tags: [Правовой мониторинг]
+      summary: События мониторинга ЗАН (утрата силы / новая редакция) в скоупе пользователя
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [new, acked, processed, all], default: new } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { type: object } }
+                  last_check: { type: string, nullable: true, description: Дата последней сверки с ЗАН }
+                  total_new: { type: integer }
+    post:
+      tags: [Правовой мониторинг]
+      summary: Действие по событию (решение органа)
+      description: |
+        ack — принято; processed — обработано без действий;
+        exclude_cards (repealed) — живым карточкам НПА npa_status='утратил силу' в пределах органа события (обратимо);
+        resubmit (amended) — переподача акта в очередь воркера (новая редакция).
+        Доступ: admin/mne — все события; moderator — только свои органы.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event_id, action]
+              properties:
+                event_id: { type: integer }
+                action: { type: string, enum: [ack, processed, exclude_cards, resubmit] }
+                note: { type: string, nullable: true }
+      responses:
+        "200": { content: { application/json: { schema: { type: object } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
   /api/npa-submission/preview:
     post:
       tags: [Подача НПА]
