@@ -92,7 +92,7 @@ export interface Req {
   inspection_hours_biz?: number | null; inspection_cost_biz?: number | null; inspection_cost_gov?: number | null;
   authority_code?: string | null; review_status?: string | null; ara_status?: string | null;
   ara_deadline?: string | null; review_comment?: string | null; norm_url?: string | null;
-  is_canonical?: boolean | null; dup_group_id?: number | null;
+  is_canonical?: boolean | null; dup_group_id?: number | null; source?: string | null;
 }
 export const REVIEW_LABEL: Record<string, string> = {
   pending: "на подтверждении", confirmed: "подтверждено", rejected: "отклонено", edited: "отредактировано",

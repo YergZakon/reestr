@@ -30,13 +30,15 @@ export async function POST(req: NextRequest) {
     if (!scope.includes(orgId)) return NextResponse.json({ error: "Орган вне вашего поддерева" }, { status: 403 });
   }
 
+  // направленная доподача: нормализуем список статей («20, 27-1» → «20,27-1»)
+  const articles = (b.articles || "").split(",").map((a) => a.trim()).filter(Boolean).join(",") || null;
   const r = await query(
-    `INSERT INTO npa_submission (ngr, npa_title, org_id, sphere_code, ara_deadline, submitted_by, status, preview_json)
-     VALUES ($1,$2,$3,$4,$5,$6,'submitted',$7) RETURNING id`,
+    `INSERT INTO npa_submission (ngr, npa_title, org_id, sphere_code, ara_deadline, submitted_by, status, preview_json, articles)
+     VALUES ($1,$2,$3,$4,$5,$6,'submitted',$7,$8) RETURNING id`,
     [ngr, b.npa_title || null, orgId, b.sphere_code || null, b.ara_deadline || null, user.id,
-     b.preview_json ? JSON.stringify(b.preview_json) : null]);
+     b.preview_json ? JSON.stringify(b.preview_json) : null, articles]);
   await query("INSERT INTO activity_log (user_id, action, details) VALUES ($1,'npa_submitted',$2)",
-    [user.id, JSON.stringify({ ngr, org_id: orgId })]);
+    [user.id, JSON.stringify({ ngr, org_id: orgId, articles })]);
   return NextResponse.json({ ok: true, id: r.rows[0].id });
 }
 

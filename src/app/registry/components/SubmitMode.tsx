@@ -13,6 +13,18 @@ export default function SubmitMode() {
   const [subList, setSubList] = useState<any[]>([]);
   const [subMsg, setSubMsg] = useState("");
   const [subTried, setSubTried] = useState(false); // «Проверить» нажимали → форму подачи показываем даже если превью упало
+  const [subArticles, setSubArticles] = useState(""); // направленная доподача: только эти статьи
+  // ручное добавление требования (последний рубеж, когда парсер не справился)
+  const [mOpen, setMOpen] = useState(false);
+  const [mNgr, setMNgr] = useState("");
+  const [mOrgId, setMOrgId] = useState("");
+  const [mArticle, setMArticle] = useState("");
+  const [mSubject, setMSubject] = useState("");
+  const [mAction, setMAction] = useState("");
+  const [mCondition, setMCondition] = useState("");
+  const [mMsg, setMMsg] = useState("");
+  const [mSimilar, setMSimilar] = useState<any[]>([]);
+  const [mBusy, setMBusy] = useState(false);
 
   const loadSubs = useCallback(() => { fetch("/api/npa-submission").then((r) => r.json()).then((d) => setSubList(d.submissions || [])).catch(() => {}); }, []);
   useEffect(() => {
@@ -30,9 +42,24 @@ export default function SubmitMode() {
     if (!subOrgId) { setSubMsg("Выберите орган"); return; }
     setSubBusy(true); setSubMsg("");
     fetch("/api/npa-submission", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ngr: String(subNgr || "").trim(), npa_title: subPrev?.title, org_id: Number(subOrgId), sphere_code: subSphere || null, ara_deadline: subAra || null, preview_json: subPrev }) })
-      .then((r) => r.json()).then((d) => { if (d.error) setSubMsg(d.error); else { setSubMsg("Подано. Обработка автоматическая, около минуты — карточки попадут в очередь ревью вашего органа."); setSubNgr(""); setSubPrev(null); loadSubs(); } })
+      body: JSON.stringify({ ngr: String(subNgr || "").trim(), npa_title: subPrev?.title, org_id: Number(subOrgId), sphere_code: subSphere || null, ara_deadline: subAra || null, preview_json: subPrev, articles: subArticles.trim() || null }) })
+      .then((r) => r.json()).then((d) => { if (d.error) setSubMsg(d.error); else { setSubMsg("Подано. Обработка автоматическая, около минуты — карточки попадут в очередь ревью вашего органа."); setSubNgr(""); setSubPrev(null); setSubArticles(""); loadSubs(); } })
       .finally(() => setSubBusy(false));
+  };
+  const submitManual = (force: boolean) => {
+    setMBusy(true); setMMsg(""); if (!force) setMSimilar([]);
+    fetch("/api/registry/manual", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ngr: mNgr.trim(), org_id: Number(mOrgId), article: mArticle.trim(),
+        subject: mSubject.trim(), action: mAction.trim(), condition: mCondition.trim() || null, force }) })
+      .then(async (r) => {
+        const d = await r.json();
+        if (d.need_confirm) { setMSimilar(d.similar || []); setMMsg(d.message); return; }
+        if (d.error) { setMMsg(d.error); return; }
+        setMMsg("Требование добавлено (в очередь ревью вашего органа, с пометкой «добавлено вручную»).");
+        setMSimilar([]); setMArticle(""); setMSubject(""); setMAction(""); setMCondition("");
+      })
+      .catch(() => setMMsg("Сбой запроса"))
+      .finally(() => setMBusy(false));
   };
 
   return (
@@ -107,10 +134,73 @@ export default function SubmitMode() {
                 <span className="reg-cost-param-in"><input value={subSphere} onChange={(e) => setSubSphere(e.target.value)} placeholder="напр. taxes / labor" /></span></label>
               <label className="reg-cost-param"><span className="reg-cost-param-l">Срок АРА</span>
                 <span className="reg-cost-param-in"><input type="date" value={subAra} onChange={(e) => setSubAra(e.target.value)} /></span></label>
+              <label className="reg-cost-param"><span className="reg-cost-param-l">Только статьи (доподача)</span>
+                <span className="reg-cost-param-in"><input value={subArticles} onChange={(e) => setSubArticles(e.target.value)} placeholder="напр. 20, 27-1 — пусто = весь акт" /></span></label>
             </div>
+            {subArticles.trim() && (
+              <div className="reg-cost-hint" style={{ margin: "6px 0" }}>
+                Направленная доподача: будут разобраны только статьи {subArticles.trim()} — используйте, когда из акта не извлеклись отдельные статьи.
+              </div>
+            )}
             <button className="reg-cost-apply" onClick={submitNpa} disabled={subBusy}>
               {subPrev ? "Подать в очередь" : "Подать без превью"}
             </button>
+          </div>
+        )}
+      </div>
+      {/* Ручное добавление — последний рубеж: таблицы, приложения, перечни, где экстрактор бессилен */}
+      <div className="reg-cost-params" style={{ marginTop: 14 }}>
+        <div className="reg-cost-params-h">
+          <span>Добавить требование вручную</span>
+          <button className="reg-tool-btn" onClick={() => setMOpen(!mOpen)}>{mOpen ? "Свернуть" : "Открыть форму"}</button>
+        </div>
+        {mOpen && (
+          <div>
+            <div className="reg-cost-hint" style={{ marginBottom: 10 }}>
+              Для случаев, когда автоматический разбор не извлёк конкретную норму (таблицы, приложения).
+              Сначала попробуйте доподачу по статьям выше. Карточка получит пометку «добавлено вручную» и пройдёт обычное ревью.
+            </div>
+            <div className="reg-cost-params-grid">
+              <label className="reg-cost-param"><span className="reg-cost-param-l">Госрегномер НПА (ngr)</span>
+                <span className="reg-cost-param-in"><input value={mNgr} onChange={(e) => setMNgr(e.target.value)} placeholder="напр. V1800017030" /></span></label>
+              <label className="reg-cost-param"><span className="reg-cost-param-l">Статья / пункт</span>
+                <span className="reg-cost-param-in"><input value={mArticle} onChange={(e) => setMArticle(e.target.value)} placeholder="напр. ст.20 п.8" /></span></label>
+              <label className="reg-cost-param"><span className="reg-cost-param-l">Орган</span>
+                <span className="reg-cost-param-in"><select value={mOrgId} onChange={(e) => setMOrgId(e.target.value)} style={{ width: "100%", height: 36, border: "1px solid var(--line)", borderRadius: 8 }}>
+                  <option value="">— выбрать —</option>
+                  {subOrgs.map((o: any) => <option key={o.id} value={o.id}>{o.short_name || o.name_ru}</option>)}
+                </select></span></label>
+              <label className="reg-cost-param"><span className="reg-cost-param-l">Субъект (кто обязан)</span>
+                <span className="reg-cost-param-in"><input value={mSubject} onChange={(e) => setMSubject(e.target.value)} placeholder="напр. недропользователь" /></span></label>
+            </div>
+            <label className="reg-cost-param" style={{ display: "block", marginTop: 8 }}>
+              <span className="reg-cost-param-l">Формулировка требования (что обязан сделать)</span>
+              <textarea value={mAction} onChange={(e) => setMAction(e.target.value)} rows={3}
+                style={{ width: "100%", border: "1px solid var(--line)", borderRadius: 8, padding: 8, fontSize: 14 }}
+                placeholder="Дословно или близко к тексту нормы, от 15 символов" />
+            </label>
+            <label className="reg-cost-param" style={{ display: "block", marginTop: 8 }}>
+              <span className="reg-cost-param-l">Условие (когда применяется; можно пусто)</span>
+              <input value={mCondition} onChange={(e) => setMCondition(e.target.value)}
+                style={{ width: "100%", height: 36, border: "1px solid var(--line)", borderRadius: 8, padding: "0 10px" }} />
+            </label>
+            {mMsg && <div className="reg-cost-hint" style={{ color: mSimilar.length ? "#A35A00" : undefined, marginTop: 8 }}>{mMsg}</div>}
+            {mSimilar.length > 0 && (
+              <div style={{ margin: "8px 0" }}>
+                {mSimilar.map((s: any) => (
+                  <div key={s.id} className="reg-rev-row" style={{ marginBottom: 6 }}>
+                    <div className="reg-rev-main"><div className="reg-rev-t">{s.text}</div><div className="reg-rev-m">{s.article} · похожесть {Math.round((s.sim || 0) * 100)}%</div></div>
+                  </div>
+                ))}
+                <button className="reg-cost-apply" onClick={() => submitManual(true)} disabled={mBusy}>Не дубль — всё равно добавить</button>
+              </div>
+            )}
+            {!mSimilar.length && (
+              <button className="reg-cost-apply" style={{ marginTop: 10 }} onClick={() => submitManual(false)}
+                disabled={mBusy || !mNgr.trim() || !mOrgId || !mArticle.trim() || !mSubject.trim() || mAction.trim().length < 15}>
+                {mBusy ? "…" : "Добавить требование"}
+              </button>
+            )}
           </div>
         )}
       </div>

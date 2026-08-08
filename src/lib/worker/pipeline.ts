@@ -18,7 +18,7 @@ const EXTRACT_POOL = 5;
 const CARD_POOL = 6;
 const MAX_ATTEMPTS = 3;        // порог trgm-дубля задаётся в checkDup (similarity_threshold=0.6)
 
-interface Sub { id: number; ngr: string; sphere_code: string | null; org_id: number | null }
+interface Sub { id: number; ngr: string; sphere_code: string | null; org_id: number | null; articles: string | null }
 
 /** Захват следующей подачи (SKIP LOCKED); подхватывает и зависшие (lease истёк). */
 export async function claimNext(): Promise<Sub | null> {
@@ -31,7 +31,7 @@ export async function claimNext(): Promise<Sub | null> {
       ORDER BY created_at
       FOR UPDATE SKIP LOCKED
       LIMIT 1)
-    RETURNING id, ngr, sphere_code, org_id`);
+    RETURNING id, ngr, sphere_code, org_id, articles`);
   return (r.rows[0] as Sub) || null;
 }
 
@@ -110,6 +110,20 @@ export async function processOne(): Promise<boolean> {
     const html = await fetchAdilet(`/rus/docs/${sub.ngr}`);
     const npaTitle = (parseTitle(html) || sub.ngr).slice(0, 250);
     let segments = parseArticles(html);
+    // направленная доподача: только перечисленные статьи (номера через запятую)
+    if (sub.articles && sub.articles.trim()) {
+      const wanted = new Set(sub.articles.split(",").map((a) => a.trim()).filter(Boolean));
+      segments = segments.filter((s) => s.num && wanted.has(String(s.num)));
+      if (!segments.length) {
+        await query(
+          `UPDATE npa_submission SET status='parsed', stage=NULL, lease_until=NULL,
+           cards_created=0, processed_at=now(), npa_title=COALESCE(npa_title,$2),
+           error='направленная доподача: статьи ' || $3 || ' не найдены в разметке акта' WHERE id=$1`,
+          [sub.id, npaTitle, sub.articles.slice(0, 100)]);
+        console.log(`[worker] подача ${sub.id} (${sub.ngr}): статьи ${sub.articles} не найдены → parsed/0`);
+        return true;
+      }
+    }
     const capped = segments.length > MAX_SEGMENTS;
     if (capped) {
       console.warn(`[worker] подача ${sub.id} (${sub.ngr}): сегментов ${segments.length} > ${MAX_SEGMENTS}, ` +
