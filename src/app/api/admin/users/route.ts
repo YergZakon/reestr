@@ -92,6 +92,12 @@ export async function POST(req: NextRequest) {
 
   const existing = await query("SELECT id FROM users WHERE username = $1", [username]);
   if (existing.rows.length) return NextResponse.json({ error: "Логин уже существует" }, { status: 409 });
+  if (email) {
+    // users_email_uniq: без этой проверки INSERT падал 500 и UI показывал «Сбой запроса»
+    const eDup = await query("SELECT username FROM users WHERE email = $1", [email]);
+    if (eDup.rows.length)
+      return NextResponse.json({ error: `Email уже используется учётной записью «${eDup.rows[0].username}». Укажите другой email или оставьте поле пустым.` }, { status: 409 });
+  }
 
   const passwordHash = await hashPassword(password);
   const result = await query(
