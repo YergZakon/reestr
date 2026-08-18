@@ -139,11 +139,14 @@ export async function processOne(): Promise<boolean> {
       return true;
     }
 
-    // 2. сфера НПА (если не задана подачей) — один вызов по живому справочнику
+    // 2. сфера НПА — только код из живого справочника: и заданная подачей,
+    // и определённая LLM проверяются на членство (иначе в каталог утекают
+    // сырые строки вида «8542» / «бух.учет», кейс 2026-08-18)
     await setStage(sub.id, "extract");
-    let sphere = sub.sphere_code;
+    const sp = await query("SELECT code, name_ru FROM spheres ORDER BY code");
+    let sphere = sub.sphere_code && sp.rows.some((s) => s.code === sub.sphere_code)
+      ? sub.sphere_code : null;
     if (!sphere) {
-      const sp = await query("SELECT code, name_ru FROM spheres ORDER BY code");
       const list = sp.rows.map((s) => `${s.code} — ${s.name_ru}`).join("\n");
       const probe = segments.slice(0, 2).map((s) => s.text.slice(0, 900)).join("\n");
       const res = await dsChat(buildSphereSystem(list), `НПА: ${npaTitle}\n\nФрагменты:\n${probe}`, 200, usage);
