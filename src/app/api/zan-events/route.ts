@@ -62,14 +62,29 @@ export async function GET(req: NextRequest) {
     ORDER BY e.detected_at DESC
     LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
 
-  const meta = await query(`
-    SELECT max(checked_at) AS last_check,
-           (SELECT count(*) FROM npa_zan_event WHERE status = 'new') AS total_new
-    FROM npa_zan_status`);
+  // счётчики по статусам в СКОУПЕ пользователя (для вкладок) + total текущего фильтра
+  const scopeConds: string[] = [];
+  const scopeParams: unknown[] = [];
+  if (!isMne(user.role)) {
+    scopeParams.push(user.assigned_authorities);
+    scopeConds.push(`e.authority_code = ANY($${scopeParams.length}::text[])`);
+  }
+  const scopeWhere = scopeConds.length ? "WHERE " + scopeConds.join(" AND ") : "";
+  const countsQ = await query(
+    `SELECT e.status, count(*)::int AS n FROM npa_zan_event e ${scopeWhere} GROUP BY e.status`,
+    scopeParams);
+  const counts: Record<string, number> = {};
+  for (const r of countsQ.rows) counts[r.status as string] = Number(r.n);
+  const total = status === "all"
+    ? Object.values(counts).reduce((a, b) => a + b, 0)
+    : (counts[status] || 0);
+
+  const meta = await query(`SELECT max(checked_at) AS last_check FROM npa_zan_status`);
   return NextResponse.json({
-    items: items.rows, page,
+    items: items.rows, page, total, pages: Math.max(1, Math.ceil(total / limit)),
+    counts,
     last_check: meta.rows[0]?.last_check || null,
-    total_new: Number(meta.rows[0]?.total_new || 0),
+    total_new: counts["new"] || 0,
   });
 }
 

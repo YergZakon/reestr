@@ -20,16 +20,22 @@ export default function ZanMonitorMode() {
   const [tab, setTab] = useState<"new" | "acked" | "processed" | "all">("new");
   const [items, setItems] = useState<ZanEvent[]>([]);
   const [lastCheck, setLastCheck] = useState<string | null>(null);
-  const [totalNew, setTotalNew] = useState(0);
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
   const [busy, setBusy] = useState<number | null>(null);
   const [msg, setMsg] = useState("");
 
   const load = useCallback(() => {
-    fetch(`/api/zan-events?status=${tab}`).then((r) => r.json()).then((d) => {
-      setItems(d.items || []); setLastCheck(d.last_check); setTotalNew(d.total_new || 0);
+    fetch(`/api/zan-events?status=${tab}&page=${page}`).then((r) => r.json()).then((d) => {
+      setItems(d.items || []); setLastCheck(d.last_check);
+      setCounts(d.counts || {}); setPages(d.pages || 1);
     }).catch(() => {});
-  }, [tab]);
+  }, [tab, page]);
   useEffect(() => { load(); }, [load]);
+  const openTab = (t: typeof tab) => { setTab(t); setPage(1); };
+  const allCount = (counts["new"] || 0) + (counts["acked"] || 0) + (counts["processed"] || 0);
+  const n = (x?: number) => (x ? ` (${x})` : "");
 
   const act = (id: number, action: string, confirmText?: string) => {
     if (confirmText && !window.confirm(confirmText)) return;
@@ -63,11 +69,14 @@ export default function ZanMonitorMode() {
       </div>
 
       <div className="reg-mon-tabs">
-        <button className={tab === "new" ? "on" : ""} onClick={() => setTab("new")}>
-          Новые{totalNew ? ` (${totalNew})` : ""}</button>
-        <button className={tab === "acked" ? "on" : ""} onClick={() => setTab("acked")}>Принятые</button>
-        <button className={tab === "processed" ? "on" : ""} onClick={() => setTab("processed")}>Обработанные</button>
-        <button className={tab === "all" ? "on" : ""} onClick={() => setTab("all")}>Все</button>
+        <button className={tab === "new" ? "on" : ""} onClick={() => openTab("new")}>
+          Новые{n(counts["new"])}</button>
+        <button className={tab === "acked" ? "on" : ""} onClick={() => openTab("acked")}>
+          Принятые{n(counts["acked"])}</button>
+        <button className={tab === "processed" ? "on" : ""} onClick={() => openTab("processed")}>
+          Обработанные{n(counts["processed"])}</button>
+        <button className={tab === "all" ? "on" : ""} onClick={() => openTab("all")}>
+          Все{n(allCount)}</button>
       </div>
       {msg && <div className="reg-cost-hint" style={{ margin: "8px 0" }}>{msg}</div>}
 
@@ -132,6 +141,14 @@ export default function ZanMonitorMode() {
           </div>
         )}
       </div>
+
+      {pages > 1 && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "center", marginTop: 12 }}>
+          <button className="reg-tool-btn" disabled={page <= 1} onClick={() => setPage(page - 1)}>←</button>
+          <span className="reg-rev-m">стр. {page} из {pages}</span>
+          <button className="reg-tool-btn" disabled={page >= pages} onClick={() => setPage(page + 1)}>→</button>
+        </div>
+      )}
     </div>
   );
 }
