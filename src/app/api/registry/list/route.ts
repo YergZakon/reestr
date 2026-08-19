@@ -66,15 +66,26 @@ export async function GET(req: NextRequest) {
   const total = parseInt(countRes.rows[0].cnt, 10);
 
   const order = SORTS[sp.get("sort") || "ministry"] || SORTS.ministry;
+  // казахская выдача каталога: переводы requirement_i18n с фолбэком на русский
+  const kk = sp.get("lang") === "kz" || sp.get("lang") === "kk";
+  const F = kk
+    ? `COALESCE(i18.title, rr.title) AS title,
+       COALESCE(i18.legal_text, rr.legal_text) AS legal_text,
+       COALESCE(i18.canon_text, rr.canon_text) AS canon_text,
+       COALESCE(i18.subject, rr.subject) AS subject,
+       COALESCE(i18.condition, rr.condition) AS condition,
+       COALESCE(s.name_kk, s.name_ru) AS sphere_name`
+    : `rr.title, rr.legal_text, rr.canon_text, rr.subject, rr.condition,
+       s.name_ru AS sphere_name`;
+  const IJ = kk ? " LEFT JOIN requirement_i18n i18 ON i18.registry_id = rr.id AND i18.lang = 'kk'" : "";
   params.push(limit, offset);
   const dataSql = `
     SELECT rr.id, rr.ngr, rr.npa_title, rr.article, rr.ministry, rr.sphere_code,
-      rr.okeds, rr.stages, rr.title, rr.legal_text, rr.canon_text,
-      rr.subject, rr.action, rr.object, rr.condition, rr.source, rr.ersop_confirmed,
+      rr.okeds, rr.stages, rr.action, rr.object, rr.source, rr.ersop_confirmed,
       rr.norm_url, rr.review_status, rr.ara_status, rr.is_canonical, rr.dup_group_id,
-      s.name_ru AS sphere_name
+      ${F}
     FROM requirement_registry rr
-    LEFT JOIN spheres s ON s.code = rr.sphere_code
+    LEFT JOIN spheres s ON s.code = rr.sphere_code${IJ}
     ${where}
     ORDER BY ${order}
     LIMIT $${params.length - 1} OFFSET $${params.length}`;
