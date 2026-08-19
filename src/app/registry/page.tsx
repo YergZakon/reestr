@@ -68,8 +68,9 @@ export default function RegistryPage() {
     f.stages.forEach((s) => p.append("stage", s));
     if (qd) p.set("q", qd);
     p.set("sort", sort);
+    if (lang === "kz") p.set("lang", "kz"); // казахский контент карточек каталога
     return p;
-  }, [page, f.spheres, f.ministries, f.stages, qd, sort]);
+  }, [page, f.spheres, f.ministries, f.stages, qd, sort, lang]);
 
   const load = useCallback(() => {
     if (mode !== "gov") return;
