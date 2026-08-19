@@ -157,10 +157,13 @@ export async function zanWatchTick(): Promise<void> {
       if (live.length) {
         // repealed: сигналим и в baseline (утративший акт с живыми карточками)
         if (isRepealedNow && !wasRepealed) {
+          const suc = await findSuccessor(db, ngr);
           for (const l of live) {
             events += await emitEvent("repealed", ngr, l, m,
               `repealed:${l.auth}:${ngr}`,
-              { old_st: s?.zan_st || null, new_st: m.st, signal: m.st === "yts" ? "st" : "text_marker" });
+              { old_st: s?.zan_st || null, new_st: m.st, signal: m.st === "yts" ? "st" : "text_marker",
+                successor_ngr: suc?.ngr || null, successor_title: suc?.title || null,
+                successor_in_registry: suc?.inRegistry ?? null });
           }
         } else if (!baseline && s && dlChanged && hashChanged && !isRepealedNow) {
           for (const l of live) {
@@ -212,6 +215,30 @@ async function emitEvent(
     [l.auth, type === "repealed" ? "npa_repealed" : "npa_amended", `zan:${dedup}`, notifTitle,
      JSON.stringify({ ngr, req_count: l.cnt, ...details })]).catch(() => {});
   return 1;
+}
+
+
+/** Преемник утратившего акта по cross_links: сноска «Утратил силу …» содержит
+ *  гиперссылку на акт-отменитель (для подзаконки это обычно перевыпуск). */
+async function findSuccessor(db: import("mongodb").Db, ngr: string):
+  Promise<{ ngr: string; title: string | null; inRegistry: number } | null> {
+  try {
+    const rows = await db.collection("cross_links")
+      .find({ "from.ngr": ngr, "from.lg": "rus" }).limit(400).toArray();
+    for (const cl of rows) {
+      const ctx = String((cl as { link?: { context?: string } }).link?.context || "");
+      if (!/^\s*Сноска\.?\s*Утратил/i.test(ctx)) continue;
+      const to = (cl as { to?: { ngr?: string } }).to?.ngr;
+      if (!to || to === ngr) continue;
+      const meta = await db.collection("doc_meta").findOne({ ngr: to, lg: "rus" }, { projection: { zg: 1 } });
+      const inReg = await query(
+        `SELECT count(*)::int AS n FROM requirement_registry
+         WHERE ngr = $1 AND NOT COALESCE(excluded,false)
+           AND (npa_status IS NULL OR npa_status <> 'утратил силу')`, [to]);
+      return { ngr: to, title: (meta?.zg as string) || null, inRegistry: Number(inReg.rows[0]?.n || 0) };
+    }
+  } catch { /* связи нет или Mongo недоступен — событие уходит без преемника */ }
+  return null;
 }
 
 async function upsertSnap(s: { ngr: string; st: string | null; actual: boolean | null;

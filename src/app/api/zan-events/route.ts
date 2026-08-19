@@ -131,6 +131,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, cards: upd.rowCount });
   }
 
+  if (action === "resubmit_successor") {
+    // переподача акта-преемника (details.successor_ngr, найден по cross_links ЗАН)
+    const suc = (ev.details || {}) as { successor_ngr?: string; successor_title?: string };
+    if (!suc.successor_ngr)
+      return NextResponse.json({ error: "У события нет установленного преемника" }, { status: 400 });
+    const org = (await query(`SELECT id FROM organizations WHERE code=$1 AND active`, [ev.authority_code])).rows[0];
+    if (!org) return NextResponse.json({ error: "Орган события не найден в справочнике" }, { status: 404 });
+    const ins = await query(`
+      INSERT INTO npa_submission (ngr, npa_title, org_id, submitted_by, status)
+      VALUES ($1,$2,$3,$4,'submitted') RETURNING id`,
+      [suc.successor_ngr, suc.successor_title || suc.successor_ngr, org.id, user.id]);
+    await query(`UPDATE npa_zan_event SET status='processed', status_by=$1, status_at=now(),
+                 status_note=$2 WHERE id=$3`,
+      [user.id, `переподан преемник ${suc.successor_ngr} (подача #${ins.rows[0].id})`, event_id]);
+    await query(`INSERT INTO activity_log (user_id, action, details) VALUES ($1,'zan_resubmit_successor',$2)`,
+      [user.id, JSON.stringify({ ngr: ev.ngr, successor: suc.successor_ngr, submission_id: ins.rows[0].id })]).catch(() => {});
+    return NextResponse.json({ ok: true, submission_id: ins.rows[0].id });
+  }
+
   if (action === "resubmit") {
     const org = (await query(`SELECT id FROM organizations WHERE code=$1 AND active`, [ev.authority_code])).rows[0];
     if (!org) return NextResponse.json({ error: "Орган события не найден в справочнике" }, { status: 404 });

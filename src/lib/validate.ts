@@ -65,7 +65,7 @@ export const NpaAdminBody = z.object({
 /* ——— Правовой мониторинг ЗАН ——— */
 export const ZanEventActionBody = z.object({
   event_id: z.coerce.number().int().positive(),
-  action: z.enum(["ack", "processed", "exclude_cards", "resubmit"]),
+  action: z.enum(["ack", "processed", "exclude_cards", "resubmit", "resubmit_successor"]),
   note: z.string().max(500).nullish(),
 });
 
