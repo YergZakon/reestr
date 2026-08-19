@@ -50,6 +50,7 @@ export default function ZanMonitorMode({ lang = "ru" }: { lang?: Lang }) {
         if (d.error) { setMsg(d.error); return; }
         if (action === "exclude_cards") setMsg(t.zmExcluded(d.cards));
         if (action === "resubmit") setMsg(t.zmResubmitted(d.submission_id));
+        if (action === "resubmit_successor") setMsg(t.zmResubmittedSuc(d.submission_id));
         load();
       })
       .catch(() => setMsg(t.zmReqFail))
@@ -110,6 +111,17 @@ export default function ZanMonitorMode({ lang = "ru" }: { lang?: Lang }) {
                   <span style={{ color: "#2E7D46" }}>{t.zmNoLive}</span>
                 )}
               </div>
+              {e.event_type === "repealed" && !!e.details?.successor_ngr && (
+                <div className="reg-rev-m" style={{ marginTop: 2 }}>
+                  {t.zmSuccessor}{" "}
+                  <a className="reg-d-link" href={`https://adilet.zan.kz/rus/docs/${String(e.details.successor_ngr)}`} target="_blank" rel="noreferrer">
+                    {String(e.details.successor_title || e.details.successor_ngr).slice(0, 110)}
+                  </a>
+                  {Number(e.details.successor_in_registry) > 0
+                    ? t.zmSucInRegistry(Number(e.details.successor_in_registry))
+                    : t.zmSucNotInRegistry}
+                </div>
+              )}
             </div>
             {e.status !== "processed" && (
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
@@ -118,6 +130,13 @@ export default function ZanMonitorMode({ lang = "ru" }: { lang?: Lang }) {
                     onClick={() => act(e.id, "exclude_cards",
                       t.zmExcludeConfirm(String(e.req_count ?? t.zmAllWord), e.ngr))}>
                     {t.zmExcludeBtn}
+                  </button>
+                )}
+                {e.event_type === "repealed" && !!e.details?.successor_ngr && Number(e.details?.successor_in_registry) === 0 && (
+                  <button className="reg-tool-btn" disabled={busy === e.id}
+                    onClick={() => act(e.id, "resubmit_successor",
+                      t.zmResubmitSucConfirm(String(e.details?.successor_ngr)))}>
+                    {t.zmResubmitSucBtn}
                   </button>
                 )}
                 {e.event_type === "amended" && (
