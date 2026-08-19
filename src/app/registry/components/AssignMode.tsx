@@ -4,6 +4,8 @@
    карточка НПА → выбор комитета + основание → назначить (каскад на требования,
    уведомление комитету) → журнал назначений. */
 import { useCallback, useEffect, useState } from "react";
+import { type Lang } from "../i18n";
+import { MDICT } from "../i18n-modes";
 
 interface OrgNode { id: number; code: string; parent_id: number | null; type: string; name_ru: string; short_name: string | null }
 interface NpaRow {
@@ -16,7 +18,8 @@ interface LogRow {
   committee_name: string; assigned_by_name: string | null;
 }
 
-export default function AssignMode() {
+export default function AssignMode({ lang = "ru" }: { lang?: Lang }) {
+  const t = MDICT[lang];
   const [orgs, setOrgs] = useState<OrgNode[]>([]);
   const [minId, setMinId] = useState<string>("");
   const [q, setQ] = useState("");
@@ -31,6 +34,7 @@ export default function AssignMode() {
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [msgOk, setMsgOk] = useState(false); // успех/ошибка — для цвета (не по тексту: он локализован)
 
   useEffect(() => {
     fetch("/api/organizations").then((r) => r.json()).then((d) => {
@@ -47,11 +51,11 @@ export default function AssignMode() {
     const p = new URLSearchParams({ org_id: minId, status, page: String(page) });
     if (qd) p.set("q", qd);
     fetch(`/api/npa-assignment?${p}`).then((r) => r.json()).then((d) => {
-      if (d.error) { setMsg(d.error); return; }
+      if (d.error) { setMsg(d.error); setMsgOk(false); return; }
       setItems(d.items || []); setCommittees(d.committees || []); setLog(d.log || []);
       setSel(null); setPicked(null); setReason(""); setMsg("");
-    }).catch(() => setMsg("Сбой загрузки"));
-  }, [minId, status, page, qd]);
+    }).catch(() => { setMsg(t.amLoadFail); setMsgOk(false); });
+  }, [minId, status, page, qd, t]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setPage(1); }, [minId, status, qd]);
 
@@ -62,9 +66,9 @@ export default function AssignMode() {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ngr: sel.ngr, org_id: picked, reason: reason || null }),
     }).then((r) => r.json()).then((d) => {
-      if (d.error) setMsg(d.error);
-      else { setMsg(`Назначено: ${d.committee} — переведено требований: ${d.cascaded}. Комитет уведомлён.`); load(); }
-    }).catch(() => setMsg("Сбой назначения")).finally(() => setBusy(false));
+      if (d.error) { setMsg(d.error); setMsgOk(false); }
+      else { setMsg(t.amAssigned(d.committee, d.cascaded)); setMsgOk(true); load(); }
+    }).catch(() => { setMsg(t.amAssignFail); setMsgOk(false); }).finally(() => setBusy(false));
   };
   const cancel = () => {
     if (!sel) return;
@@ -73,9 +77,9 @@ export default function AssignMode() {
       method: "DELETE", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ngr: sel.ngr }),
     }).then((r) => r.json()).then((d) => {
-      if (d.error) setMsg(d.error);
-      else { setMsg(`Назначение отменено — требования возвращены на ${d.back_to} (${d.cascaded}).`); load(); }
-    }).catch(() => setMsg("Сбой отмены")).finally(() => setBusy(false));
+      if (d.error) { setMsg(d.error); setMsgOk(false); }
+      else { setMsg(t.amCancelled(d.back_to, d.cascaded)); setMsgOk(true); load(); }
+    }).catch(() => { setMsg(t.amCancelFail); setMsgOk(false); }).finally(() => setBusy(false));
   };
 
   const ministries = orgs.filter((o) => o.type === "ministry" && o.parent_id == null);
@@ -83,8 +87,8 @@ export default function AssignMode() {
   return (
     <div className="reg-biz">
       <div className="reg-biz-hero">
-        <h1>Назначение ответственного комитета за НПА</h1>
-        <p>Модератор определяет, какой комитет отвечает за конкретный НПА. Назначение применяется ко всем требованиям этого НПА (они переходят в очередь ревью комитета), комитет получает уведомление. Всё фиксируется в журнале с основанием.</p>
+        <h1>{t.amH1}</h1>
+        <p>{t.amHero}</p>
       </div>
 
       {/* фильтры */}
@@ -93,13 +97,13 @@ export default function AssignMode() {
           style={{ height: 34, border: "1px solid var(--line)", borderRadius: 8, padding: "0 10px", fontSize: 13 }}>
           {ministries.map((mo) => <option key={mo.id} value={mo.id}>{mo.short_name || mo.name_ru}</option>)}
         </select>
-        {([["all", "Все"], ["unassigned", "Не назначен"], ["assigned", "Назначен"]] as const).map(([v, l]) => (
+        {([["all", t.amAll], ["unassigned", t.amUnassigned], ["assigned", t.amAssignedPill]] as ["all" | "unassigned" | "assigned", string][]).map(([v, l]) => (
           <button key={v} className={"reg-stage-pill" + (status === v ? " on" : "")} onClick={() => setStatus(v)}>{l}</button>
         ))}
-        <input placeholder="Поиск: наименование или ngr…" value={q} onChange={(e) => setQ(e.target.value)}
+        <input placeholder={t.amSearchPh} value={q} onChange={(e) => setQ(e.target.value)}
           style={{ flex: 1, minWidth: 180, height: 34, border: "1px solid var(--line)", borderRadius: 8, padding: "0 11px", fontSize: 13 }} />
       </div>
-      {msg && <div className="reg-cost-hint" style={{ margin: "8px 0", color: msg.startsWith("Назнач") || msg.startsWith("Назначение") ? "#2E6B4F" : "#A32D2D" }}>{msg}</div>}
+      {msg && <div className="reg-cost-hint" style={{ margin: "8px 0", color: msgOk ? "#2E6B4F" : "#A32D2D" }}>{msg}</div>}
 
       <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 16, alignItems: "start" }}>
         {/* список НПА */}
@@ -109,19 +113,19 @@ export default function AssignMode() {
               <div className="reg-rev-main" onClick={() => { setSel(it); setPicked(it.committee_org_id); setReason(""); }}>
                 <div className="reg-rev-t">{it.npa_title || it.ngr}</div>
                 <div className="reg-rev-m">
-                  {it.ngr} · требований: {it.req_count}
-                  {" · комитет: "}
+                  {it.ngr} · {t.amReqs(it.req_count)}
+                  {" · "}{t.amCommittee}{" "}
                   {it.committee_name
                     ? <b style={{ color: "#2E6B4F" }}>{it.committee_name}</b>
-                    : <b style={{ color: "#A32D2D" }}>не назначен</b>}
+                    : <b style={{ color: "#A32D2D" }}>{t.amNotAssigned}</b>}
                 </div>
               </div>
             </div>
           ))}
-          {!items.length && <div className="reg-empty">Нет НПА по фильтру.</div>}
+          {!items.length && <div className="reg-empty">{t.amNoNpa}</div>}
           <div className="reg-rev-pager">
             <button disabled={page <= 1} onClick={() => setPage(page - 1)}>←</button>
-            <span>стр. {page}</span>
+            <span>{t.amPage(page)}</span>
             <button disabled={items.length < 15} onClick={() => setPage(page + 1)}>→</button>
           </div>
         </div>
@@ -129,17 +133,17 @@ export default function AssignMode() {
         {/* панель назначения */}
         <div className="reg-cost-params">
           {!sel ? (
-            <div className="reg-empty">Выберите НПА слева.</div>
+            <div className="reg-empty">{t.amPickLeft}</div>
           ) : (
             <>
-              <div className="reg-cost-params-h"><span>Назначение ответственного комитета</span></div>
+              <div className="reg-cost-params-h"><span>{t.amPanelH}</span></div>
               <div style={{ fontWeight: 650, fontSize: 14.5, lineHeight: 1.4 }}>{sel.npa_title || sel.ngr}</div>
               <div className="reg-cost-hint" style={{ marginTop: 4 }}>
-                {sel.ngr} · связанных требований: {sel.req_count}
-                {sel.sphere_code ? ` · сфера: ${sel.sphere_code}` : ""}
+                {sel.ngr} · {t.amLinkedReqs(sel.req_count)}
+                {sel.sphere_code ? t.amSphere(sel.sphere_code) : ""}
               </div>
-              <div style={{ marginTop: 12, fontSize: 12.5, fontWeight: 600 }}>Выберите комитет</div>
-              {!committees.length && <div className="reg-cost-hint" style={{ marginTop: 6 }}>У этого министерства нет комитетов в справочнике — добавьте узел в «Структуре органов».</div>}
+              <div style={{ marginTop: 12, fontSize: 12.5, fontWeight: 600 }}>{t.amPickCommittee}</div>
+              {!committees.length && <div className="reg-cost-hint" style={{ marginTop: 6 }}>{t.amNoCommittees}</div>}
               <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
                 {committees.map((cm) => (
                   <label key={cm.id} style={{
@@ -153,15 +157,15 @@ export default function AssignMode() {
                   </label>
                 ))}
               </div>
-              <div style={{ marginTop: 12, fontSize: 12.5, fontWeight: 600 }}>Основание назначения</div>
+              <div style={{ marginTop: 12, fontSize: 12.5, fontWeight: 600 }}>{t.amReason}</div>
               <textarea value={reason} onChange={(e) => setReason(e.target.value.slice(0, 500))} rows={3}
-                placeholder="Укажите основание назначения (при необходимости)"
+                placeholder={t.amReasonPh}
                 style={{ width: "100%", marginTop: 6, border: "1px solid var(--line)", borderRadius: 8, padding: 9, fontSize: 13 }} />
               <div className="reg-cost-hint" style={{ textAlign: "right" }}>{reason.length} / 500</div>
               <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-                <button className="reg-rev-confirm" disabled={busy || !picked} onClick={assign}>Назначить комитет</button>
+                <button className="reg-rev-confirm" disabled={busy || !picked} onClick={assign}>{t.amAssignBtn}</button>
                 {sel.assignment_id && (
-                  <button className="reg-rev-reject" disabled={busy} onClick={cancel}>Отменить назначение</button>
+                  <button className="reg-rev-reject" disabled={busy} onClick={cancel}>{t.amCancelBtn}</button>
                 )}
               </div>
             </>
@@ -170,7 +174,7 @@ export default function AssignMode() {
       </div>
 
       {/* журнал назначений */}
-      <div className="reg-biz-blockh reg-biz-blockh-lg" style={{ marginTop: 22 }}>Журнал назначений<span className="reg-biz-blockh-cnt">{log.length}</span></div>
+      <div className="reg-biz-blockh reg-biz-blockh-lg" style={{ marginTop: 22 }}>{t.amLog}<span className="reg-biz-blockh-cnt">{log.length}</span></div>
       <div className="reg-rev-list">
         {log.map((l) => (
           <div key={l.id} className="reg-rev-row">
@@ -178,13 +182,13 @@ export default function AssignMode() {
               <div className="reg-rev-t">{l.ngr} → {l.committee_name}</div>
               <div className="reg-rev-m">
                 {String(l.created_at).slice(0, 16).replace("T", " ")} · {l.assigned_by_name || "—"}
-                {l.reason ? ` · основание: ${l.reason.slice(0, 80)}` : ""}
+                {l.reason ? t.amReasonShort(l.reason.slice(0, 80)) : ""}
               </div>
             </div>
-            <span className={"reg-rb " + (l.status === "назначено" ? "reg-rb-confirmed" : "reg-rb-rejected")}>{l.status}</span>
+            <span className={"reg-rb " + (l.status === "назначено" ? "reg-rb-confirmed" : "reg-rb-rejected")}>{t.amStatusLabel[l.status] || l.status}</span>
           </div>
         ))}
-        {!log.length && <div className="reg-empty">Назначений пока не было.</div>}
+        {!log.length && <div className="reg-empty">{t.amNoLog}</div>}
       </div>
     </div>
   );

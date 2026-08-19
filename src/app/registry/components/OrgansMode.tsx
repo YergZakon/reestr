@@ -5,13 +5,16 @@
    только своё поддерево (аналитик комитета видит один комитет). */
 import { useEffect, useMemo, useState } from "react";
 import { type Npa } from "../lib";
+import { type Lang } from "../i18n";
+import { MDICT } from "../i18n-modes";
 
 interface OrgSummary {
   code: string; name_ru: string; short_name: string | null; type: string;
   parent_code: string | null; npa_count: number; req_count: number; npa_active: number;
 }
 
-export default function OrgansMode() {
+export default function OrgansMode({ lang = "ru" }: { lang?: Lang }) {
+  const t = MDICT[lang];
   const [organs, setOrgans] = useState<OrgSummary[]>([]);
   const [scoped, setScoped] = useState(false);
   const [selCode, setSelCode] = useState<string | null>(null);
@@ -55,52 +58,52 @@ export default function OrgansMode() {
     <div className="reg-shell">
       <aside className="reg-sidebar">
         <div className="reg-filters">
-          <div className="reg-filters-head"><span className="reg-filters-title">Государственные органы</span></div>
-          {scoped && <div className="reg-cost-hint" style={{ margin: "2px 0 8px" }}>Показаны органы вашего доступа.</div>}
+          <div className="reg-filters-head"><span className="reg-filters-title">{t.omGovOrgans}</span></div>
+          {scoped && <div className="reg-cost-hint" style={{ margin: "2px 0 8px" }}>{t.omScoped}</div>}
           {ordered.map(({ node, depth }) => (
             <div key={node.code}
               className={"reg-org-item" + (selCode === node.code ? " on" : "")}
               style={depth ? { paddingLeft: 22 } : undefined}
               onClick={() => setSelCode(node.code)}>
               <span className="reg-org-name">{depth ? "└ " : ""}{node.short_name || node.name_ru}</span>
-              <span className="reg-org-count">{node.npa_count} НПА</span>
+              <span className="reg-org-count">{node.npa_count} {t.omNpaCnt}</span>
             </div>
           ))}
-          {!organs.length && <div className="reg-empty">Нет органов с требованиями в вашем доступе.</div>}
+          {!organs.length && <div className="reg-empty">{t.omNoOrgans}</div>}
         </div>
       </aside>
       <main className="reg-content">
         <div className="reg-catalog">
-          <h1 className="reg-cat-h1">{sel ? sel.name_ru : "Органы и НПА"}</h1>
-          {sel && <div className="reg-cat-sub">{sel.npa_count} НПА · {Number(sel.req_count).toLocaleString("ru")} требований · включая подведомственные комитеты</div>}
+          <h1 className="reg-cat-h1">{sel ? sel.name_ru : t.omH1}</h1>
+          {sel && <div className="reg-cat-sub">{t.omSelSub(sel.npa_count, Number(sel.req_count).toLocaleString("ru"))}</div>}
           <div className="reg-dupe-toolbar" style={{ marginTop: 14 }}>
-            {([["active", "Действующие"], ["dead", "Утратившие силу"], ["all", "Все"]] as const).map(([v, label]) => (
+            {([["active", t.omActive], ["dead", t.omDead], ["all", t.omAll]] as ["active" | "dead" | "all", string][]).map(([v, label]) => (
               <button key={v} className={"reg-stage-pill" + (npaStatus === v ? " on" : "")} onClick={() => setNpaStatus(v)}>{label}</button>
             ))}
-            <span className="reg-cost-hint" style={{ marginLeft: "auto" }}>Показано НПА: {npaList.length}</span>
+            <span className="reg-cost-hint" style={{ marginLeft: "auto" }}>{t.omShown(npaList.length)}</span>
           </div>
           <div style={{ marginTop: 14 }} className="reg-npa-list">
-            {npaLoading ? <div className="reg-empty">Загрузка…</div> : npaList.map((n) => (
+            {npaLoading ? <div className="reg-empty">{t.omLoading}</div> : npaList.map((n) => (
               <div key={n.ngr} className="reg-npa-card">
                 <div className="reg-npa-top">
                   <div className="reg-npa-title">{n.title}</div>
-                  <span className="reg-npa-req">{n.req_count} треб.</span>
+                  <span className="reg-npa-req">{t.omReqShort(n.req_count)}</span>
                 </div>
                 <div className="reg-npa-meta">
-                  <span>Госрегномер: <b>{n.ngr}</b></span>
-                  {n.date_revision && <span>Редакция: <b>{n.date_revision}</b></span>}
-                  {n.review_deadline && <span title="Плановая дата анализа по реестру Минфина">План. анализ: <b>{n.review_deadline}</b></span>}
-                  {n.npa_status === "утратил силу" && <span className="reg-npa-dead">утратил силу</span>}
+                  <span>{t.omRegNo} <b>{n.ngr}</b></span>
+                  {n.date_revision && <span>{t.omRevision} <b>{n.date_revision}</b></span>}
+                  {n.review_deadline && <span title={t.omPlanTitle}>{t.omPlanAnalysis} <b>{n.review_deadline}</b></span>}
+                  {n.npa_status === "утратил силу" && <span className="reg-npa-dead">{t.omDeadBadge}</span>}
                   {n.owner_code && n.owner_code !== selCode && (
-                    <span className="reg-rb reg-rb-confirmed" title="НПА закреплён за подведомственным органом">
+                    <span className="reg-rb reg-rb-confirmed" title={t.omOwnerTitle}>
                       {organs.find((o) => o.code === n.owner_code)?.short_name || n.owner_code}
                     </span>
                   )}
-                  <a className="reg-npa-link" href={n.adilet_url} target="_blank" rel="noreferrer">Открыть в adilet.zan.kz →</a>
+                  <a className="reg-npa-link" href={n.adilet_url} target="_blank" rel="noreferrer">{t.omOpenAdilet}</a>
                 </div>
               </div>
             ))}
-            {!npaLoading && npaList.length === 0 && <div className="reg-empty"><h3>Нет НПА</h3></div>}
+            {!npaLoading && npaList.length === 0 && <div className="reg-empty"><h3>{t.omNoNpa}</h3></div>}
           </div>
         </div>
       </main>

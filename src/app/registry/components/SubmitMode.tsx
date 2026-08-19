@@ -1,8 +1,11 @@
 "use client";
 /* Режим «Подача НПА» (самообслуживание модератора): превью по ngr + очередь подач. Самодостаточный. */
 import { useCallback, useEffect, useState } from "react";
+import { type Lang } from "../i18n";
+import { MDICT } from "../i18n-modes";
 
-export default function SubmitMode() {
+export default function SubmitMode({ lang = "ru" }: { lang?: Lang }) {
+  const t = MDICT[lang];
   const [subNgr, setSubNgr] = useState("");
   const [subPrev, setSubPrev] = useState<any>(null);
   const [subBusy, setSubBusy] = useState(false);
@@ -35,15 +38,15 @@ export default function SubmitMode() {
   const runPreview = () => {
     setSubBusy(true); setSubMsg(""); setSubPrev(null); setSubTried(false);
     fetch("/api/npa-submission/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ngr: String(subNgr || "").trim() }) })
-      .then((r) => r.json()).then((d) => { if (d.error) setSubMsg(d.error); else setSubPrev(d); }).catch(() => setSubMsg("Сбой превью"))
+      .then((r) => r.json()).then((d) => { if (d.error) setSubMsg(d.error); else setSubPrev(d); }).catch(() => setSubMsg(t.smPreviewFail))
       .finally(() => { setSubBusy(false); setSubTried(true); });
   };
   const submitNpa = () => {
-    if (!subOrgId) { setSubMsg("Выберите орган"); return; }
+    if (!subOrgId) { setSubMsg(t.smPickOrg); return; }
     setSubBusy(true); setSubMsg("");
     fetch("/api/npa-submission", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ngr: String(subNgr || "").trim(), npa_title: subPrev?.title, org_id: Number(subOrgId), sphere_code: subSphere || null, ara_deadline: subAra || null, preview_json: subPrev, articles: subArticles.trim() || null }) })
-      .then((r) => r.json()).then((d) => { if (d.error) setSubMsg(d.error); else { setSubMsg("Подано. Обработка автоматическая, около минуты — карточки попадут в очередь ревью вашего органа."); setSubNgr(""); setSubPrev(null); setSubArticles(""); loadSubs(); } })
+      .then((r) => r.json()).then((d) => { if (d.error) setSubMsg(d.error); else { setSubMsg(t.smSubmitted); setSubNgr(""); setSubPrev(null); setSubArticles(""); loadSubs(); } })
       .finally(() => setSubBusy(false));
   };
   const submitManual = (force: boolean) => {
@@ -55,37 +58,37 @@ export default function SubmitMode() {
         const d = await r.json();
         if (d.need_confirm) { setMSimilar(d.similar || []); setMMsg(d.message); return; }
         if (d.error) { setMMsg(d.error); return; }
-        setMMsg("Требование добавлено (в очередь ревью вашего органа, с пометкой «добавлено вручную»).");
+        setMMsg(t.smManualAdded);
         setMSimilar([]); setMArticle(""); setMSubject(""); setMAction(""); setMCondition("");
       })
-      .catch(() => setMMsg("Сбой запроса"))
+      .catch(() => setMMsg(t.smReqFail))
       .finally(() => setMBusy(false));
   };
 
   return (
     <div className="reg-biz">
       <div className="reg-biz-hero">
-        <h1>Подача НПА на включение в реестр</h1>
-        <p>Укажите ngr или ссылку adilet — система покажет черновой разбор на требования. После подачи система автоматически разберёт документ (обычно до минуты), извлечённые карточки попадут в очередь ревью вашего органа.</p>
+        <h1>{t.smH1}</h1>
+        <p>{t.smHero}</p>
       </div>
       <div className="reg-cost-params">
-        <div className="reg-cost-params-h"><span>Новый НПА</span><span className="reg-cost-hint">по государственному регистрационному номеру</span></div>
+        <div className="reg-cost-params-h"><span>{t.smNewNpa}</span><span className="reg-cost-hint">{t.smByRegNo}</span></div>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <input style={{ flex: 1, minWidth: 240, height: 38, border: "1px solid var(--line)", borderRadius: 9, padding: "0 12px", fontSize: 14 }}
-            value={subNgr} onChange={(e) => setSubNgr(e.target.value)} placeholder="напр. V2300032977 или https://adilet.zan.kz/rus/docs/…" />
-          <button className="reg-cost-apply" style={{ marginTop: 0 }} onClick={runPreview} disabled={subBusy || !subNgr}>{subBusy ? "…" : "Проверить"}</button>
+            value={subNgr} onChange={(e) => setSubNgr(e.target.value)} placeholder={t.smNgrPh} />
+          <button className="reg-cost-apply" style={{ marginTop: 0 }} onClick={runPreview} disabled={subBusy || !subNgr}>{subBusy ? "…" : t.smCheck}</button>
         </div>
         {subMsg && <div className="reg-cost-hint" style={{ color: "#A32D2D", marginTop: 8 }}>{subMsg}</div>}
         {subPrev && (
           <div style={{ marginTop: 14 }}>
             <div style={{ fontWeight: 650, fontSize: 15 }}>{subPrev.title || subNgr}</div>
-            <div className="reg-cost-hint" style={{ marginTop: 3 }}>Статей: {subPrev.articleCount} · разобрано в превью: {(subPrev.previewedArticles || []).join(", ") || "—"}</div>
+            <div className="reg-cost-hint" style={{ marginTop: 3 }}>{t.smArticlesPrev(subPrev.articleCount, (subPrev.previewedArticles || []).join(", ") || "—")}</div>
             <div style={{ margin: "10px 0" }}>
               {(subPrev.requirements || []).length ? (subPrev.requirements as any[]).map((r, i) => (
                 <div key={i} className="reg-rev-row" style={{ marginBottom: 6 }}>
                   <div className="reg-rev-main"><div className="reg-rev-t">{r.action}</div><div className="reg-rev-m">{r.subject}{r.quote ? ` · «${r.quote}»` : ""}</div></div>
                 </div>
-              )) : <div className="reg-empty">{subPrev.note || "Требования в превью не найдены (проверит полный парсинг)."}</div>}
+              )) : <div className="reg-empty">{subPrev.note || t.smNoPrevReqs}</div>}
             </div>
           </div>
         )}
@@ -95,13 +98,13 @@ export default function SubmitMode() {
           <div style={{ marginTop: 6 }}>
             {!subPrev && (
               <div className="reg-cost-hint" style={{ margin: "6px 0 10px" }}>
-                Превью недоступно — НПА можно подать без него: полный разбор выполнится автоматически.
+                {t.smNoPreview}
               </div>
             )}
             <div className="reg-cost-params-grid">
-              <label className="reg-cost-param"><span className="reg-cost-param-l">Ответственный орган (узел)</span>
+              <label className="reg-cost-param"><span className="reg-cost-param-l">{t.smRespOrgan}</span>
                 <span className="reg-cost-param-in"><select value={subOrgId} onChange={(e) => setSubOrgId(e.target.value)} style={{ width: "100%", height: 36, border: "1px solid var(--line)", borderRadius: 8 }}>
-                  <option value="">— выбрать —</option>
+                  <option value="">{t.smPick}</option>
                   {/* иерархия: министерство → его комитеты; затем агентства и акиматы */}
                   {subOrgs.filter((o: any) => o.type === "ministry" && o.parent_id == null).map((m: any) => {
                     // всё поддерево министерства: комитеты и созданные модератором подразделения
@@ -112,38 +115,38 @@ export default function SubmitMode() {
                     walk(m, 1);
                     return (
                       <optgroup key={m.id} label={m.short_name || m.name_ru}>
-                        <option key={`m-${m.id}`} value={m.id}>{m.short_name || m.name_ru} (само министерство)</option>
+                        <option key={`m-${m.id}`} value={m.id}>{m.short_name || m.name_ru} {t.smMinistryItself}</option>
                         {branch.map(({ o, d }) => (
-                          <option key={o.id} value={o.id}>{" ".repeat(d * 2)}└ {o.short_name || o.name_ru}</option>
+                          <option key={o.id} value={o.id}>{" ".repeat(d * 2)}└ {o.short_name || o.name_ru}</option>
                         ))}
                       </optgroup>
                     );
                   })}
-                  <optgroup label="Агентства и Нацбанк">
+                  <optgroup label={t.smAgencies}>
                     {subOrgs.filter((o: any) => o.type === "agency").map((o: any) => (
                       <option key={o.id} value={o.id}>{o.short_name || o.name_ru}</option>
                     ))}
                   </optgroup>
-                  <optgroup label="Акиматы (местные)">
+                  <optgroup label={t.smAkimats}>
                     {subOrgs.filter((o: any) => o.type === "akimat").map((o: any) => (
                       <option key={o.id} value={o.id}>{o.short_name || o.name_ru}</option>
                     ))}
                   </optgroup>
                 </select></span></label>
-              <label className="reg-cost-param"><span className="reg-cost-param-l">Сфера (код)</span>
-                <span className="reg-cost-param-in"><input value={subSphere} onChange={(e) => setSubSphere(e.target.value)} placeholder="напр. taxes / labor" /></span></label>
-              <label className="reg-cost-param"><span className="reg-cost-param-l">Срок АРА</span>
+              <label className="reg-cost-param"><span className="reg-cost-param-l">{t.smSphereCode}</span>
+                <span className="reg-cost-param-in"><input value={subSphere} onChange={(e) => setSubSphere(e.target.value)} placeholder={t.smSpherePh} /></span></label>
+              <label className="reg-cost-param"><span className="reg-cost-param-l">{t.smAra}</span>
                 <span className="reg-cost-param-in"><input type="date" value={subAra} onChange={(e) => setSubAra(e.target.value)} /></span></label>
-              <label className="reg-cost-param"><span className="reg-cost-param-l">Только статьи (доподача)</span>
-                <span className="reg-cost-param-in"><input value={subArticles} onChange={(e) => setSubArticles(e.target.value)} placeholder="напр. 20, 27-1 — пусто = весь акт" /></span></label>
+              <label className="reg-cost-param"><span className="reg-cost-param-l">{t.smOnlyArticles}</span>
+                <span className="reg-cost-param-in"><input value={subArticles} onChange={(e) => setSubArticles(e.target.value)} placeholder={t.smOnlyArticlesPh} /></span></label>
             </div>
             {subArticles.trim() && (
               <div className="reg-cost-hint" style={{ margin: "6px 0" }}>
-                Направленная доподача: будут разобраны только статьи {subArticles.trim()} — используйте, когда из акта не извлеклись отдельные статьи.
+                {t.smTargeted(subArticles.trim())}
               </div>
             )}
             <button className="reg-cost-apply" onClick={submitNpa} disabled={subBusy}>
-              {subPrev ? "Подать в очередь" : "Подать без превью"}
+              {subPrev ? t.smSubmitQueue : t.smSubmitNoPrev}
             </button>
           </div>
         )}
@@ -151,36 +154,35 @@ export default function SubmitMode() {
       {/* Ручное добавление — последний рубеж: таблицы, приложения, перечни, где экстрактор бессилен */}
       <div className="reg-cost-params" style={{ marginTop: 14 }}>
         <div className="reg-cost-params-h">
-          <span>Добавить требование вручную</span>
-          <button className="reg-tool-btn" onClick={() => setMOpen(!mOpen)}>{mOpen ? "Свернуть" : "Открыть форму"}</button>
+          <span>{t.smManualH}</span>
+          <button className="reg-tool-btn" onClick={() => setMOpen(!mOpen)}>{mOpen ? t.smCollapse : t.smOpenForm}</button>
         </div>
         {mOpen && (
           <div>
             <div className="reg-cost-hint" style={{ marginBottom: 10 }}>
-              Для случаев, когда автоматический разбор не извлёк конкретную норму (таблицы, приложения).
-              Сначала попробуйте доподачу по статьям выше. Карточка получит пометку «добавлено вручную» и пройдёт обычное ревью.
+              {t.smManualHint}
             </div>
             <div className="reg-cost-params-grid">
-              <label className="reg-cost-param"><span className="reg-cost-param-l">Госрегномер НПА (ngr)</span>
-                <span className="reg-cost-param-in"><input value={mNgr} onChange={(e) => setMNgr(e.target.value)} placeholder="напр. V1800017030" /></span></label>
-              <label className="reg-cost-param"><span className="reg-cost-param-l">Статья / пункт</span>
-                <span className="reg-cost-param-in"><input value={mArticle} onChange={(e) => setMArticle(e.target.value)} placeholder="напр. ст.20 п.8" /></span></label>
-              <label className="reg-cost-param"><span className="reg-cost-param-l">Орган</span>
+              <label className="reg-cost-param"><span className="reg-cost-param-l">{t.smNgrLabel}</span>
+                <span className="reg-cost-param-in"><input value={mNgr} onChange={(e) => setMNgr(e.target.value)} placeholder={t.smNgrExPh} /></span></label>
+              <label className="reg-cost-param"><span className="reg-cost-param-l">{t.smArticleLabel}</span>
+                <span className="reg-cost-param-in"><input value={mArticle} onChange={(e) => setMArticle(e.target.value)} placeholder={t.smArticlePh} /></span></label>
+              <label className="reg-cost-param"><span className="reg-cost-param-l">{t.smOrgan}</span>
                 <span className="reg-cost-param-in"><select value={mOrgId} onChange={(e) => setMOrgId(e.target.value)} style={{ width: "100%", height: 36, border: "1px solid var(--line)", borderRadius: 8 }}>
-                  <option value="">— выбрать —</option>
+                  <option value="">{t.smPick}</option>
                   {subOrgs.map((o: any) => <option key={o.id} value={o.id}>{o.short_name || o.name_ru}</option>)}
                 </select></span></label>
-              <label className="reg-cost-param"><span className="reg-cost-param-l">Субъект (кто обязан)</span>
-                <span className="reg-cost-param-in"><input value={mSubject} onChange={(e) => setMSubject(e.target.value)} placeholder="напр. недропользователь" /></span></label>
+              <label className="reg-cost-param"><span className="reg-cost-param-l">{t.smSubject}</span>
+                <span className="reg-cost-param-in"><input value={mSubject} onChange={(e) => setMSubject(e.target.value)} placeholder={t.smSubjectPh} /></span></label>
             </div>
             <label className="reg-cost-param" style={{ display: "block", marginTop: 8 }}>
-              <span className="reg-cost-param-l">Формулировка требования (что обязан сделать)</span>
+              <span className="reg-cost-param-l">{t.smActionLabel}</span>
               <textarea value={mAction} onChange={(e) => setMAction(e.target.value)} rows={3}
                 style={{ width: "100%", border: "1px solid var(--line)", borderRadius: 8, padding: 8, fontSize: 14 }}
-                placeholder="Дословно или близко к тексту нормы, от 15 символов" />
+                placeholder={t.smActionPh} />
             </label>
             <label className="reg-cost-param" style={{ display: "block", marginTop: 8 }}>
-              <span className="reg-cost-param-l">Условие (когда применяется; можно пусто)</span>
+              <span className="reg-cost-param-l">{t.smCondition}</span>
               <input value={mCondition} onChange={(e) => setMCondition(e.target.value)}
                 style={{ width: "100%", height: 36, border: "1px solid var(--line)", borderRadius: 8, padding: "0 10px" }} />
             </label>
@@ -189,30 +191,30 @@ export default function SubmitMode() {
               <div style={{ margin: "8px 0" }}>
                 {mSimilar.map((s: any) => (
                   <div key={s.id} className="reg-rev-row" style={{ marginBottom: 6 }}>
-                    <div className="reg-rev-main"><div className="reg-rev-t">{s.text}</div><div className="reg-rev-m">{s.article} · похожесть {Math.round((s.sim || 0) * 100)}%</div></div>
+                    <div className="reg-rev-main"><div className="reg-rev-t">{s.text}</div><div className="reg-rev-m">{s.article} · {t.smSimilarity(Math.round((s.sim || 0) * 100))}</div></div>
                   </div>
                 ))}
-                <button className="reg-cost-apply" onClick={() => submitManual(true)} disabled={mBusy}>Не дубль — всё равно добавить</button>
+                <button className="reg-cost-apply" onClick={() => submitManual(true)} disabled={mBusy}>{t.smNotDup}</button>
               </div>
             )}
             {!mSimilar.length && (
               <button className="reg-cost-apply" style={{ marginTop: 10 }} onClick={() => submitManual(false)}
                 disabled={mBusy || !mNgr.trim() || !mOrgId || !mArticle.trim() || !mSubject.trim() || mAction.trim().length < 15}>
-                {mBusy ? "…" : "Добавить требование"}
+                {mBusy ? "…" : t.smAddReq}
               </button>
             )}
           </div>
         )}
       </div>
-      <div className="reg-biz-blockh reg-biz-blockh-lg">Мои подачи<span className="reg-biz-blockh-cnt">{subList.length}</span></div>
+      <div className="reg-biz-blockh reg-biz-blockh-lg">{t.smMySubs}<span className="reg-biz-blockh-cnt">{subList.length}</span></div>
       <div className="reg-rev-list">
         {subList.map((s: any) => (
           <div key={s.id} className="reg-rev-row">
-            <div className="reg-rev-main"><div className="reg-rev-t">{s.npa_title || s.ngr}</div><div className="reg-rev-m">{s.ngr} · {s.org_short || s.org_name || "—"} · подал {s.submitter}</div></div>
-            <span className={"reg-rb reg-rb-" + (s.status === "parsed" ? "confirmed" : s.status === "error" ? "rejected" : "pending")}>{s.status}{s.cards_created ? ` · ${s.cards_created} карт.` : ""}</span>
+            <div className="reg-rev-main"><div className="reg-rev-t">{s.npa_title || s.ngr}</div><div className="reg-rev-m">{s.ngr} · {s.org_short || s.org_name || "—"} · {t.smSubmittedBy(s.submitter)}</div></div>
+            <span className={"reg-rb reg-rb-" + (s.status === "parsed" ? "confirmed" : s.status === "error" ? "rejected" : "pending")}>{t.smStatus[s.status] || s.status}{s.cards_created ? ` · ${t.smCards(s.cards_created)}` : ""}</span>
           </div>
         ))}
-        {!subList.length && <div className="reg-empty">Пока нет подач.</div>}
+        {!subList.length && <div className="reg-empty">{t.smNoSubs}</div>}
       </div>
     </div>
   );

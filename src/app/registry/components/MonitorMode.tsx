@@ -3,6 +3,8 @@
    журнал подач НПА. Данные — GET /api/admin/monitor. */
 import { useEffect, useMemo, useState } from "react";
 import { I } from "../lib";
+import { type Lang } from "../i18n";
+import { MDICT } from "../i18n-modes";
 
 interface Kpi { total: number; pending: number; confirmed: number; rejected: number; edited: number; in_registry: number; dupes: number; npa_count: number; }
 interface Users { moderators: number; analysts: number; analysts_active: number; moderators_active: number; }
@@ -34,7 +36,8 @@ function Stat({ v, label, tone }: { v: string; label: string; tone?: "ok" | "war
   );
 }
 
-export default function MonitorMode() {
+export default function MonitorMode({ lang = "ru" }: { lang?: Lang }) {
+  const t = MDICT[lang];
   const [d, setD] = useState<Data | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [tab, setTab] = useState<"orgs" | "people" | "npa">("orgs");
@@ -42,10 +45,10 @@ export default function MonitorMode() {
 
   useEffect(() => {
     fetch("/api/admin/monitor").then(async (r) => {
-      if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || "Ошибка загрузки"); }
+      if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || t.mmLoadFail); }
       return r.json();
     }).then(setD).catch((e) => setErr(e.message));
-  }, []);
+  }, [t]);
 
   const done = d ? d.kpi.confirmed + d.kpi.rejected + d.kpi.edited : 0;
   const pct = d && d.kpi.total ? (done / d.kpi.total) * 100 : 0;
@@ -64,52 +67,52 @@ export default function MonitorMode() {
       (x.submitted_by || "").toLowerCase().includes(s) || (x.root_name || "").toLowerCase().includes(s)) : d.submissions;
   }, [d, q]);
 
-  if (err) return <div className="reg-mon"><div className="reg-empty"><h3>Нет доступа</h3><p>{err}</p></div></div>;
-  if (!d) return <div className="reg-mon"><div className="reg-empty">Загрузка…</div></div>;
+  if (err) return <div className="reg-mon"><div className="reg-empty"><h3>{t.mmNoAccess}</h3><p>{err}</p></div></div>;
+  if (!d) return <div className="reg-mon"><div className="reg-empty">{t.mmLoading}</div></div>;
 
   return (
     <div className="reg-mon">
-      <h1 className="reg-cat-h1">Мониторинг работы государственных органов</h1>
-      <div className="reg-cat-sub">Ход подтверждения требований, активность сотрудников и поданные НПА. Раздел доступен уполномоченному органу.</div>
+      <h1 className="reg-cat-h1">{t.mmH1}</h1>
+      <div className="reg-cat-sub">{t.mmSub}</div>
 
       {/* KPI */}
       <div className="reg-mon-stats">
-        <Stat v={n(d.kpi.total)} label="действующих требований" />
-        <Stat v={n(d.kpi.pending)} label="ожидают подтверждения" tone="warn" />
-        <Stat v={n(d.kpi.confirmed)} label="подтверждено" tone="ok" />
-        <Stat v={n(d.kpi.rejected)} label="отклонено" tone="bad" />
-        <Stat v={n(d.kpi.edited)} label="отредактировано" />
-        <Stat v={n(d.kpi.dupes)} label="из них дублей (к устранению)" />
-        <Stat v={n(d.kpi.npa_count)} label="НПА в реестре" />
+        <Stat v={n(d.kpi.total)} label={t.mmTotal} />
+        <Stat v={n(d.kpi.pending)} label={t.mmPending} tone="warn" />
+        <Stat v={n(d.kpi.confirmed)} label={t.mmConfirmed} tone="ok" />
+        <Stat v={n(d.kpi.rejected)} label={t.mmRejected} tone="bad" />
+        <Stat v={n(d.kpi.edited)} label={t.mmEdited} />
+        <Stat v={n(d.kpi.dupes)} label={t.mmDupes} />
+        <Stat v={n(d.kpi.npa_count)} label={t.mmNpaCount} />
       </div>
 
       <div className="reg-mon-progress">
         <div className="reg-mon-progress-h">
-          <span>Обработано госорганами: <b>{n(done)}</b> из {n(d.kpi.total)}</span>
+          <span>{t.mmProcessed1}<b>{n(done)}</b>{t.mmProcessed2(n(d.kpi.total))}</span>
           <span className="reg-mon-pct">{pct.toFixed(pct < 1 ? 2 : 1)}%</span>
         </div>
         <div className="reg-mon-bar"><span style={{ width: `${Math.max(pct, 0.4)}%` }} /></div>
       </div>
 
       <div className="reg-mon-stats">
-        <Stat v={n(d.users.moderators_active)} label="модераторов (активных)" />
-        <Stat v={n(d.users.analysts_active)} label="аналитиков (активных)" />
-        <Stat v={n(d.reviewers.length)} label="приступили к ревью" />
-        <Stat v={n(d.subs.by_users)} label="НПА подано органами" />
-        <Stat v={n(d.subs.last7)} label="подач за 7 дней" />
-        <Stat v={n(d.subs.cards)} label="требований из подач" />
+        <Stat v={n(d.users.moderators_active)} label={t.mmModsActive} />
+        <Stat v={n(d.users.analysts_active)} label={t.mmAnalystsActive} />
+        <Stat v={n(d.reviewers.length)} label={t.mmStartedReview} />
+        <Stat v={n(d.subs.by_users)} label={t.mmNpaByOrgans} />
+        <Stat v={n(d.subs.last7)} label={t.mmLast7} />
+        <Stat v={n(d.subs.cards)} label={t.mmCardsFromSubs} />
       </div>
 
       {/* вкладки */}
       <div className="reg-mon-tabs">
-        <button className={tab === "orgs" ? "on" : ""} onClick={() => setTab("orgs")}>По органам</button>
-        <button className={tab === "people" ? "on" : ""} onClick={() => setTab("people")}>Сотрудники</button>
-        <button className={tab === "npa" ? "on" : ""} onClick={() => setTab("npa")}>Поданные НПА</button>
+        <button className={tab === "orgs" ? "on" : ""} onClick={() => setTab("orgs")}>{t.mmTabOrgs}</button>
+        <button className={tab === "people" ? "on" : ""} onClick={() => setTab("people")}>{t.mmTabPeople}</button>
+        <button className={tab === "npa" ? "on" : ""} onClick={() => setTab("npa")}>{t.mmTabNpa}</button>
         <div className="reg-search reg-mon-search">
           <I.search />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск по органу, НПА, пользователю…" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t.mmSearchPh} />
         </div>
-        <a className="reg-tool-btn" href="/api/admin/monitor/export" title="Выгрузить данные мониторинга (5 листов Excel)"><I.download />Экспорт Excel</a>
+        <a className="reg-tool-btn" href="/api/admin/monitor/export" title={t.mmExportTitle}><I.download />{t.mmExport}</a>
       </div>
 
       {tab === "orgs" && (
@@ -117,11 +120,11 @@ export default function MonitorMode() {
           <table className="reg-mon-table">
             <thead>
               <tr>
-                <th>Государственный орган</th>
-                <th>Модер.</th><th>Аналит.</th>
-                <th>НПА</th><th>Требований</th><th>Дублей</th>
-                <th>Ожидают</th><th>Подтв.</th><th>Откл.</th><th>Отред.</th>
-                <th>Обработано</th><th>Подано НПА</th>
+                <th>{t.mmThOrg}</th>
+                <th>{t.mmThMods}</th><th>{t.mmThAnalysts}</th>
+                <th>{t.mmThNpa}</th><th>{t.mmThReqs}</th><th>{t.mmThDupes}</th>
+                <th>{t.mmThPending}</th><th>{t.mmThConfirmed}</th><th>{t.mmThRejected}</th><th>{t.mmThEdited}</th>
+                <th>{t.mmThDone}</th><th>{t.mmThSubmitted}</th>
               </tr>
             </thead>
             <tbody>
@@ -150,22 +153,22 @@ export default function MonitorMode() {
               })}
             </tbody>
           </table>
-          {orgs.length === 0 && <div className="reg-empty">Ничего не найдено</div>}
+          {orgs.length === 0 && <div className="reg-empty">{t.mmNothing}</div>}
         </div>
       )}
 
       {tab === "people" && (
         <>
-          <div className="reg-biz-blockh">Приступили к ревью ({d.reviewers.length})</div>
+          <div className="reg-biz-blockh">{t.mmReviewers(d.reviewers.length)}</div>
           <div className="reg-mon-tablewrap">
             <table className="reg-mon-table">
-              <thead><tr><th>Пользователь</th><th>Орган</th><th>Роль</th><th>Подтв.</th><th>Откл.</th><th>Отред.</th><th>Всего</th><th>Последнее действие</th></tr></thead>
+              <thead><tr><th>{t.mmThUser}</th><th>{t.mmThOrgan}</th><th>{t.mmThRole}</th><th>{t.mmThConfirmed}</th><th>{t.mmThRejected}</th><th>{t.mmThEdited}</th><th>{t.mmThTotal}</th><th>{t.mmThLast}</th></tr></thead>
               <tbody>
                 {d.reviewers.map((r) => (
                   <tr key={r.id}>
                     <td className="t-name">{r.username}{r.full_name ? <span className="t-code">{r.full_name}</span> : null}</td>
                     <td>{r.org || "—"}</td>
-                    <td>{r.role === "admin" ? "Админ" : r.role === "mne" ? "Сотрудник МНЭ" : r.role === "moderator" ? "Модератор" : "Аналитик"}</td>
+                    <td>{r.role === "admin" ? t.mmRoleAdmin : r.role === "mne" ? t.mmRoleMne : r.role === "moderator" ? t.mmRoleModerator : t.mmRoleExpert}</td>
                     <td className="num ok">{r.confirmed || "—"}</td>
                     <td className="num bad">{r.rejected || "—"}</td>
                     <td className="num">{r.edited || "—"}</td>
@@ -176,10 +179,10 @@ export default function MonitorMode() {
               </tbody>
             </table>
           </div>
-          <div className="reg-biz-blockh">Подавали НПА ({d.submitters.length})</div>
+          <div className="reg-biz-blockh">{t.mmSubmitters(d.submitters.length)}</div>
           <div className="reg-mon-tablewrap">
             <table className="reg-mon-table">
-              <thead><tr><th>Пользователь</th><th>Орган</th><th>Подач</th><th>Извлечено требований</th><th>Последняя подача</th></tr></thead>
+              <thead><tr><th>{t.mmThUser}</th><th>{t.mmThOrgan}</th><th>{t.mmThSubs}</th><th>{t.mmThExtracted}</th><th>{t.mmThLastSub}</th></tr></thead>
               <tbody>
                 {d.submitters.map((s, i) => (
                   <tr key={i}>
@@ -199,12 +202,11 @@ export default function MonitorMode() {
       {tab === "npa" && (
         <>
           <div className="reg-cost-hint" style={{ margin: "0 0 12px" }}>
-            Показаны НПА, поданные сотрудниками органов ({n(d.subs.by_users)}). Акты, загруженные системой при закрытии
-            пробелов правового мониторинга ({n(d.subs.by_system)}), в перечень не включены.
+            {t.mmNpaHint(n(d.subs.by_users), n(d.subs.by_system))}
           </div>
           <div className="reg-mon-tablewrap">
             <table className="reg-mon-table">
-              <thead><tr><th>Дата</th><th>Госрегномер</th><th>Наименование НПА</th><th>Кто подал</th><th>Орган</th><th>Требований</th><th>Статус</th></tr></thead>
+              <thead><tr><th>{t.mmThDate}</th><th>{t.mmThRegNo}</th><th>{t.mmThNpaTitle}</th><th>{t.mmThWho}</th><th>{t.mmThOrgan}</th><th>{t.mmThReqs}</th><th>{t.mmThStatus}</th></tr></thead>
               <tbody>
                 {subsFiltered.map((s) => (
                   <tr key={s.id}>
@@ -214,13 +216,13 @@ export default function MonitorMode() {
                     <td className="nowrap">{s.submitted_by || "—"}</td>
                     <td>{s.root_name || s.org_name || "—"}</td>
                     <td className="num b">{s.cards_created ? n(s.cards_created) : "—"}</td>
-                    <td><span className={"reg-rb " + (s.status === "parsed" ? "reg-rb-confirmed" : s.status === "error" ? "reg-rb-rejected" : "reg-rb-pending")}>{s.status}</span></td>
+                    <td><span className={"reg-rb " + (s.status === "parsed" ? "reg-rb-confirmed" : s.status === "error" ? "reg-rb-rejected" : "reg-rb-pending")}>{t.smStatus[s.status] || s.status}</span></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          {subsFiltered.length === 0 && <div className="reg-empty">Ничего не найдено</div>}
+          {subsFiltered.length === 0 && <div className="reg-empty">{t.mmNothing}</div>}
         </>
       )}
     </div>

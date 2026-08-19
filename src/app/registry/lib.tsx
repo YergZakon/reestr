@@ -2,6 +2,7 @@
 /* Общие иконки, утилиты, типы и карточные компоненты реестра.
    Выделено из монолита page.tsx (К2, docs/architecture/09). */
 import { useEffect, useState } from "react";
+import { DICT, REVIEW_LABEL_KZ, STAGE_LABEL_KZ, type Lang } from "./i18n";
 
 /* ——— Иконки ——— */
 export const I = {
@@ -45,6 +46,10 @@ export const STAGE_LABEL: Record<string, string> = {
   suspension: "Приостановка", closure: "Закрытие",
 };
 export const STAGE_ORDER = ["planning", "registration", "pre_launch", "launch", "operation", "reporting", "inspection", "expansion", "suspension", "closure"];
+export const stageLabel = (s: string, lang: Lang = "ru") =>
+  (lang === "kz" ? STAGE_LABEL_KZ[s] : STAGE_LABEL[s]) || STAGE_LABEL[s] || s;
+export const reviewLabel = (s: string, lang: Lang = "ru") =>
+  (lang === "kz" ? REVIEW_LABEL_KZ[s] : REVIEW_LABEL[s]) || REVIEW_LABEL[s] || s;
 export function minShort(m: string | null): string {
   if (!m) return "—";
   return m.replace("Министерство ", "Мин").replace(" Республики Казахстан", "").replace(" РК", "").slice(0, 28);
@@ -97,7 +102,8 @@ export interface Req {
 }
 /** Предлагаемое правовое основание для ЕРСОП-карточки без ngr (сшивка ЕРСОП↔НПА).
  *  proposed — орган принимает/отклоняет; accepted/auto основание уже на карточке. */
-export function ErsopLinkBlock({ r, onSaved }: { r: Req; onSaved: () => void }) {
+export function ErsopLinkBlock({ r, onSaved, lang = "ru" }: { r: Req; onSaved: () => void; lang?: Lang }) {
+  const tt = DICT[lang];
   const [link, setLink] = useState<{ id: number; status: string; cosine: number | null;
     llm_confidence: number | null; reason: string | null; ngr: string | null;
     npa_title: string | null; article: string | null; npa_text: string | null } | null>(null);
@@ -121,7 +127,7 @@ export function ErsopLinkBlock({ r, onSaved }: { r: Req; onSaved: () => void }) 
   const skeptic = (link.reason || "").split("| скептик:").pop()?.trim();
   return (
     <div className="reg-d-section">
-      <div className="reg-d-section-h">Предлагаемое правовое основание</div>
+      <div className="reg-d-section-h">{tt.eProposed}</div>
       <div className="reg-npa-card">
         <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.4 }}>
           {link.npa_title || link.ngr}{link.article ? `, ${link.article}` : ""}
@@ -132,19 +138,19 @@ export function ErsopLinkBlock({ r, onSaved }: { r: Req; onSaved: () => void }) 
           </div>
         )}
         <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 6 }}>
-          Сходство {link.cosine != null ? Math.round(link.cosine * 100) + " %" : "—"}
-          {link.llm_confidence != null ? ` · уверенность ИИ ${Math.round(link.llm_confidence * 100)} %` : ""}
+          {tt.eSimilarity} {link.cosine != null ? Math.round(link.cosine * 100) + " %" : "—"}
+          {link.llm_confidence != null ? ` · ${tt.eLlmConf} ${Math.round(link.llm_confidence * 100)} %` : ""}
           {link.ngr && <> · <a className="reg-d-link" href={`https://adilet.zan.kz/rus/docs/${link.ngr}`} target="_blank" rel="noreferrer">adilet →</a></>}
         </div>
         {skeptic && skeptic !== (link.reason || "").trim() && (
-          <div style={{ fontSize: 12, color: "#A32D2D", marginTop: 6 }}>Возможное различие: {skeptic}</div>
+          <div style={{ fontSize: 12, color: "#A32D2D", marginTop: 6 }}>{tt.eDiff} {skeptic}</div>
         )}
         <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
           <button className="reg-rev-confirm" disabled={busy} onClick={() => act("accept")}
-            title="Установить это требование законодательства правовым основанием; дубль из НПА-контура будет скрыт">
-            Принять основание
+            title={tt.eAcceptTitle}>
+            {tt.eAccept}
           </button>
-          <button className="reg-rev-reject" disabled={busy} onClick={() => act("reject")}>Отклонить</button>
+          <button className="reg-rev-reject" disabled={busy} onClick={() => act("reject")}>{tt.reject}</button>
         </div>
       </div>
     </div>
@@ -165,7 +171,8 @@ export function MetaChip({ children, color, stage }: { children: React.ReactNode
 }
 
 /* ——— Карточка ——— */
-export function Card({ r, onOpen }: { r: Req; onOpen: (r: Req) => void }) {
+export function Card({ r, onOpen, lang = "ru" }: { r: Req; onOpen: (r: Req) => void; lang?: Lang }) {
+  const t = DICT[lang];
   const heading = r.title || `${r.subject || ""}${r.action ? " → " + r.action : ""}`.trim() || "—";
   const body = r.canon_text || r.legal_text || "";
   return (
@@ -176,14 +183,14 @@ export function Card({ r, onOpen }: { r: Req; onOpen: (r: Req) => void }) {
       </div>
       {body && <p className="reg-card-snippet">{body}</p>}
       <div className="reg-card-facets">
-        {r.review_status === "confirmed" && <span className="reg-rb reg-rb-confirmed">подтверждено госорганом</span>}
-        {(!r.review_status || r.review_status === "pending" || r.review_status === "edited") && <span className="reg-rb reg-rb-pending">на подтверждении</span>}
-        {r.ara_status === "исключён" && <span className="reg-rb reg-rb-rejected">исключён</span>}
-        {r.is_canonical === false && <span className="reg-rb reg-rb-pending" title="Требование дублирует норму другого акта — подлежит устранению госорганом в установленном порядке">дубль</span>}
-        {r.source === "ersop" && <span className="reg-rb reg-rb-pending" title="Требование из проверочного листа ЕРСОП. В первоисточнике ЕРСОП нет привязки к НПА — правовое основание устанавливается сшивкой с требованием из законодательства">проверочный лист ЕРСОП</span>}
+        {r.review_status === "confirmed" && <span className="reg-rb reg-rb-confirmed">{t.bConfirmed}</span>}
+        {(!r.review_status || r.review_status === "pending" || r.review_status === "edited") && <span className="reg-rb reg-rb-pending">{t.bPending}</span>}
+        {r.ara_status === "исключён" && <span className="reg-rb reg-rb-rejected">{t.bExcluded}</span>}
+        {r.is_canonical === false && <span className="reg-rb reg-rb-pending" title={t.bDupTitle}>{t.bDup}</span>}
+        {r.source === "ersop" && <span className="reg-rb reg-rb-pending" title={t.bErsopTitle}>{t.bErsop}</span>}
         {r.sphere_name && <MetaChip color={SPHERE_COLOR[r.sphere_code || ""]}>{r.sphere_name}</MetaChip>}
         {r.ministry && <MetaChip>{minShort(r.ministry)}</MetaChip>}
-        {(r.stages || []).slice(0, 3).map((s) => <MetaChip key={s} stage>{STAGE_LABEL[s] || s}</MetaChip>)}
+        {(r.stages || []).slice(0, 3).map((s) => <MetaChip key={s} stage>{stageLabel(s, lang)}</MetaChip>)}
         {(r.stages || []).length > 3 && <MetaChip stage>+{(r.stages || []).length - 3}</MetaChip>}
       </div>
     </article>
@@ -191,7 +198,8 @@ export function Card({ r, onOpen }: { r: Req; onOpen: (r: Req) => void }) {
 }
 
 /* ——— Drawer ——— */
-export function Drawer({ r, onClose, onSaved, role }: { r: Req; onClose: () => void; onSaved: () => void; role?: string }) {
+export function Drawer({ r, onClose, onSaved, role, lang = "ru" }: { r: Req; onClose: () => void; onSaved: () => void; role?: string; lang?: Lang }) {
+  const t = DICT[lang];
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(r.canon_text || r.legal_text || "");
   // сохранённая формулировка: дровер держит старый проп r до переоткрытия,
@@ -218,7 +226,7 @@ export function Drawer({ r, onClose, onSaved, role }: { r: Req; onClose: () => v
       if (!res.ok) {
         // раньше ошибка глоталась: редактор закрывался как будто сохранено
         const e = await res.json().catch(() => ({}));
-        alert(e.error || "Не удалось сохранить формулировку");
+        alert(e.error || t.saveFail);
         return;
       }
       setSavedText(text);
@@ -231,7 +239,7 @@ export function Drawer({ r, onClose, onSaved, role }: { r: Req; onClose: () => v
       const res = await fetch("/api/registry/review", { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: r.id, action, ...extra }) });
       if (res.ok) { onSaved(); onClose(); }
-      else { const e = await res.json().catch(() => ({})); alert(e.error || "Ошибка"); }
+      else { const e = await res.json().catch(() => ({})); alert(e.error || t.errGeneric); }
     } finally { setRbusy(false); }
   }
   return (
@@ -245,85 +253,85 @@ export function Drawer({ r, onClose, onSaved, role }: { r: Req; onClose: () => v
         <div className="reg-drawer-body">
           {r.review_status && (role === "expert" || role === "admin") && (
             <div className="reg-d-section reg-review-box">
-              <div className="reg-d-section-h">Ревью госоргана</div>
+              <div className="reg-d-section-h">{t.dReview}</div>
               <div className="reg-review-status">
-                Статус: <b className={"reg-rb reg-rb-" + r.review_status}>{REVIEW_LABEL[r.review_status] || r.review_status}</b>
+                {t.dStatus} <b className={"reg-rb reg-rb-" + r.review_status}>{reviewLabel(r.review_status, lang)}</b>
                 {r.ara_status && <span className="reg-rb reg-rb-ara">{r.ara_status}</span>}
               </div>
-              {r.review_comment && <div className="reg-review-comment">Комментарий: {r.review_comment}</div>}
-              <label className="reg-review-ara">Срок проведения АРА
+              {r.review_comment && <div className="reg-review-comment">{t.dComment} {r.review_comment}</div>}
+              <label className="reg-review-ara">{t.dAra}
                 <input type="date" value={araDate} onChange={(e) => setAraDate(e.target.value)} />
               </label>
               <div className="reg-review-acts">
-                <button className="reg-rev-confirm" disabled={rbusy} onClick={() => review("confirm", { ara_deadline: araDate })}>Подтвердить</button>
-                <button className="reg-rev-reject" disabled={rbusy} onClick={() => review("reject")}>Отклонить</button>
+                <button className="reg-rev-confirm" disabled={rbusy} onClick={() => review("confirm", { ara_deadline: araDate })}>{t.confirm}</button>
+                <button className="reg-rev-reject" disabled={rbusy} onClick={() => review("reject")}>{t.reject}</button>
                 {role === "admin" && r.review_status === "confirmed" && (
-                  <button className="reg-rev-include" disabled={rbusy} onClick={() => review("include")}>Включить в реестр</button>
+                  <button className="reg-rev-include" disabled={rbusy} onClick={() => review("include")}>{t.include}</button>
                 )}
               </div>
             </div>
           )}
           <div className="reg-d-section">
-            <div className="reg-d-section-h">Текст требования</div>
+            <div className="reg-d-section-h">{t.dReqText}</div>
             {editing
               ? <textarea className="reg-edit-area" rows={5} value={text} onChange={(e) => setText(e.target.value)} />
               : <p className="reg-d-legal">{savedText ?? (r.canon_text || r.legal_text)}</p>}
             {savedText != null && !editing && (
-              <div style={{ fontSize: 12, color: "#2E6B4F", marginTop: 4 }}>✓ Формулировка сохранена</div>
+              <div style={{ fontSize: 12, color: "#2E6B4F", marginTop: 4 }}>{t.savedOk}</div>
             )}
           </div>
           <div className="reg-d-section">
-            <div className="reg-d-section-h">Структура</div>
+            <div className="reg-d-section-h">{t.dStructure}</div>
             <dl className="reg-d-grid">
-              {r.subject && <><dt>Субъект</dt><dd>{r.subject}</dd></>}
-              {r.action && <><dt>Действие</dt><dd>{r.action}</dd></>}
-              {r.object && <><dt>Объект</dt><dd>{r.object}</dd></>}
-              {r.condition && <><dt>Условие</dt><dd>{r.condition}</dd></>}
-              {r.sphere_name && <><dt>Сфера</dt><dd><MetaChip color={SPHERE_COLOR[r.sphere_code || ""]}>{r.sphere_name}</MetaChip></dd></>}
-              {r.ministry && <><dt>Орган</dt><dd>{r.ministry}</dd></>}
+              {r.subject && <><dt>{t.dSubject}</dt><dd>{r.subject}</dd></>}
+              {r.action && <><dt>{t.dAction}</dt><dd>{r.action}</dd></>}
+              {r.object && <><dt>{t.dObject}</dt><dd>{r.object}</dd></>}
+              {r.condition && <><dt>{t.dCondition}</dt><dd>{r.condition}</dd></>}
+              {r.sphere_name && <><dt>{t.dSphere}</dt><dd><MetaChip color={SPHERE_COLOR[r.sphere_code || ""]}>{r.sphere_name}</MetaChip></dd></>}
+              {r.ministry && <><dt>{t.dOrgan}</dt><dd>{r.ministry}</dd></>}
             </dl>
           </div>
           {r.cost_per_entity_kzt != null && (
             <div className="reg-d-section">
-              <div className="reg-d-section-h">Оценка нагрузки (Standard Cost Model)</div>
+              <div className="reg-d-section-h">{t.dScm}</div>
               <dl className="reg-d-grid">
-                <dt>Стоимость</dt><dd><b>{fmtKzt(Number(r.cost_per_entity_kzt))}</b> / субъект / год</dd>
-                {r.time_hours != null && <><dt>Трудозатраты</dt><dd>{Number(r.time_hours)} ч × {Number(r.frequency_per_year)}/год{r.staff_role ? ` · ${r.staff_role}` : ""}</dd></>}
-                {Number(r.external_cost_kzt) > 0 && <><dt>Внешние расходы</dt><dd>{fmtKzt(Number(r.external_cost_kzt))} (пошлины/услуги)</dd></>}
-                {Number(r.inspection_cost_gov) > 0 && <><dt>Стоимость проверки</dt><dd>государству {fmtKzt(Number(r.inspection_cost_gov))} · бизнесу {fmtKzt(Number(r.inspection_cost_biz))}{r.inspection_hours_biz ? ` (${Number(r.inspection_hours_biz)} ч)` : ""}</dd></>}
+                <dt>{t.dCost}</dt><dd><b>{fmtKzt(Number(r.cost_per_entity_kzt))}</b> {t.perEntityYear}</dd>
+                {r.time_hours != null && <><dt>{t.dLabor}</dt><dd>{Number(r.time_hours)} ч × {Number(r.frequency_per_year)}{t.perYear}{r.staff_role ? ` · ${r.staff_role}` : ""}</dd></>}
+                {Number(r.external_cost_kzt) > 0 && <><dt>{t.dExternal}</dt><dd>{fmtKzt(Number(r.external_cost_kzt))} {t.dutiesServices}</dd></>}
+                {Number(r.inspection_cost_gov) > 0 && <><dt>{t.dInspCost}</dt><dd>{t.toGov} {fmtKzt(Number(r.inspection_cost_gov))} · {t.toBiz} {fmtKzt(Number(r.inspection_cost_biz))}{r.inspection_hours_biz ? ` (${Number(r.inspection_hours_biz)} ч)` : ""}</dd></>}
               </dl>
-              <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 6 }}>Предварительная ИИ-оценка; госорган может уточнить.</div>
+              <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 6 }}>{t.dScmNote}</div>
             </div>
           )}
           {r.ngr && (
             <div className="reg-d-section">
-              <div className="reg-d-section-h">Нормативно-правовой источник</div>
+              <div className="reg-d-section-h">{t.dSource}</div>
               <div className="reg-npa-card">
                 <div style={{ fontSize: 14.5, fontWeight: 600, lineHeight: 1.4 }}>{r.npa_title || r.ngr}{r.article ? `, ${r.article}` : ""}</div>
                 <div style={{ fontSize: 12.5, color: "var(--ink-3)", marginTop: 6 }}>
-                  Госрегномер: <b style={{ color: "var(--ink-2)" }}>{r.ngr}</b>
-                  {adilet && <> · <a className="reg-d-link" href={adilet} target="_blank" rel="noreferrer">Открыть на adilet.zan.kz →</a></>}
+                  {t.dRegNo} <b style={{ color: "var(--ink-2)" }}>{r.ngr}</b>
+                  {adilet && <> · <a className="reg-d-link" href={adilet} target="_blank" rel="noreferrer">{t.dOpenAdilet}</a></>}
                 </div>
                 {r.source === "ersop" && r.ersop_confirmed && (
                   <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 6 }}>
-                    Основание установлено сшивкой с требованием законодательства (проверочный лист ЕРСОП).
+                    {t.dErsopLinked}
                   </div>
                 )}
               </div>
             </div>
           )}
-          {r.source === "ersop" && !r.ngr && <ErsopLinkBlock r={r} onSaved={onSaved} />}
+          {r.source === "ersop" && !r.ngr && <ErsopLinkBlock r={r} onSaved={onSaved} lang={lang} />}
           {r.okeds && r.okeds.length > 0 && (
             <div className="reg-d-section">
-              <div className="reg-d-section-h">Применимые виды деятельности (ОКЭД)</div>
+              <div className="reg-d-section-h">{t.dOkeds}</div>
               <div style={{ fontSize: 13, color: "var(--ink-2)", lineHeight: 1.7 }}>{r.okeds.join(", ")}</div>
             </div>
           )}
           {r.stages && r.stages.length > 0 && (
             <div className="reg-d-section">
-              <div className="reg-d-section-h">Стадии жизненного цикла</div>
+              <div className="reg-d-section-h">{t.dStages}</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
-                {r.stages.map((s) => <MetaChip key={s} stage>{STAGE_LABEL[s] || s}</MetaChip>)}
+                {r.stages.map((s) => <MetaChip key={s} stage>{stageLabel(s, lang)}</MetaChip>)}
               </div>
             </div>
           )}
@@ -331,11 +339,11 @@ export function Drawer({ r, onClose, onSaved, role }: { r: Req; onClose: () => v
         <div className="reg-drawer-foot">
           {editing ? (
             <>
-              <button className="reg-act-btn reg-act-save" disabled={busy} onClick={save}>Сохранить</button>
-              <button className="reg-act-btn reg-act-edit" onClick={() => { setEditing(false); setText(r.canon_text || r.legal_text || ""); }}>Отмена</button>
+              <button className="reg-act-btn reg-act-save" disabled={busy} onClick={save}>{t.save}</button>
+              <button className="reg-act-btn reg-act-edit" onClick={() => { setEditing(false); setText(r.canon_text || r.legal_text || ""); }}>{t.cancel}</button>
             </>
           ) : (
-            <button className="reg-act-btn reg-act-edit" onClick={() => setEditing(true)}>✎ Редактировать формулировку</button>
+            <button className="reg-act-btn reg-act-edit" onClick={() => setEditing(true)}>{t.editText}</button>
           )}
         </div>
       </aside>
