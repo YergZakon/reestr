@@ -2,10 +2,12 @@
 /* Режим «Ревью»: очередь подтверждения госоргана. Самодостаточный стейт;
    reload-колбэк регистрируется в page (Drawer после действия обновляет очередь). */
 import { useCallback, useEffect, useState } from "react";
-import { minShort, REVIEW_LABEL, type Req } from "../lib";
+import { minShort, reviewLabel, type Req } from "../lib";
+import { DICT, type Lang } from "../i18n";
 
-export default function ReviewMode({ onOpen, registerReload }:
-  { onOpen: (r: Req) => void; registerReload: (fn: () => void) => void }) {
+export default function ReviewMode({ onOpen, registerReload, lang = "ru" }:
+  { onOpen: (r: Req) => void; registerReload: (fn: () => void) => void; lang?: Lang }) {
+  const t = DICT[lang];
   const [rq, setRq] = useState<any>(null);
   const [rqStatus, setRqStatus] = useState("pending");
   const [rqPage, setRqPage] = useState(1);
@@ -54,23 +56,23 @@ export default function ReviewMode({ onOpen, registerReload }:
   return (
     <div className="reg-biz">
       <div className="reg-biz-hero">
-        <h1>Подтверждение требований госорганом</h1>
-        <p>Извлечённые требования вашего органа — подтвердите, отклоните или поправьте. Подтверждённые включаются в реестр после согласования с уполномоченным органом (МНЭ). Срок проведения АРА обязателен при подтверждении.</p>
+        <h1>{t.rvH1}</h1>
+        <p>{t.rvSub}</p>
       </div>
-      {!rq ? <div className="reg-empty">Загрузка…</div> : rq.noAuthorities ? (
-        <div className="reg-empty">Вам не назначены органы. Обратитесь к администратору (МНЭ) для назначения.</div>
+      {!rq ? <div className="reg-empty">{t.loading}</div> : rq.noAuthorities ? (
+        <div className="reg-empty">{t.rvNoAuth}</div>
       ) : (
         <>
           <div className="reg-cost-summary">
-            <div className="reg-cost-stat"><b>{Number(rq.counts?.pending || 0).toLocaleString("ru")}</b><span>на подтверждении</span></div>
-            <div className="reg-cost-stat"><b>{Number(rq.counts?.confirmed || 0).toLocaleString("ru")}</b><span>подтверждено</span></div>
-            <div className="reg-cost-stat"><b>{Number(rq.counts?.rejected || 0).toLocaleString("ru")}</b><span>отклонено</span></div>
+            <div className="reg-cost-stat"><b>{Number(rq.counts?.pending || 0).toLocaleString("ru")}</b><span>{t.rvPending}</span></div>
+            <div className="reg-cost-stat"><b>{Number(rq.counts?.confirmed || 0).toLocaleString("ru")}</b><span>{t.rvConfirmed}</span></div>
+            <div className="reg-cost-stat"><b>{Number(rq.counts?.rejected || 0).toLocaleString("ru")}</b><span>{t.rvRejected}</span></div>
           </div>
           <div className="reg-dupe-toolbar">
-            {([["pending", "На подтверждении"], ["confirmed", "Подтверждённые"], ["rejected", "Отклонённые"], ["all", "Все"]] as [string, string][]).map(([v, l]) => (
+            {([["pending", t.rvTabPending], ["confirmed", t.rvTabConfirmed], ["rejected", t.rvTabRejected], ["all", t.rvTabAll]] as [string, string][]).map(([v, l]) => (
               <button key={v} className={"reg-stage-pill" + (rqStatus === v ? " on" : "")} onClick={() => { setRqStatus(v); setRqPage(1); }}>{l}</button>
             ))}
-            <input className="reg-mtd-row" style={{ flex: 1, minWidth: 160, height: 34, border: "1px solid var(--line)", borderRadius: 8, padding: "0 11px", fontSize: 13 }} placeholder="Поиск по тексту / ngr…" value={rqQ} onChange={(e) => setRqQ(e.target.value)} />
+            <input className="reg-mtd-row" style={{ flex: 1, minWidth: 160, height: 34, border: "1px solid var(--line)", borderRadius: 8, padding: "0 11px", fontSize: 13 }} placeholder={t.rvSearchPh} value={rqQ} onChange={(e) => setRqQ(e.target.value)} />
           </div>
           {(() => {
             const SEL: React.CSSProperties = { height: 34, border: "1px solid var(--line)", borderRadius: 8, padding: "0 10px", fontSize: 13, maxWidth: 280, background: "#fff" };
@@ -85,19 +87,19 @@ export default function ReviewMode({ onOpen, registerReload }:
               <div className="reg-dupe-toolbar" style={{ flexWrap: "wrap" }}>
                 {roots.length > 1 && (
                   <select value={rqOrg} onChange={(e) => { setRqOrg(e.target.value); setRqCom(""); setRqNgr(""); setRqPage(1); }} style={SEL}>
-                    <option value="">Все органы</option>
+                    <option value="">{t.rvAllOrgans}</option>
                     {roots.map((o) => <option key={o.code} value={o.code}>{(o.short_name || o.name_ru).slice(0, 40)} ({o.n})</option>)}
                   </select>
                 )}
                 {coms.length > 0 && (
                   <select value={rqCom} onChange={(e) => { setRqCom(e.target.value); setRqNgr(""); setRqPage(1); }} style={SEL}>
-                    <option value="">Весь орган (с комитетами)</option>
+                    <option value="">{t.rvAllCommittees}</option>
                     {coms.map((c) => <option key={c.code} value={c.code}>{(c.short_name || c.name_ru).slice(0, 40)} ({c.n})</option>)}
                   </select>
                 )}
                 {npas.length > 0 && (
                   <select value={rqNgr} onChange={(e) => { setRqNgr(e.target.value); setRqPage(1); }} style={{ ...SEL, maxWidth: 460, flex: 1 }}>
-                    <option value="">Все НПА</option>
+                    <option value="">{t.rvAllNpa}</option>
                     {npas.map((n) => <option key={n.ngr} value={n.ngr}>{(n.npa_title || n.ngr).slice(0, 75)} ({n.n})</option>)}
                   </select>
                 )}
@@ -106,11 +108,11 @@ export default function ReviewMode({ onOpen, registerReload }:
           })()}
           {rqStatus === "pending" && (
             <div className="reg-rev-bulk">
-              <label>Срок АРА <input type="date" value={rqAra} onChange={(e) => setRqAra(e.target.value)} /></label>
-              <span className="reg-cost-hint">Выбрано: {rqSel.length}</span>
-              <button className="reg-rev-confirm" disabled={!rqSel.length || rqBusy} onClick={() => reviewBulk("confirm")}>Подтвердить выбранные</button>
-              <button className="reg-rev-reject" disabled={!rqSel.length || rqBusy} onClick={() => reviewBulk("reject")}>Отклонить выбранные</button>
-              <button className="reg-rev-all" onClick={() => setRqSel(rqSel.length === rq.items.length && rq.items.length ? [] : rq.items.map((x: Req) => x.id))}>{rqSel.length === rq.items.length && rq.items.length ? "Снять все" : "Выбрать страницу"}</button>
+              <label>{t.rvAra} <input type="date" value={rqAra} onChange={(e) => setRqAra(e.target.value)} /></label>
+              <span className="reg-cost-hint">{t.rvSelected} {rqSel.length}</span>
+              <button className="reg-rev-confirm" disabled={!rqSel.length || rqBusy} onClick={() => reviewBulk("confirm")}>{t.rvConfirmSel}</button>
+              <button className="reg-rev-reject" disabled={!rqSel.length || rqBusy} onClick={() => reviewBulk("reject")}>{t.rvRejectSel}</button>
+              <button className="reg-rev-all" onClick={() => setRqSel(rqSel.length === rq.items.length && rq.items.length ? [] : rq.items.map((x: Req) => x.id))}>{rqSel.length === rq.items.length && rq.items.length ? t.rvUnselectAll : t.rvPickPage}</button>
             </div>
           )}
           <div className="reg-rev-list">
@@ -122,22 +124,22 @@ export default function ReviewMode({ onOpen, registerReload }:
                   <div className="reg-rev-m">{r.ngr}{r.article ? ` · ${r.article}` : ""} · {minShort(r.ministry)}{r.sphere_name ? ` · ${r.sphere_name}` : ""}</div>
                 </div>
                 {r.is_canonical === false && (
-                  <span className="reg-rb reg-rb-ara" title="Дублирует норму другого акта — кандидат на устранение органом в установленном порядке">дубль</span>
+                  <span className="reg-rb reg-rb-ara" title={t.bDupTitle}>{t.bDup}</span>
                 )}
                 {(r as Req & { dup_suspect?: boolean | null }).dup_suspect && r.is_canonical !== false && (
-                  <span className="reg-rb reg-rb-ara" title="Похожее требование уже есть в реестре — проверьте перед подтверждением">возможный дубль</span>
+                  <span className="reg-rb reg-rb-ara" title={t.rvDupSuspectTitle}>{t.rvDupSuspect}</span>
                 )}
                 {r.source === "manual" && (
-                  <span className="reg-rb reg-rb-edited" title="Требование введено модератором вручную (автоматический разбор не извлёк норму) — проверьте формулировку по тексту акта">добавлено вручную</span>
+                  <span className="reg-rb reg-rb-edited" title={t.rvManualTitle}>{t.rvManual}</span>
                 )}
-                <span className={"reg-rb reg-rb-" + (r.review_status || "")}>{REVIEW_LABEL[r.review_status || ""] || r.review_status}</span>
+                <span className={"reg-rb reg-rb-" + (r.review_status || "")}>{reviewLabel(r.review_status || "", lang)}</span>
               </div>
             ))}
-            {!rq.items.length && <div className="reg-empty">Нет требований в этом статусе.</div>}
+            {!rq.items.length && <div className="reg-empty">{t.rvEmpty}</div>}
           </div>
           {rq.pages > 1 && (
             <div className="reg-rev-pager">
-              <button disabled={rqPage <= 1} onClick={() => setRqPage(1)} title="В начало">⇤</button>
+              <button disabled={rqPage <= 1} onClick={() => setRqPage(1)} title={t.rvToStart}>⇤</button>
               <button disabled={rqPage <= 1} onClick={() => setRqPage(rqPage - 1)}>←</button>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                 <input
@@ -146,13 +148,13 @@ export default function ReviewMode({ onOpen, registerReload }:
                   onKeyDown={(e) => { if (e.key === "Enter") jumpTo(pageInput); }}
                   onBlur={() => jumpTo(pageInput)}
                   inputMode="numeric"
-                  title="Введите номер страницы и нажмите Enter"
+                  title={t.rvPageInput}
                   style={{ width: 64, height: 30, textAlign: "center", border: "1px solid var(--line)", borderRadius: 7, fontSize: 13, fontWeight: 600 }}
                 />
                 <span>/ {Number(rq.pages).toLocaleString("ru")}</span>
               </span>
               <button disabled={rqPage >= rq.pages} onClick={() => setRqPage(rqPage + 1)}>→</button>
-              <button disabled={rqPage >= rq.pages} onClick={() => setRqPage(rq.pages)} title="В конец">⇥</button>
+              <button disabled={rqPage >= rq.pages} onClick={() => setRqPage(rq.pages)} title={t.rvToEnd}>⇥</button>
             </div>
           )}
         </>

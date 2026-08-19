@@ -3,6 +3,8 @@
    органа (admin/mne — все). Суточная сверка с базой законодательства — воркер.
    Решения — за органом: исключить карточки, переподать акт, отметить обработанным. */
 import { useCallback, useEffect, useState } from "react";
+import { type Lang } from "../i18n";
+import { MDICT } from "../i18n-modes";
 
 interface ZanEvent {
   id: number; ngr: string; authority_code: string; authority_name: string | null;
@@ -16,7 +18,8 @@ interface ZanEvent {
 const dt = (s: string | null) => (s ? new Date(s).toLocaleDateString("ru",
   { day: "2-digit", month: "2-digit", year: "2-digit" }) : "—");
 
-export default function ZanMonitorMode() {
+export default function ZanMonitorMode({ lang = "ru" }: { lang?: Lang }) {
+  const t = MDICT[lang];
   const [tab, setTab] = useState<"new" | "acked" | "processed" | "all">("new");
   const [items, setItems] = useState<ZanEvent[]>([]);
   const [lastCheck, setLastCheck] = useState<string | null>(null);
@@ -33,7 +36,7 @@ export default function ZanMonitorMode() {
     }).catch(() => {});
   }, [tab, page]);
   useEffect(() => { load(); }, [load]);
-  const openTab = (t: typeof tab) => { setTab(t); setPage(1); };
+  const openTab = (v: typeof tab) => { setTab(v); setPage(1); };
   const allCount = (counts["new"] || 0) + (counts["acked"] || 0) + (counts["processed"] || 0);
   const n = (x?: number) => (x ? ` (${x})` : "");
 
@@ -45,11 +48,11 @@ export default function ZanMonitorMode() {
       .then((r) => r.json())
       .then((d) => {
         if (d.error) { setMsg(d.error); return; }
-        if (action === "exclude_cards") setMsg(`Снято с учёта карточек: ${d.cards}`);
-        if (action === "resubmit") setMsg(`Акт переподан на извлечение (подача #${d.submission_id}) — новая редакция разберётся автоматически.`);
+        if (action === "exclude_cards") setMsg(t.zmExcluded(d.cards));
+        if (action === "resubmit") setMsg(t.zmResubmitted(d.submission_id));
         load();
       })
-      .catch(() => setMsg("Сбой запроса"))
+      .catch(() => setMsg(t.zmReqFail))
       .finally(() => setBusy(null));
   };
 
@@ -57,26 +60,25 @@ export default function ZanMonitorMode() {
 
   return (
     <div className="reg-mon">
-      <h1 className="reg-cat-h1">Правовой мониторинг (база ЗАН)</h1>
+      <h1 className="reg-cat-h1">{t.zmH1}</h1>
       <div className="reg-cat-sub">
-        Ежедневная сверка НПА реестра с эталонной базой законодательства: утрата силы и новые редакции.
-        Решение по каждому событию принимает орган.
+        {t.zmSub}
         {lastCheck && (
           <span style={{ marginLeft: 8, color: stale ? "#A32D2D" : undefined }}>
-            Последняя сверка: {dt(lastCheck)}{stale ? " — данные устарели (>48 ч)" : ""}
+            {t.zmLastCheck(dt(lastCheck))}{stale ? t.zmStale : ""}
           </span>
         )}
       </div>
 
       <div className="reg-mon-tabs">
         <button className={tab === "new" ? "on" : ""} onClick={() => openTab("new")}>
-          Новые{n(counts["new"])}</button>
+          {t.zmNew}{n(counts["new"])}</button>
         <button className={tab === "acked" ? "on" : ""} onClick={() => openTab("acked")}>
-          Принятые{n(counts["acked"])}</button>
+          {t.zmAcked}{n(counts["acked"])}</button>
         <button className={tab === "processed" ? "on" : ""} onClick={() => openTab("processed")}>
-          Обработанные{n(counts["processed"])}</button>
+          {t.zmProcessed}{n(counts["processed"])}</button>
         <button className={tab === "all" ? "on" : ""} onClick={() => openTab("all")}>
-          Все{n(allCount)}</button>
+          {t.zmAll}{n(allCount)}</button>
       </div>
       {msg && <div className="reg-cost-hint" style={{ margin: "8px 0" }}>{msg}</div>}
 
@@ -87,25 +89,25 @@ export default function ZanMonitorMode() {
               <div className="reg-rev-t">
                 <span className={"reg-rb " + (e.event_type === "repealed" ? "reg-rb-rejected" : "reg-rb-ara")}
                   style={{ marginRight: 8, marginLeft: 0 }}>
-                  {e.event_type === "repealed" ? "утратил силу" : `новая редакция от ${String(e.details?.new_dl || "")}`}
+                  {e.event_type === "repealed" ? t.zmRepealed : t.zmAmended(String(e.details?.new_dl || ""))}
                 </span>
                 {(e.npa_title || e.ngr).slice(0, 130)}
               </div>
               <div className="reg-rev-m">
                 <a className="reg-d-link" href={`https://adilet.zan.kz/rus/docs/${e.ngr}`} target="_blank" rel="noreferrer">{e.ngr}</a>
                 {" · "}{e.authority_name || e.authority_code}
-                {" · обнаружено "}{dt(e.detected_at)}
-                {e.status !== "new" && <> · {e.status === "acked" ? "принято" : "обработано"} {e.status_by_name ? `(${e.status_by_name})` : ""}{e.status_note ? ` — ${e.status_note}` : ""}</>}
+                {t.zmDetected(dt(e.detected_at))}
+                {e.status !== "new" && <> · {e.status === "acked" ? t.zmAckedLc : t.zmProcessedLc} {e.status_by_name ? `(${e.status_by_name})` : ""}{e.status_note ? ` — ${e.status_note}` : ""}</>}
               </div>
               {/* сопоставление со стороны реестра: что сейчас стоит на учёте по акту */}
               <div className="reg-rev-m" style={{ marginTop: 2 }}>
                 {e.live_total ? (
-                  <>В реестре на учёте: <b>{e.live_total}</b> требований
-                    {e.live_confirmed ? ` · ${e.live_confirmed} подтверждено` : ""}
-                    {e.live_pending ? ` · ${e.live_pending} ожидает` : ""}
-                    {e.live_rejected ? ` · ${e.live_rejected} отклонено` : ""}</>
+                  <>{t.zmLive1}<b>{e.live_total}</b>{t.zmLive2}
+                    {e.live_confirmed ? t.zmLiveConfirmed(e.live_confirmed) : ""}
+                    {e.live_pending ? t.zmLivePending(e.live_pending) : ""}
+                    {e.live_rejected ? t.zmLiveRejected(e.live_rejected) : ""}</>
                 ) : (
-                  <span style={{ color: "#2E7D46" }}>В реестре живых карточек не осталось — расхождение устранено.</span>
+                  <span style={{ color: "#2E7D46" }}>{t.zmNoLive}</span>
                 )}
               </div>
             </div>
@@ -114,30 +116,28 @@ export default function ZanMonitorMode() {
                 {e.event_type === "repealed" && (
                   <button className="reg-tool-btn" disabled={busy === e.id}
                     onClick={() => act(e.id, "exclude_cards",
-                      `Снять с учёта ${e.req_count ?? "все"} карточек НПА ${e.ngr} как утратившие силу? Действие обратимо.`)}>
-                    Снять карточки с учёта
+                      t.zmExcludeConfirm(String(e.req_count ?? t.zmAllWord), e.ngr))}>
+                    {t.zmExcludeBtn}
                   </button>
                 )}
                 {e.event_type === "amended" && (
                   <button className="reg-tool-btn" disabled={busy === e.id}
                     onClick={() => act(e.id, "resubmit",
-                      `Переподать НПА ${e.ngr} на автоматическое извлечение новой редакции?`)}>
-                    Переподать акт
+                      t.zmResubmitConfirm(e.ngr))}>
+                    {t.zmResubmitBtn}
                   </button>
                 )}
                 {e.status === "new" && (
-                  <button className="reg-tool-btn" disabled={busy === e.id} onClick={() => act(e.id, "ack")}>Принято</button>
+                  <button className="reg-tool-btn" disabled={busy === e.id} onClick={() => act(e.id, "ack")}>{t.zmAckBtn}</button>
                 )}
-                <button className="reg-tool-btn" disabled={busy === e.id} onClick={() => act(e.id, "processed")}>Обработано</button>
+                <button className="reg-tool-btn" disabled={busy === e.id} onClick={() => act(e.id, "processed")}>{t.zmProcessedBtn}</button>
               </div>
             )}
           </div>
         ))}
         {!items.length && (
           <div className="reg-empty">
-            {tab === "new"
-              ? "Расхождений с базой ЗАН нет — реестр синхронизирован: все утратившие силу акты сняты с учёта."
-              : "Событий нет."}
+            {tab === "new" ? t.zmNoDiff : t.zmNoEvents}
           </div>
         )}
       </div>
@@ -145,7 +145,7 @@ export default function ZanMonitorMode() {
       {pages > 1 && (
         <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "center", marginTop: 12 }}>
           <button className="reg-tool-btn" disabled={page <= 1} onClick={() => setPage(page - 1)}>←</button>
-          <span className="reg-rev-m">стр. {page} из {pages}</span>
+          <span className="reg-rev-m">{t.zmPager(page, pages)}</span>
           <button className="reg-tool-btn" disabled={page >= pages} onClick={() => setPage(page + 1)}>→</button>
         </div>
       )}

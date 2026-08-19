@@ -5,9 +5,10 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import "./registry.css";
 import {
-  I, minShort, STAGE_LABEL, STAGE_ORDER,
+  I, minShort, STAGE_ORDER, stageLabel,
   Card, Drawer, Facet, OptRow, type Req,
 } from "./lib";
+import { DICT } from "./i18n";
 import NotificationsBell from "@/components/NotificationsBell";
 import OrgansMode from "./components/OrgansMode";
 import CostMode from "./components/CostMode";
@@ -31,6 +32,7 @@ const SHOW_TABS = { cost: false, method: false, dupes: false, business: false };
 export default function RegistryPage() {
   const [mode, setMode] = useState<"gov" | "organs" | "cost" | "dupes" | "method" | "review" | "submit" | "assign" | "help" | "monitor" | "units" | "npaadmin" | "zanwatch">("gov");
   const [lang, setLang] = useState<"ru" | "kz">("ru");
+  const t = DICT[lang];
   const [items, setItems] = useState<Req[]>([]);
   const [filtersData, setFiltersData] = useState<{ ministries: Opt[]; spheres: Opt[]; stages: Opt[]; totals: { active: number; npa: number } } | null>(null);
   const [page, setPage] = useState(1);
@@ -88,7 +90,7 @@ export default function RegistryPage() {
   const chips = [
     ...f.spheres.map((v) => ({ key: "spheres" as const, v, label: filtersData?.spheres.find((s) => s.sphere_code === v)?.name || v })),
     ...f.ministries.map((v) => ({ key: "ministries" as const, v, label: minShort(v) })),
-    ...f.stages.map((v) => ({ key: "stages" as const, v, label: STAGE_LABEL[v] || v })),
+    ...f.stages.map((v) => ({ key: "stages" as const, v, label: stageLabel(v, lang) })),
   ];
 
   return (
@@ -98,28 +100,28 @@ export default function RegistryPage() {
         <div className="reg-brand">
           <div className="reg-emblem"><I.scale /></div>
           <div>
-            <div className="reg-brand-title">Реестр обязательных требований</div>
-            <div className="reg-brand-sub">Министерство национальной экономики РК</div>
+            <div className="reg-brand-title">{t.brandTitle}</div>
+            <div className="reg-brand-sub">{t.brandSub}</div>
           </div>
         </div>
         <div className="reg-spacer" />
         <div className="reg-mode">
-          <button className={mode === "gov" ? "on" : ""} onClick={() => setMode("gov")}><I.gov />Каталог</button>
-          <button className={mode === "organs" ? "on" : ""} onClick={() => setMode("organs")}><I.building />Органы и НПА</button>
-          {SHOW_TABS.cost && <button className={mode === "cost" ? "on" : ""} onClick={() => setMode("cost")}><I.coins />Нагрузка</button>}
-          {SHOW_TABS.method && <button className={mode === "method" ? "on" : ""} onClick={() => setMode("method")}><I.calc />Методика</button>}
-          {SHOW_TABS.dupes && <button className={mode === "dupes" ? "on" : ""} onClick={() => setMode("dupes")}><I.copy />Дубли</button>}
-          <button className={mode === "review" ? "on" : ""} onClick={() => setMode("review")}><I.check />Ревью</button>
-          {SHOW_TABS.business && process.env.NEXT_PUBLIC_BUSINESS_URL && <a className="reg-mode-ext" href={process.env.NEXT_PUBLIC_BUSINESS_URL} target="_blank" rel="noreferrer"><I.briefcase />Бизнес<I.chevRight style={{ width: 13, height: 13, opacity: 0.55 }} /></a>}
-          {((me?.role === "admin" || me?.role === "mne") || me?.role === "moderator") && <button className={mode === "submit" ? "on" : ""} onClick={() => setMode("submit")}><I.download />Подача НПА</button>}
-          {((me?.role === "admin" || me?.role === "mne") || me?.role === "moderator") && <button className={mode === "assign" ? "on" : ""} onClick={() => setMode("assign")}><I.layers />Назначения</button>}
-          {((me?.role === "admin" || me?.role === "mne") || me?.role === "moderator") && <button className={mode === "units" ? "on" : ""} onClick={() => setMode("units")}><I.sitemap />Подразделения</button>}
-          {((me?.role === "admin" || me?.role === "mne") || me?.role === "moderator") && <button className={mode === "zanwatch" ? "on" : ""} onClick={() => setMode("zanwatch")}><I.chart />Прав. мониторинг</button>}
-          {(me?.role === "admin" || me?.role === "mne") && <button className={mode === "npaadmin" ? "on" : ""} onClick={() => setMode("npaadmin")}><I.layers />Управление НПА</button>}
-          {(me?.role === "admin" || me?.role === "mne") && <button className={mode === "monitor" ? "on" : ""} onClick={() => setMode("monitor")}><I.chart />Мониторинг</button>}
-          {(me?.role === "admin" || me?.role === "mne") && <button onClick={() => (window.location.href = "/admin/moderators")}><I.building />Модераторы</button>}
-          {me?.role === "moderator" && <button onClick={() => (window.location.href = "/moderator/analysts")}><I.building />Аналитики</button>}
-          <button className={mode === "help" ? "on" : ""} onClick={() => setMode("help")}><I.help />Помощь</button>
+          <button className={mode === "gov" ? "on" : ""} onClick={() => setMode("gov")}><I.gov />{t.tabCatalog}</button>
+          <button className={mode === "organs" ? "on" : ""} onClick={() => setMode("organs")}><I.building />{t.tabOrgans}</button>
+          {SHOW_TABS.cost && <button className={mode === "cost" ? "on" : ""} onClick={() => setMode("cost")}><I.coins />{t.tabCost}</button>}
+          {SHOW_TABS.method && <button className={mode === "method" ? "on" : ""} onClick={() => setMode("method")}><I.calc />{t.tabMethod}</button>}
+          {SHOW_TABS.dupes && <button className={mode === "dupes" ? "on" : ""} onClick={() => setMode("dupes")}><I.copy />{t.tabDupes}</button>}
+          <button className={mode === "review" ? "on" : ""} onClick={() => setMode("review")}><I.check />{t.tabReview}</button>
+          {SHOW_TABS.business && process.env.NEXT_PUBLIC_BUSINESS_URL && <a className="reg-mode-ext" href={process.env.NEXT_PUBLIC_BUSINESS_URL} target="_blank" rel="noreferrer"><I.briefcase />{t.tabBusiness}<I.chevRight style={{ width: 13, height: 13, opacity: 0.55 }} /></a>}
+          {((me?.role === "admin" || me?.role === "mne") || me?.role === "moderator") && <button className={mode === "submit" ? "on" : ""} onClick={() => setMode("submit")}><I.download />{t.tabSubmit}</button>}
+          {((me?.role === "admin" || me?.role === "mne") || me?.role === "moderator") && <button className={mode === "assign" ? "on" : ""} onClick={() => setMode("assign")}><I.layers />{t.tabAssign}</button>}
+          {((me?.role === "admin" || me?.role === "mne") || me?.role === "moderator") && <button className={mode === "units" ? "on" : ""} onClick={() => setMode("units")}><I.sitemap />{t.tabUnits}</button>}
+          {((me?.role === "admin" || me?.role === "mne") || me?.role === "moderator") && <button className={mode === "zanwatch" ? "on" : ""} onClick={() => setMode("zanwatch")}><I.chart />{t.tabZanwatch}</button>}
+          {(me?.role === "admin" || me?.role === "mne") && <button className={mode === "npaadmin" ? "on" : ""} onClick={() => setMode("npaadmin")}><I.layers />{t.tabNpaAdmin}</button>}
+          {(me?.role === "admin" || me?.role === "mne") && <button className={mode === "monitor" ? "on" : ""} onClick={() => setMode("monitor")}><I.chart />{t.tabMonitor}</button>}
+          {(me?.role === "admin" || me?.role === "mne") && <button onClick={() => (window.location.href = "/admin/moderators")}><I.building />{t.tabModerators}</button>}
+          {me?.role === "moderator" && <button onClick={() => (window.location.href = "/moderator/analysts")}><I.building />{t.tabAnalysts}</button>}
+          <button className={mode === "help" ? "on" : ""} onClick={() => setMode("help")}><I.help />{t.tabHelp}</button>
         </div>
         {me && <NotificationsBell />}
         <div className="reg-lang">
@@ -130,14 +132,14 @@ export default function RegistryPage() {
           <div className="reg-user">
             <span className="reg-user-name">{me.username}</span>
             <span className={`reg-user-role reg-user-role-${me.role}`}>
-              {me.role === "admin" ? "Админ" : me.role === "mne" ? "Сотрудник МНЭ" : me.role === "moderator" ? "Модератор" : "Аналитик"}
+              {me.role === "admin" ? t.roleAdmin : me.role === "mne" ? t.roleMne : me.role === "moderator" ? t.roleModerator : t.roleExpert}
             </span>
             <button
               className="reg-user-exit"
-              title="Выйти"
+              title={t.logout}
               onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/login"; }}
             >
-              Выйти
+              {t.logout}
             </button>
           </div>
         )}
@@ -148,24 +150,24 @@ export default function RegistryPage() {
           <aside className="reg-sidebar">
             <div className="reg-filters">
               <div className="reg-filters-head">
-                <span className="reg-filters-title">Фильтры</span>
+                <span className="reg-filters-title">{t.filters}</span>
                 <button className="reg-filters-clear" disabled={!activeCount} onClick={() => setF({ spheres: [], ministries: [], stages: [], q: f.q })}>
-                  Сбросить{activeCount ? ` (${activeCount})` : ""}
+                  {t.reset}{activeCount ? ` (${activeCount})` : ""}
                 </button>
               </div>
-              <Facet title="Сфера регулирования" prime open={openF.sphere} setOpen={(v: boolean) => setOpenF((p) => ({ ...p, sphere: v }))}>
+              <Facet title={t.facetSphere} prime open={openF.sphere} setOpen={(v: boolean) => setOpenF((p) => ({ ...p, sphere: v }))}>
                 {filtersData?.spheres.map((s) => (
                   <OptRow key={s.sphere_code} on={f.spheres.includes(s.sphere_code!)} onClick={() => toggle("spheres", s.sphere_code!)} label={s.name} count={s.n} />
                 ))}
               </Facet>
-              <Facet title="Орган" open={openF.ministry} setOpen={(v: boolean) => setOpenF((p) => ({ ...p, ministry: v }))}>
+              <Facet title={t.facetMinistry} open={openF.ministry} setOpen={(v: boolean) => setOpenF((p) => ({ ...p, ministry: v }))}>
                 {filtersData?.ministries.map((m) => (
                   <OptRow key={m.ministry} on={f.ministries.includes(m.ministry!)} onClick={() => toggle("ministries", m.ministry!)} label={minShort(m.ministry!)} count={m.n} />
                 ))}
               </Facet>
-              <Facet title="Стадия жизненного цикла" open={openF.stage} setOpen={(v: boolean) => setOpenF((p) => ({ ...p, stage: v }))}>
+              <Facet title={t.facetStage} open={openF.stage} setOpen={(v: boolean) => setOpenF((p) => ({ ...p, stage: v }))}>
                 {STAGE_ORDER.filter((s) => filtersData?.stages.some((x) => x.stage === s)).map((s) => (
-                  <OptRow key={s} on={f.stages.includes(s)} onClick={() => toggle("stages", s)} label={STAGE_LABEL[s]} count={filtersData?.stages.find((x) => x.stage === s)?.n} />
+                  <OptRow key={s} on={f.stages.includes(s)} onClick={() => toggle("stages", s)} label={stageLabel(s, lang)} count={filtersData?.stages.find((x) => x.stage === s)?.n} />
                 ))}
               </Facet>
             </div>
@@ -173,31 +175,31 @@ export default function RegistryPage() {
 
           <main className="reg-content">
             <div className="reg-catalog">
-              <h1 className="reg-cat-h1">Каталог требований</h1>
+              <h1 className="reg-cat-h1">{t.catalogH1}</h1>
               <div className="reg-cat-sub">
-                {filtersData ? `${Number(filtersData.totals.active).toLocaleString("ru")} действующих требований · ${Number(filtersData.totals.npa).toLocaleString("ru")} НПА · ${filtersData.ministries.length}+ органов` : "…"}
+                {filtersData ? `${Number(filtersData.totals.active).toLocaleString("ru")} ${t.activeReqs} · ${Number(filtersData.totals.npa).toLocaleString("ru")} ${t.npaCnt} · ${filtersData.ministries.length}+ ${t.organsCnt}` : "…"}
               </div>
 
               <div className="reg-toolbar">
                 <div className="reg-search">
                   <I.search />
-                  <input value={f.q} onChange={(e) => setF((p) => ({ ...p, q: e.target.value }))} placeholder="Поиск по тексту, заголовку, номеру НПА…" />
+                  <input value={f.q} onChange={(e) => setF((p) => ({ ...p, q: e.target.value }))} placeholder={t.searchPh} />
                 </div>
                 <div className="reg-select-wrap">
                   <select value={sort} onChange={(e) => setSort(e.target.value)}>
-                    <option value="ministry">По органу</option>
-                    <option value="sphere">По сфере</option>
-                    <option value="ngr">По НПА</option>
+                    <option value="ministry">{t.sortMinistry}</option>
+                    <option value="sphere">{t.sortSphere}</option>
+                    <option value="ngr">{t.sortNgr}</option>
                   </select>
                   <I.chevDown />
                 </div>
                 {me?.role === "admin" && (  /* выгрузка реестра — только супер-админ (mne не может) */
-                  <a className="reg-tool-btn" href={`/api/registry/export?${params(true)}`}><I.download />Экспорт CSV</a>
+                  <a className="reg-tool-btn" href={`/api/registry/export?${params(true)}`}><I.download />{t.exportCsv}</a>
                 )}
               </div>
 
               <div className="reg-results-bar">
-                <span className="reg-results-count">Найдено <b>{total.toLocaleString("ru")}</b></span>
+                <span className="reg-results-count">{t.found} <b>{total.toLocaleString("ru")}</b></span>
                 {chips.length > 0 && (
                   <div className="reg-chips">
                     {chips.map((c, i) => (
@@ -207,9 +209,9 @@ export default function RegistryPage() {
                 )}
               </div>
 
-              {loading ? <div className="reg-empty">Загрузка…</div>
-                : items.length === 0 ? <div className="reg-empty"><h3>Ничего не найдено</h3><p>Смягчите фильтры или измените запрос.</p></div>
-                : <div className="reg-cards">{items.map((r) => <Card key={r.id} r={r} onOpen={setActive} />)}</div>}
+              {loading ? <div className="reg-empty">{t.loading}</div>
+                : items.length === 0 ? <div className="reg-empty"><h3>{t.nothingH}</h3><p>{t.nothingP}</p></div>
+                : <div className="reg-cards">{items.map((r) => <Card key={r.id} r={r} onOpen={setActive} lang={lang} />)}</div>}
 
               {pages > 1 && (
                 <div className="reg-pager">
@@ -227,7 +229,7 @@ export default function RegistryPage() {
           </main>
         </div>
       ) : mode === "organs" ? (
-        <OrgansMode />
+        <OrgansMode lang={lang} />
       ) : mode === "cost" ? (
         <CostMode costData={costData} setCostData={setCostData} onOpen={setActive} />
       ) : mode === "dupes" ? (
@@ -235,24 +237,24 @@ export default function RegistryPage() {
       ) : mode === "method" ? (
         <MethodMode costData={costData} />
       ) : mode === "submit" ? (
-        <SubmitMode />
+        <SubmitMode lang={lang} />
       ) : mode === "assign" ? (
-        <AssignMode />
+        <AssignMode lang={lang} />
       ) : mode === "npaadmin" ? (
-        <NpaAdminMode />
+        <NpaAdminMode lang={lang} />
       ) : mode === "review" ? (
-        <ReviewMode onOpen={setActive} registerReload={registerReviewReload} />
+        <ReviewMode onOpen={setActive} registerReload={registerReviewReload} lang={lang} />
       ) : mode === "units" ? (
-        <OrgUnitsMode me={me} />
+        <OrgUnitsMode me={me} lang={lang} />
       ) : mode === "monitor" ? (
-        <MonitorMode />
+        <MonitorMode lang={lang} />
       ) : mode === "zanwatch" ? (
-        <ZanMonitorMode />
+        <ZanMonitorMode lang={lang} />
       ) : mode === "help" ? (
         <HelpMode role={me?.role} />
       ) : null}
 
-      {active && <Drawer r={active} onClose={() => setActive(null)} onSaved={mode === "review" ? () => reviewReloadRef.current?.() : load} role={me?.role} />}
+      {active && <Drawer r={active} onClose={() => setActive(null)} onSaved={mode === "review" ? () => reviewReloadRef.current?.() : load} role={me?.role} lang={lang} />}
     </div>
   );
 }
