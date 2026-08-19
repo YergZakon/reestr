@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 /** GET /api/registry/filters — справочники для дропдаунов реестра. */
-export async function GET() {
+export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
 
@@ -15,10 +15,10 @@ export async function GET() {
     query(`SELECT rr.ministry, COUNT(*) AS n FROM requirement_registry rr
            WHERE ${ACTIVE} AND rr.ministry IS NOT NULL AND rr.ministry NOT LIKE '%|%'
            GROUP BY rr.ministry ORDER BY n DESC`),
-    query(`SELECT rr.sphere_code, COALESCE(s.name_ru, rr.sphere_code) AS name, COUNT(*) AS n
+    query(`SELECT rr.sphere_code, COALESCE(${new URL(req.url).searchParams.get("lang") === "kz" ? "s.name_kk, s.name_ru" : "s.name_ru"}, rr.sphere_code) AS name, COUNT(*) AS n
            FROM requirement_registry rr LEFT JOIN spheres s ON s.code = rr.sphere_code
            WHERE ${ACTIVE} AND rr.sphere_code IS NOT NULL AND rr.sphere_code NOT LIKE '%;%'
-           GROUP BY rr.sphere_code, s.name_ru ORDER BY n DESC`),
+           GROUP BY rr.sphere_code, s.name_kk, s.name_ru ORDER BY n DESC`),
     query(`SELECT st AS stage, COUNT(*) AS n
            FROM requirement_registry rr, unnest(rr.stages) st
            WHERE ${ACTIVE}

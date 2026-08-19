@@ -31,7 +31,15 @@ const SHOW_TABS = { cost: false, method: false, dupes: false, business: false };
 
 export default function RegistryPage() {
   const [mode, setMode] = useState<"gov" | "organs" | "cost" | "dupes" | "method" | "review" | "submit" | "assign" | "help" | "monitor" | "units" | "npaadmin" | "zanwatch">("gov");
-  const [lang, setLang] = useState<"ru" | "kz">("ru");
+  const [lang, setLangState] = useState<"ru" | "kz">("ru");
+  useEffect(() => {
+    const saved = typeof window !== "undefined" ? window.localStorage.getItem("reg_lang") : null;
+    if (saved === "kz" || saved === "ru") setLangState(saved);
+  }, []);
+  const setLang = (l: "ru" | "kz") => {
+    setLangState(l);
+    try { window.localStorage.setItem("reg_lang", l); } catch { /* приватный режим */ }
+  };
   const t = DICT[lang];
   const [items, setItems] = useState<Req[]>([]);
   const [filtersData, setFiltersData] = useState<{ ministries: Opt[]; spheres: Opt[]; stages: Opt[]; totals: { active: number; npa: number } } | null>(null);
@@ -59,7 +67,7 @@ export default function RegistryPage() {
       fetch("/api/registry/cost").then((r) => r.json()).then(setCostData).catch(() => {});
   }, [mode, costData]);
 
-  useEffect(() => { fetch("/api/registry/filters").then((r) => r.json()).then(setFiltersData).catch(() => {}); }, []);
+  useEffect(() => { fetch(`/api/registry/filters${lang === "kz" ? "?lang=kz" : ""}`).then((r) => r.json()).then(setFiltersData).catch(() => {}); }, [lang]);
   useEffect(() => { const t = setTimeout(() => setQd(f.q), 400); return () => clearTimeout(t); }, [f.q]);
 
   const params = useCallback((forExport = false) => {

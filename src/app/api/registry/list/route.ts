@@ -77,10 +77,13 @@ export async function GET(req: NextRequest) {
        COALESCE(s.name_kk, s.name_ru) AS sphere_name`
     : `rr.title, rr.legal_text, rr.canon_text, rr.subject, rr.condition,
        s.name_ru AS sphere_name`;
-  const IJ = kk ? " LEFT JOIN requirement_i18n i18 ON i18.registry_id = rr.id AND i18.lang = 'kk'" : "";
+  const IJ = kk
+    ? " LEFT JOIN requirement_i18n i18 ON i18.registry_id = rr.id AND i18.lang = 'kk'" +
+      " LEFT JOIN npa_title_kk nk ON nk.ngr = rr.ngr"
+    : "";
   params.push(limit, offset);
   const dataSql = `
-    SELECT rr.id, rr.ngr, rr.npa_title, rr.article, rr.ministry, rr.sphere_code,
+    SELECT rr.id, rr.ngr, ${kk ? "COALESCE(nk.title_kk, rr.npa_title)" : "rr.npa_title"} AS npa_title, rr.article, rr.ministry, rr.sphere_code,
       rr.okeds, rr.stages, rr.action, rr.object, rr.source, rr.ersop_confirmed,
       rr.norm_url, rr.review_status, rr.ara_status, rr.is_canonical, rr.dup_group_id,
       ${F}
