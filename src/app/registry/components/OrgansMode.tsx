@@ -24,12 +24,12 @@ export default function OrgansMode({ lang = "ru" }: { lang?: Lang }) {
   const [npaStatus, setNpaStatus] = useState<"active" | "dead" | "all">("active");
 
   useEffect(() => {
-    fetch("/api/registry/organs").then((r) => r.json()).then((d) => {
+    fetch(`/api/registry/organs${lang === "kz" ? "?lang=kz" : ""}`).then((r) => r.json()).then((d) => {
       const list: OrgSummary[] = d.organs || [];
       setOrgans(list); setScoped(!!d.scoped);
       if (list.length) setSelCode(list[0].code);
     }).catch(() => {});
-  }, []);
+  }, [lang]);
   useEffect(() => {
     if (!selCode) return;
     setNpaLoading(true);
