@@ -11,7 +11,7 @@ interface Users { moderators: number; analysts: number; analysts_active: number;
 interface Subs { by_users: number; by_system: number; parsed: number; failed: number; cards: number; submitters: number; last7: number; }
 interface OrgRow {
   org_id: number; code: string; name: string; moderators: number; analysts: number;
-  total: number; pending: number; confirmed: number; rejected: number; edited: number; dupes: number; npa: number; submissions: number;
+  total: number; pending: number; confirmed: number; rejected: number; edited: number; dupes: number; npa: number; submissions: number; ara_total: number; ara_overdue: number;
 }
 interface Reviewer {
   id: number; username: string; full_name: string; role: string; is_active: boolean; org: string | null;
@@ -125,6 +125,7 @@ export default function MonitorMode({ lang = "ru" }: { lang?: Lang }) {
                 <th>{t.mmThNpa}</th><th>{t.mmThReqs}</th><th>{t.mmThDupes}</th>
                 <th>{t.mmThPending}</th><th>{t.mmThConfirmed}</th><th>{t.mmThRejected}</th><th>{t.mmThEdited}</th>
                 <th>{t.mmThDone}</th><th>{t.mmThSubmitted}</th>
+                <th>{t.mmThAra}</th><th>{t.mmThAraOverdue}</th>
               </tr>
             </thead>
             <tbody>
@@ -148,6 +149,8 @@ export default function MonitorMode({ lang = "ru" }: { lang?: Lang }) {
                       <i>{p ? p.toFixed(p < 1 ? 2 : 1) + "%" : "0%"}</i>
                     </td>
                     <td className="num">{o.submissions ? n(o.submissions) : "—"}</td>
+                    <td className="num">{o.ara_total ? n(o.ara_total) : "—"}</td>
+                    <td className={"num" + (o.ara_overdue ? " bad" : "")}>{o.ara_overdue ? n(o.ara_overdue) : "—"}</td>
                   </tr>
                 );
               })}

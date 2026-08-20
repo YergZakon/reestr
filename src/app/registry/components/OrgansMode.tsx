@@ -93,6 +93,8 @@ export default function OrgansMode({ lang = "ru" }: { lang?: Lang }) {
                   <span>{t.omRegNo} <b>{n.ngr}</b></span>
                   {n.date_revision && <span>{t.omRevision} <b>{n.date_revision}</b></span>}
                   {n.review_deadline && <span title={t.omPlanTitle}>{t.omPlanAnalysis} <b>{n.review_deadline}</b></span>}
+                  {n.ara_deadline && <span>{t.omAraDeadline} <b>{n.ara_deadline}</b></span>}
+                  {n.ara_overdue && <span className="reg-npa-overdue">{t.omAraOverdue}</span>}
                   {n.npa_status === "утратил силу" && <span className="reg-npa-dead">{t.omDeadBadge}</span>}
                   {n.owner_code && n.owner_code !== selCode && (
                     <span className="reg-rb reg-rb-confirmed" title={t.omOwnerTitle}>

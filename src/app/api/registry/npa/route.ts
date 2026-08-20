@@ -65,6 +65,7 @@ export async function GET(req: NextRequest) {
             max(rr.authority_code) AS owner_code
      FROM requirement_registry rr
      LEFT JOIN npa_registry nr ON nr.ngr = rr.ngr
+     LEFT JOIN npa_ara na ON na.ngr = rr.ngr AND na.authority_code = rr.authority_code
      WHERE ${conds.join(" AND ")}
      GROUP BY rr.ngr ${having}
      ORDER BY count(*) DESC, 2`,

@@ -81,17 +81,27 @@ export async function buildMonitorData() {
         FROM npa_submission s JOIN org_root r ON r.id = s.org_id
        WHERE s.submitted_by IS NOT NULL
        GROUP BY r.root_id
+    ),
+    ara AS (
+      SELECT r.root_id,
+             count(*)::int AS ara_total,
+             count(*) FILTER (WHERE v.ara_group = 'overdue')::int AS ara_overdue
+        FROM v_npa_ara_status v
+        JOIN org_root r ON r.code = v.authority_code
+       GROUP BY r.root_id
     )
     SELECT o.id AS org_id, o.code, COALESCE(o.short_name, o.name_ru) AS name,
            COALESCE(u.moderators,0) AS moderators, COALESCE(u.analysts,0) AS analysts,
            COALESCE(rq.total,0) AS total, COALESCE(rq.pending,0) AS pending,
            COALESCE(rq.confirmed,0) AS confirmed, COALESCE(rq.rejected,0) AS rejected,
            COALESCE(rq.edited,0) AS edited, COALESCE(rq.dupes,0) AS dupes, COALESCE(rq.npa,0) AS npa,
-           COALESCE(sb.submissions,0) AS submissions
+           COALESCE(sb.submissions,0) AS submissions,
+           COALESCE(ar.ara_total,0) AS ara_total, COALESCE(ar.ara_overdue,0) AS ara_overdue
       FROM organizations o
       LEFT JOIN req rq ON rq.root_id = o.id
       LEFT JOIN usr u ON u.root_id = o.id
       LEFT JOIN sub sb ON sb.root_id = o.id
+      LEFT JOIN ara ar ON ar.root_id = o.id
      WHERE o.parent_id IS NULL
        AND (COALESCE(rq.total,0) > 0 OR COALESCE(u.moderators,0) + COALESCE(u.analysts,0) > 0)
      ORDER BY COALESCE(rq.total,0) DESC`)).rows;

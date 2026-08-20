@@ -56,6 +56,22 @@ async function generate(): Promise<number> {
        JSON.stringify({ count: r.n, month: r.ym, nearest: String(r.nearest), horizon_months: 6 })]);
     inserted += res.rowCount || 0;
   }
+  // просроченные акты цикла АРА — месячная сводка органу (план 2026-08-20)
+  const ym = new Date().toISOString().slice(0, 7);
+  const od = await query(`
+    SELECT authority_code, count(*)::int AS n, min(deadline) AS oldest
+    FROM v_npa_ara_status
+    WHERE ara_group = 'overdue' AND authority_code IS NOT NULL
+    GROUP BY authority_code`);
+  for (const r of od.rows) {
+    const res = await query(
+      `INSERT INTO notifications (authority_code, type, dedup_key, title, payload)
+       VALUES ($1,'ara_overdue',$2,$3,$4::jsonb) ON CONFLICT (dedup_key) DO NOTHING`,
+      [r.authority_code, `ara_overdue:${r.authority_code}:${ym}`,
+       `Просрочен пересмотр АРА: ${r.n} актов (старейший срок ${String(r.oldest).slice(0, 10)})`,
+       JSON.stringify({ count: r.n, oldest: String(r.oldest).slice(0, 10), month: ym })]);
+    inserted += res.rowCount || 0;
+  }
   return inserted;
 }
 
@@ -76,12 +92,15 @@ async function recipientsFor(authority: string): Promise<string[]> {
 
 async function sendPending(): Promise<void> {
   const unsent = await query(
-    `SELECT id, authority_code, type, title, payload FROM notifications
+    `SELECT id, authority_code, user_id, type, title, payload FROM notifications
      WHERE email_sent_at IS NULL ORDER BY created_at LIMIT 50`);
   for (const n of unsent.rows) {
     let ok = false;
     if (mailEnabled()) {
-      const to = await recipientsFor(n.authority_code);
+      const to = n.user_id
+        ? (await query("SELECT email FROM users WHERE id=$1 AND is_active AND email IS NOT NULL", [n.user_id]))
+            .rows.map((x) => x.email as string)
+        : await recipientsFor(n.authority_code);
       if (to.length) {
         const body =
           `${n.title}\n\nОрган: ${n.authority_code}\n` +
