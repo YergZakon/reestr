@@ -20,9 +20,10 @@ export async function GET(req: NextRequest) {
   const conds: string[] = [];
   const params: unknown[] = [];
   if (!isMne(user.role)) {
-    if (!user.assigned_authorities.length) return NextResponse.json({ items: [], unread: 0 });
-    params.push(user.assigned_authorities);
-    conds.push(`n.authority_code = ANY($${params.length}::text[])`);
+    // органные (user_id IS NULL) — по скоупу; адресные — только самому адресату
+    params.push(user.assigned_authorities, user.id);
+    conds.push(`((n.user_id IS NULL AND n.authority_code = ANY($1::text[])) OR n.user_id = $2)`);
+    if (!user.assigned_authorities.length) conds[conds.length - 1] = `n.user_id = $2`;
   }
   params.push(user.id);
   const uidP = `$${params.length}`;
@@ -51,7 +52,7 @@ export async function PUT(req: NextRequest) {
   let scope = "";
   if (!isMne(user.role)) {
     params.push(user.assigned_authorities);
-    scope = `AND authority_code = ANY($3::text[])`;
+    scope = `AND ((user_id IS NULL AND authority_code = ANY($3::text[])) OR user_id = $2::int)`;
   }
   const r = await query(
     `UPDATE notifications

@@ -21,6 +21,7 @@ import NpaAdminMode from "./components/NpaAdminMode";
 import HelpMode from "./components/HelpMode";
 import MonitorMode from "./components/MonitorMode";
 import ZanMonitorMode from "./components/ZanMonitorMode";
+import AraMode from "./components/AraMode";
 import OrgUnitsMode from "./components/OrgUnitsMode";
 
 interface Opt { ministry?: string; sphere_code?: string; stage?: string; name?: string; n: number; }
@@ -30,7 +31,7 @@ interface Opt { ministry?: string; sphere_code?: string; stage?: string; name?: 
 const SHOW_TABS = { cost: false, method: false, dupes: false, business: false };
 
 export default function RegistryPage() {
-  const [mode, setMode] = useState<"gov" | "organs" | "cost" | "dupes" | "method" | "review" | "submit" | "assign" | "help" | "monitor" | "units" | "npaadmin" | "zanwatch">("gov");
+  const [mode, setMode] = useState<"gov" | "organs" | "cost" | "dupes" | "method" | "review" | "submit" | "assign" | "help" | "monitor" | "units" | "npaadmin" | "zanwatch" | "ara">("gov");
   const [lang, setLangState] = useState<"ru" | "kz">("ru");
   useEffect(() => {
     const saved = typeof window !== "undefined" ? window.localStorage.getItem("reg_lang") : null;
@@ -125,6 +126,7 @@ export default function RegistryPage() {
           {((me?.role === "admin" || me?.role === "mne") || me?.role === "moderator") && <button className={mode === "assign" ? "on" : ""} onClick={() => setMode("assign")}><I.layers />{t.tabAssign}</button>}
           {((me?.role === "admin" || me?.role === "mne") || me?.role === "moderator") && <button className={mode === "units" ? "on" : ""} onClick={() => setMode("units")}><I.sitemap />{t.tabUnits}</button>}
           {((me?.role === "admin" || me?.role === "mne") || me?.role === "moderator") && <button className={mode === "zanwatch" ? "on" : ""} onClick={() => setMode("zanwatch")}><I.chart />{t.tabZanwatch}</button>}
+          {me && <button className={mode === "ara" ? "on" : ""} onClick={() => setMode("ara")}><I.calc />{t.tabAra}</button>}
           {(me?.role === "admin" || me?.role === "mne") && <button className={mode === "npaadmin" ? "on" : ""} onClick={() => setMode("npaadmin")}><I.layers />{t.tabNpaAdmin}</button>}
           {(me?.role === "admin" || me?.role === "mne") && <button className={mode === "monitor" ? "on" : ""} onClick={() => setMode("monitor")}><I.chart />{t.tabMonitor}</button>}
           {(me?.role === "admin" || me?.role === "mne") && <button onClick={() => (window.location.href = "/admin/moderators")}><I.building />{t.tabModerators}</button>}
@@ -258,6 +260,8 @@ export default function RegistryPage() {
         <MonitorMode lang={lang} />
       ) : mode === "zanwatch" ? (
         <ZanMonitorMode lang={lang} />
+      ) : mode === "ara" ? (
+        <AraMode lang={lang} role={me?.role} />
       ) : mode === "help" ? (
         <HelpMode role={me?.role} />
       ) : null}

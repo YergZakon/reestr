@@ -619,3 +619,9 @@
 
 /* Подразделения / сообщения об успехе */
 .reg-mon-ok{padding:12px 16px;background:var(--accent-50);border:1px solid var(--accent-100);border-left:3px solid var(--accent);border-radius:9px;font-size:13.5px;color:var(--ink-2);line-height:1.5;}
+
+/* ─── АРА: инлайн-формы цикла ─── */
+.reg-ara-form{display:flex;flex-direction:column;gap:8px;background:var(--bg2,#F7F5F0);border:1px solid var(--line);border-radius:8px;padding:10px 12px;}
+.reg-ara-form textarea{border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;resize:vertical;}
+.reg-ara-form-btns{display:flex;gap:8px;}
+.reg-form-err{color:#A32D2D;font-size:13px;font-weight:600;}
