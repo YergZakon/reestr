@@ -57,7 +57,7 @@ export async function araByOrg() {
 
 /** Акты органа (поддеревом) с живым циклом и счётчиками карточек. */
 export async function araActs(opts: {
-  authority?: string | null; scopeCodes?: string[] | null;
+  authority?: string | null; scopeCodes?: string[] | null; unassigned?: boolean;
   group?: string | null; q?: string | null; page?: number; limit?: number; lang?: string;
 }) {
   const page = Math.max(1, opts.page || 1);
@@ -65,7 +65,10 @@ export async function araActs(opts: {
   const params: unknown[] = [];
   const conds: string[] = [];
 
-  if (opts.authority) {
+  if (opts.unassigned) {
+    // акты, которым орган не определён (виден только МНЭ) — отдельный разрез
+    conds.push(`v.authority_code IS NULL`);
+  } else if (opts.authority) {
     const sub = await query(
       `WITH RECURSIVE s AS (
          SELECT id, code FROM organizations WHERE code = $1

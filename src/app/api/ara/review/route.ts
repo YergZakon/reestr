@@ -21,6 +21,9 @@ export const dynamic = "force-dynamic";
 interface Act { id: number; ngr: string | null; authority_code: string | null; npa_kind: string; deadline: string | null; npa_title: string | null }
 
 async function notify(authority: string | null, userId: number | null, type: string, dedup: string, title: string, payload: object) {
+  // у актов без определённого органа адресата нет (notifications.authority_code NOT NULL),
+  // цикл по ним ведёт МНЭ — уведомление просто не создаётся, шаг не должен падать
+  if (!authority) return;
   await query(
     `INSERT INTO notifications (authority_code, type, dedup_key, title, payload, user_id)
      VALUES ($1,$2,$3,$4,$5::jsonb,$6) ON CONFLICT (dedup_key) DO NOTHING`,

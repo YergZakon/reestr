@@ -59,7 +59,8 @@ export default function AraMode({ lang = "ru", role }: { lang?: Lang; role?: str
   const loadActs = useCallback(() => {
     if (!summary || !showActs) return;
     const p = new URLSearchParams({ page: String(page) });
-    if (org) p.set("authority", org);
+    if (org === "—") p.set("unassigned", "1");   // акты без определённого органа
+    else if (org) p.set("authority", org);
     if (group) p.set("group", group);
     if (qd) p.set("q", qd);
     if (lang === "kz") p.set("lang", "kz");
@@ -200,8 +201,7 @@ export default function AraMode({ lang = "ru", role }: { lang?: Lang; role?: str
               </tr></thead>
               <tbody>
                 {summary.byOrg.map((o) => (
-                  <tr key={o.code} style={{ cursor: o.code !== "—" ? "pointer" : undefined }}
-                    onClick={() => o.code !== "—" && setOrg(o.code)}>
+                  <tr key={o.code} style={{ cursor: "pointer" }} onClick={() => setOrg(o.code)}>
                     <td style={{ textAlign: "left" }}>{o.name || t.arOrgUndefined}</td>
                     <td><b>{o.total}</b></td>
                     <td style={{ color: "#A32D2D", fontWeight: 700 }}>{o.overdue}</td>
