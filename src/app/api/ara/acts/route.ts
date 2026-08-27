@@ -5,7 +5,7 @@ import { araActs } from "@/lib/araData";
 export const dynamic = "force-dynamic";
 
 /** GET /api/ara/acts?authority=&group=&q=&page=&lang= — акты со сроками АРА.
- *  МНЭ — любой орган (или все, включая несматченные); орган — свой скоуп. */
+ *  МНЭ — любой орган (или все, включая акты без определённого органа); орган — свой скоуп. */
 export async function GET(req: NextRequest) {
   const user = await getCurrentUserWithAccess();
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });

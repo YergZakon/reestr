@@ -8,14 +8,14 @@ import { MDICT } from "../i18n-modes";
 import type { Lang } from "../i18n";
 
 interface Kpi { total: number; overdue: number; not_due: number; on_time: number; no_deadline: number }
-interface OrgRow extends Kpi { code: string; name: string }
+interface OrgRow extends Kpi { code: string; name: string | null }
 interface Act {
   id: number; ngr: string | null; ext_ref: string | null; authority_code: string | null;
   npa_title: string | null; npa_kind: string; deadlines: string[] | null; deadline: string | null;
   deadline_src: string; deadline_calc: string | null; portal_status: string | null;
   ara_group: string; authority_short: string | null; authority_name: string | null;
   review_id: number | null; review_status: string | null; review_conclusion: string | null;
-  req_count: number; assignees: string | null;
+  req_count: number; pending_count: number; assignees: string | null;
 }
 interface Task {
   id: number; review_id: number; note: string | null; due_date: string | null; assign_status: string;
@@ -202,7 +202,7 @@ export default function AraMode({ lang = "ru", role }: { lang?: Lang; role?: str
                 {summary.byOrg.map((o) => (
                   <tr key={o.code} style={{ cursor: o.code !== "—" ? "pointer" : undefined }}
                     onClick={() => o.code !== "—" && setOrg(o.code)}>
-                    <td style={{ textAlign: "left" }}>{o.name}</td>
+                    <td style={{ textAlign: "left" }}>{o.name || t.arOrgUndefined}</td>
                     <td><b>{o.total}</b></td>
                     <td style={{ color: "#A32D2D", fontWeight: 700 }}>{o.overdue}</td>
                     <td>{o.not_due}</td><td>{o.on_time}</td><td>{o.no_deadline}</td>
@@ -314,7 +314,7 @@ export default function AraMode({ lang = "ru", role }: { lang?: Lang; role?: str
                         </select>
                         <div className="reg-rev-m" style={{ color: applyCards === "exclude" ? "#A32D2D" : undefined }}>
                           {applyCards === "none" ? t.arCardsNoneHint
-                            : applyCards === "confirm" ? t.arCardsConfirmHint(a.req_count)
+                            : applyCards === "confirm" ? t.arCardsConfirmHint(a.pending_count, a.req_count)
                             : t.arCardsExcludeHint(a.req_count)}
                         </div>
                         <input placeholder={t.arNotePh} value={note} onChange={(e) => setNote(e.target.value)}

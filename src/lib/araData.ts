@@ -41,7 +41,7 @@ export async function araKpi(scopeCodes: string[] | null): Promise<AraKpi> {
 export async function araByOrg() {
   const r = await query(`${ORG_ROOT}
     SELECT COALESCE(o.code, '—') AS code,
-           COALESCE(COALESCE(o.short_name, o.name_ru), 'Орган не сматчен') AS name,
+           COALESCE(o.short_name, o.name_ru) AS name,   -- NULL = орган не определён (подпись на клиенте)
            count(*)::int AS total,
            count(*) FILTER (WHERE v.ara_group = 'overdue')::int AS overdue,
            count(*) FILTER (WHERE v.ara_group = 'not_due')::int AS not_due,
@@ -104,6 +104,11 @@ export async function araActs(opts: {
             WHERE rr.ngr = v.ngr AND rr.authority_code = v.authority_code
               AND NOT COALESCE(rr.excluded,false)
               AND (rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')) AS req_count,
+           -- ожидают подтверждения: именно их затрагивает массовое действие «подтвердить»
+           (SELECT count(*)::int FROM requirement_registry rr
+            WHERE rr.ngr = v.ngr AND rr.authority_code = v.authority_code
+              AND rr.review_status = 'pending' AND NOT COALESCE(rr.excluded,false)
+              AND (rr.npa_status IS NULL OR rr.npa_status <> 'утратил силу')) AS pending_count,
            (SELECT string_agg(u.username, ', ')
             FROM ara_assignment aa JOIN users u ON u.id = aa.assignee_id
             WHERE aa.review_id = rev.id AND aa.status IN ('assigned','accepted','done')) AS assignees
