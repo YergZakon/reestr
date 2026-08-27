@@ -13,6 +13,9 @@ export async function GET(req: NextRequest) {
   const mne = isMne(user.role);
 
   const authority = sp.get("authority") || null;
+  const unassigned = sp.get("unassigned") === "1";
+  if (unassigned && !mne)
+    return NextResponse.json({ error: "Разрез доступен только МНЭ" }, { status: 403 });
   if (!mne) {
     if (!user.assigned_authorities.length)
       return NextResponse.json({ items: [], total: 0, pages: 0, noAuthorities: true });
@@ -22,6 +25,7 @@ export async function GET(req: NextRequest) {
 
   const data = await araActs({
     authority,
+    unassigned,
     scopeCodes: mne ? null : user.assigned_authorities,
     group: sp.get("group"),
     q: sp.get("q"),
