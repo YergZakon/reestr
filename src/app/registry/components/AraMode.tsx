@@ -306,11 +306,17 @@ export default function AraMode({ lang = "ru", role }: { lang?: Lang; role?: str
                     {openForm?.act.id === a.id && openForm.kind === "approve" && (
                       <div className="reg-ara-form">
                         <div className="reg-rev-m">{t.arApproveHint(a.npa_kind === "bylaw" ? 2 : 3)}</div>
+                        <label className="reg-rev-m" style={{ fontWeight: 600, marginTop: 2 }}>{t.arCardsLabel}</label>
                         <select value={applyCards} onChange={(e) => setApplyCards(e.target.value as "none" | "confirm" | "exclude")} style={{ height: 32 }}>
                           <option value="none">{t.arCardsNone}</option>
                           <option value="confirm">{t.arCardsConfirm}</option>
                           <option value="exclude">{t.arCardsExclude}</option>
                         </select>
+                        <div className="reg-rev-m" style={{ color: applyCards === "exclude" ? "#A32D2D" : undefined }}>
+                          {applyCards === "none" ? t.arCardsNoneHint
+                            : applyCards === "confirm" ? t.arCardsConfirmHint(a.req_count)
+                            : t.arCardsExcludeHint(a.req_count)}
+                        </div>
                         <input placeholder={t.arNotePh} value={note} onChange={(e) => setNote(e.target.value)}
                           style={{ height: 32, border: "1px solid var(--line)", borderRadius: 6, padding: "0 9px" }} />
                         <div className="reg-ara-form-btns">
