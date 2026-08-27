@@ -9,7 +9,9 @@ export function middleware(request: NextRequest) {
   if (
     PUBLIC_PATHS.some((p) => pathname.startsWith(p)) ||
     pathname.startsWith("/_next") ||
-    pathname.startsWith("/favicon")
+    pathname.startsWith("/favicon") ||
+    // статика из public (герб на странице входа, иконки) — до авторизации
+    /\.(png|jpg|jpeg|svg|webp|ico|txt|woff2?)$/i.test(pathname)
   ) {
     return NextResponse.next();
   }

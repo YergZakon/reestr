@@ -19,6 +19,8 @@ const RU = {
   // шапка
   brandTitle: "Реестр обязательных требований",
   brandSub: "Министерство национальной экономики РК",
+  brandTitleShort: "Реестр требований",
+  brandSubShort: "МНЭ РК",
   tabCatalog: "Каталог", tabOrgans: "Органы и НПА", tabCost: "Нагрузка",
   tabMethod: "Методика", tabDupes: "Дубли", tabReview: "Ревью", tabBusiness: "Бизнес",
   tabSubmit: "Подача НПА", tabAssign: "Назначения", tabUnits: "Подразделения",
@@ -90,6 +92,8 @@ const RU = {
 const KZ: typeof RU = {
   brandTitle: "Міндетті талаптар тізілімі",
   brandSub: "ҚР Ұлттық экономика министрлігі",
+  brandTitleShort: "Талаптар тізілімі",
+  brandSubShort: "ҚР ҰЭМ",
   tabCatalog: "Каталог", tabOrgans: "Органдар және НҚА", tabCost: "Жүктеме",
   tabMethod: "Әдістеме", tabDupes: "Қайталанулар", tabReview: "Ревью", tabBusiness: "Бизнес",
   tabSubmit: "НҚА ұсыну", tabAssign: "Тағайындаулар", tabUnits: "Бөлімшелер",
