@@ -1,82 +1,118 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import "./login.css";
+
+/** Вход в систему. Государственное оформление: герб РК, двуязычие (ҚАЗ/РУС),
+ *  правовая сноска о журналировании действий. Язык запоминается в localStorage
+ *  тем же ключом, что и реестр (reg_lang) — вход и приложение согласованы. */
+
+const L = {
+  ru: {
+    state: "Республика Казахстан",
+    title: "Реестр обязательных требований",
+    org: "Министерство национальной экономики Республики Казахстан",
+    cardH: "Вход в систему",
+    login: "Логин",
+    password: "Пароль",
+    enter: "Войти",
+    entering: "Вход…",
+    err: "Ошибка авторизации",
+    netErr: "Сервис недоступен, повторите попытку",
+    note: "Доступ предоставляется уполномоченным сотрудникам государственных органов. Действия пользователей в системе журналируются.",
+    footSys: "Государственная информационная система",
+  },
+  kz: {
+    state: "Қазақстан Республикасы",
+    title: "Міндетті талаптар тізілімі",
+    org: "Қазақстан Республикасының Ұлттық экономика министрлігі",
+    cardH: "Жүйеге кіру",
+    login: "Логин",
+    password: "Құпиясөз",
+    enter: "Кіру",
+    entering: "Кіру…",
+    err: "Авторизация қатесі",
+    netErr: "Қызмет қолжетімсіз, әрекетті қайталаңыз",
+    note: "Қолжетімділік мемлекеттік органдардың уәкілетті қызметкерлеріне беріледі. Пайдаланушылардың жүйедегі әрекеттері журналға тіркеледі.",
+    footSys: "Мемлекеттік ақпараттық жүйе",
+  },
+};
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [lang, setLang] = useState<"ru" | "kz">("ru");
   const router = useRouter();
+  const t = L[lang];
+
+  useEffect(() => {
+    const saved = localStorage.getItem("reg_lang");
+    if (saved === "kz" || saved === "ru") setLang(saved);
+  }, []);
+  const switchLang = (l: "ru" | "kz") => { setLang(l); localStorage.setItem("reg_lang", l); };
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
-
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
-
-    const data = await res.json();
-    setLoading(false);
-
-    if (res.ok) {
-      router.push("/registry");
-    } else {
-      setError(data.error || "Ошибка авторизации");
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) { router.push("/registry"); return; }
+      setError(data.error || t.err);
+    } catch {
+      setError(t.netErr);
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <div className="w-full max-w-md p-8 bg-white rounded-xl shadow-lg">
-        <h1 className="text-2xl font-bold text-center text-slate-800 mb-2">
-          Реестр обязательных требований
-        </h1>
-        <p className="text-sm text-slate-500 text-center mb-8">
-          Министерство национальной экономики Республики Казахстан
-        </p>
+    <div className="lg">
+      <div className="lg-top" />
+      <div className="lg-lang">
+        <button className={lang === "kz" ? "on" : ""} onClick={() => switchLang("kz")}>ҚАЗ</button>
+        <button className={lang === "ru" ? "on" : ""} onClick={() => switchLang("ru")}>РУС</button>
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Логин</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              placeholder="expert_1"
-              required
-            />
+      <main className="lg-main">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img className="lg-gerb" src="/gerb.png" alt={t.state} width={104} height={107} />
+        <div className="lg-state">{t.state}</div>
+        <h1 className="lg-h1">{t.title}</h1>
+        <div className="lg-org">{t.org}</div>
+        <div className="lg-rule" />
+
+        <form className="lg-card" onSubmit={handleSubmit}>
+          <div className="lg-card-h">{t.cardH}</div>
+          {error && <div className="lg-err">{error}</div>}
+          <div className="lg-field">
+            <label htmlFor="lg-user">{t.login}</label>
+            <input id="lg-user" type="text" value={username} autoComplete="username"
+              onChange={(e) => setUsername(e.target.value)} required autoFocus />
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Пароль</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              required
-            />
+          <div className="lg-field">
+            <label htmlFor="lg-pass">{t.password}</label>
+            <input id="lg-pass" type="password" value={password} autoComplete="current-password"
+              onChange={(e) => setPassword(e.target.value)} required />
           </div>
-
-          {error && (
-            <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg">{error}</div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-          >
-            {loading ? "Вход..." : "Войти"}
+          <button className="lg-btn" type="submit" disabled={loading}>
+            {loading ? t.entering : t.enter}
           </button>
         </form>
-      </div>
+
+        <div className="lg-note">{t.note}</div>
+        <div className="lg-foot">
+          <b>{t.footSys}</b><br />
+          © {new Date().getFullYear()} · {t.org}
+        </div>
+      </main>
     </div>
   );
 }

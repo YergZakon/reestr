@@ -107,10 +107,17 @@ export default function RegistryPage() {
       {/* Шапка */}
       <header className="reg-topbar">
         <div className="reg-brand">
-          <div className="reg-emblem"><I.scale /></div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="reg-emblem" src="/gerb-sm.png" alt="" width={38} height={39} />
           <div>
-            <div className="reg-brand-title">{t.brandTitle}</div>
-            <div className="reg-brand-sub">{t.brandSub}</div>
+            <div className="reg-brand-title">
+              <span className="w-full">{t.brandTitle}</span>
+              <span className="w-short">{t.brandTitleShort}</span>
+            </div>
+            <div className="reg-brand-sub">
+              <span className="w-full">{t.brandSub}</span>
+              <span className="w-short">{t.brandSubShort}</span>
+            </div>
           </div>
         </div>
         <div className="reg-spacer" />

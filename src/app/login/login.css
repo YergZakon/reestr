@@ -1,0 +1,57 @@
+/* Страница входа — государственный стиль (герб РК, сдержанная типографика).
+   Палитра и шрифты синхронны с реестром (registry.css). */
+@import url("https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=PT+Serif:wght@400;700&display=swap");
+
+.lg {
+  --accent:#0E7A5F; --accent-700:#0B6650; --accent-50:#E6F4EF;
+  --ink:#16201C; --ink-2:#3C4A44; --ink-3:#6B7A73;
+  --line:#E2E8E4; --surface:#FFFFFF; --surface-2:#F6F8F6;
+  --gold:#C9A227;
+  --ui:"Golos Text",system-ui,-apple-system,sans-serif;
+  --serif:"PT Serif",Georgia,serif;
+  font-family:var(--ui); color:var(--ink);
+  min-height:100vh; display:flex; flex-direction:column; align-items:center;
+  background:
+    radial-gradient(1100px 520px at 50% -160px, #EAF2EE 0%, rgba(234,242,238,0) 70%),
+    var(--surface-2);
+  padding:0 0 40px;
+}
+.lg *{box-sizing:border-box;}
+.lg-top{width:100%;height:3px;background:linear-gradient(90deg,var(--accent) 0%,var(--accent-700) 45%,var(--gold) 100%);}
+.lg-lang{align-self:flex-end;display:flex;gap:2px;margin:14px 20px 0 0;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:3px;}
+.lg-lang button{border:0;background:transparent;padding:5px 11px;border-radius:6px;font:600 12px var(--ui);color:var(--ink-3);cursor:pointer;}
+.lg-lang button.on{background:var(--accent-50);color:var(--accent-700);}
+
+.lg-main{width:100%;max-width:432px;margin:auto;padding:26px 20px 0;text-align:center;}
+.lg-gerb{width:104px;height:auto;margin:0 auto 18px;display:block;}
+.lg-state{font-size:10.5px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);}
+.lg-h1{font-family:var(--serif);font-size:25px;font-weight:700;line-height:1.24;margin:9px 0 0;letter-spacing:-.01em;}
+.lg-org{font-size:12.5px;color:var(--ink-2);margin-top:8px;line-height:1.45;}
+.lg-rule{width:52px;height:2px;background:var(--gold);border-radius:2px;margin:20px auto 0;opacity:.85;}
+
+.lg-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+  box-shadow:0 4px 16px rgba(16,32,28,.07),0 1px 3px rgba(16,32,28,.05);
+  padding:26px 26px 24px;margin-top:24px;text-align:left;}
+.lg-card-h{font-size:14px;font-weight:650;margin:0 0 16px;}
+.lg-field{margin-bottom:14px;}
+.lg-field label{display:block;font-size:12px;font-weight:600;color:var(--ink-2);margin-bottom:6px;}
+.lg-field input{width:100%;height:42px;border:1px solid var(--line);border-radius:9px;padding:0 13px;
+  font:400 14px var(--ui);color:var(--ink);background:var(--surface);transition:border-color .15s,box-shadow .15s;}
+.lg-field input:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-50);}
+.lg-btn{width:100%;height:44px;border:0;border-radius:9px;background:var(--accent);color:#fff;
+  font:650 14px var(--ui);cursor:pointer;transition:background .15s;margin-top:4px;}
+.lg-btn:hover:not(:disabled){background:var(--accent-700);}
+.lg-btn:disabled{opacity:.6;cursor:default;}
+.lg-err{background:#FDECEC;color:#A32D2D;border:1px solid #F3D2D2;border-radius:8px;
+  padding:9px 12px;font-size:12.5px;margin-bottom:12px;}
+
+.lg-note{font-size:11.5px;color:var(--ink-3);line-height:1.55;margin-top:18px;text-align:center;}
+.lg-foot{font-size:11px;color:var(--ink-3);margin-top:26px;text-align:center;line-height:1.6;}
+.lg-foot b{font-weight:600;color:var(--ink-2);}
+
+@media (max-width:480px){
+  .lg-main{padding-top:14px;}
+  .lg-gerb{width:84px;}
+  .lg-h1{font-size:21px;}
+  .lg-card{padding:22px 18px;}
+}
