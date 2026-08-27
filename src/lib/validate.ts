@@ -62,6 +62,23 @@ export const NpaAdminBody = z.object({
   .refine((b) => b.action !== "exclude" || (b.reason && b.reason.trim().length >= 5),
   { message: "причина обязательна для исключения (≥5 символов)" });
 
+/* ——— Цикл АРА (план 2026-08-20) ——— */
+export const AraReviewBody = z.object({
+  action: z.enum(["open", "assign", "accept", "conclude", "approve", "return", "cancel"]),
+  ara_id: z.coerce.number().int().positive().optional(),
+  review_id: z.coerce.number().int().positive().optional(),
+  analyst_ids: z.array(z.coerce.number().int().positive()).min(1).max(20).optional(),
+  note: z.string().max(2000).nullish(),
+  due_date: dateStr.optional(),
+  conclusion: z.enum(["revise", "keep"]).optional(),
+  rationale: z.string().max(8000).nullish(),
+  proposals: z.string().max(8000).nullish(),
+  // массовые действия по карточкам акта при утверждении (опционально):
+  // confirm — pending→confirmed с новым ara_deadline (для keep);
+  // exclude — excluded=true + ara_status='исключён' (для revise)
+  apply_cards: z.enum(["none", "confirm", "exclude"]).optional(),
+});
+
 /* ——— Правовой мониторинг ЗАН ——— */
 export const ZanEventActionBody = z.object({
   event_id: z.coerce.number().int().positive(),

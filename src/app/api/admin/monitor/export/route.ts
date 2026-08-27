@@ -78,6 +78,8 @@ export async function GET() {
     { header: "Отредактировано", key: "edited", width: 16 },
     { header: "Обработано, %", key: "done", width: 14 },
     { header: "Подано НПА", key: "submissions", width: 12 },
+    { header: "АРА: подлежит", key: "ara_total", width: 14 },
+    { header: "АРА: просрочено", key: "ara_overdue", width: 16 },
   ]);
   for (const r of d.byOrg) {
     const done = r.total ? Math.round(((r.confirmed + r.rejected + r.edited) / r.total) * 1000) / 10 : 0;

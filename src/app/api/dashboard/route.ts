@@ -42,11 +42,14 @@ async function buildSnapshot() {
     SELECT count(DISTINCT dup_group_id)::int AS groups, count(*)::int AS reqs
     FROM requirement_registry rr WHERE ${ACTIVE} AND dup_group_id IS NOT NULL`))[0];
 
+  // пять групп цикла АРА по АКТАМ (npa_ara, план 2026-08-20)
   const ara = (await one(`
-    SELECT count(*) FILTER (WHERE ara_deadline <= now() + interval '90 days')::int AS d90,
-           count(*) FILTER (WHERE ara_deadline <= now() + interval '12 months')::int AS m12,
-           count(*)::int AS total
-    FROM requirement_registry rr WHERE ${ACTIVE} AND ara_deadline IS NOT NULL`))[0];
+    SELECT count(*)::int AS total,
+           count(*) FILTER (WHERE ara_group = 'overdue')::int AS overdue,
+           count(*) FILTER (WHERE ara_group = 'not_due')::int AS not_due,
+           count(*) FILTER (WHERE ara_group = 'on_time')::int AS on_time,
+           count(*) FILTER (WHERE ara_group = 'no_deadline')::int AS no_deadline
+    FROM v_npa_ara_status`))[0];
 
   const counts = (await one(`
     SELECT count(*)::int AS spheres,

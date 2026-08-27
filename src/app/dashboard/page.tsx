@@ -17,7 +17,7 @@ interface Snap {
   totals: { req: number; uniq: number; npa: number; permits: number };
   cleanup: { excluded: number; repealed: number };
   dups: { groups: number; reqs: number };
-  ara: { d90: number; m12: number; total: number };
+  ara: { total: number; overdue: number; not_due: number; on_time: number; no_deadline: number };
   counts: { spheres: number; organs: number };
   topInd: Row[]; topAuth: Row[]; regions: Row[]; audience: Row[];
   months: { name: string; added: number; removed: number }[];
@@ -472,7 +472,7 @@ export default function DashboardPage() {
                       <div style={{ font: "700 22px/1.2 Manrope,sans-serif" }}>Срок годности требования (АРА)</div>
                       <div style={{ font: "500 20px/1.3 Manrope,sans-serif", color: "var(--mu)" }}>Автоматический пересмотр раз в 2–3 года — регуляторика перестаёт «жить вечно»</div>
                       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: 14 }}>
-                        {([[S.ara.d90, "срок в ближайшие 90 дней", "var(--rd)"], [S.ara.m12, "срок в течение 12 месяцев", "var(--gd)"], [S.ara.total, "всего под циклом пересмотра", "var(--ac)"]] as [number, string, string][]).map(([v, name, col], i) => (
+                        {([[S.ara.overdue, "просрочено", "var(--rd)"], [S.ara.not_due, "срок не наступил", "var(--gd)"], [S.ara.on_time, "рассмотрено в срок", "var(--ac)"], [S.ara.no_deadline, "срок не проставлен", "var(--mut)"]] as [number, string, string][]).map(([v, name, col], i) => (
                           <div key={name} style={{ display: "flex", alignItems: "center", gap: 16 }}>
                             <div style={{ width: 112, flex: "none", font: "800 32px/1 Manrope,sans-serif", textAlign: "right" }}>{fmt(v)}</div>
                             <div style={{ flex: 1, height: 22, background: "var(--srf2)", borderRadius: 4, overflow: "hidden" }}>

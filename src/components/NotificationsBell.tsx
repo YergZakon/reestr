@@ -3,6 +3,8 @@
 const TYPE_LABELS: Record<string, string> = {
   new_pending: "новые в очереди", ara_soon: "срок АРА", npa_assigned: "передача НПА",
   npa_repealed: "утрата силы", npa_amended: "новая редакция",
+  ara_overdue: "просрочен АРА", ara_assigned: "поручение АРА",
+  ara_concluded: "заключение АРА", ara_approved: "АРА утверждено", ara_returned: "возврат АРА",
 };
 // (генерирует облачный воркер; email-канал дублирует при заданном SMTP_URL).
 import { useCallback, useEffect, useRef, useState } from "react";

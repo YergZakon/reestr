@@ -163,6 +163,7 @@ export const REVIEW_LABEL: Record<string, string> = {
 export interface Npa {
   ngr: string; title: string; npa_status: string | null;
   date_adopted: string | null; date_revision: string | null; review_deadline: string | null;
+  ara_deadline: string | null; ara_overdue: boolean;
   overdue: boolean; req_count: number; adilet_url: string;
 }
 
@@ -251,7 +252,7 @@ export function Drawer({ r, onClose, onSaved, role, lang = "ru" }: { r: Req; onC
           <button className="reg-drawer-close" onClick={onClose}><I.x /></button>
         </div>
         <div className="reg-drawer-body">
-          {r.review_status && (role === "expert" || role === "admin") && (
+          {r.review_status && (role === "expert" || role === "admin" || role === "mne") && (
             <div className="reg-d-section reg-review-box">
               <div className="reg-d-section-h">{t.dReview}</div>
               <div className="reg-review-status">
@@ -265,7 +266,7 @@ export function Drawer({ r, onClose, onSaved, role, lang = "ru" }: { r: Req; onC
               <div className="reg-review-acts">
                 <button className="reg-rev-confirm" disabled={rbusy} onClick={() => review("confirm", { ara_deadline: araDate })}>{t.confirm}</button>
                 <button className="reg-rev-reject" disabled={rbusy} onClick={() => review("reject")}>{t.reject}</button>
-                {role === "admin" && r.review_status === "confirmed" && (
+                {(role === "admin" || role === "mne") && r.review_status === "confirmed" && (
                   <button className="reg-rev-include" disabled={rbusy} onClick={() => review("include")}>{t.include}</button>
                 )}
               </div>
