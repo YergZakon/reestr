@@ -631,3 +631,19 @@
 .reg-ara-form textarea{border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;resize:vertical;}
 .reg-ara-form-btns{display:flex;gap:8px;}
 .reg-form-err{color:#A32D2D;font-size:13px;font-weight:600;}
+
+/* ─── Мониторинг: посещаемость бизнес-навигатора ─── */
+.reg-mon-period{display:flex;gap:6px;margin-top:14px;}
+.reg-mon-period button{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 13px;font-size:12.5px;font-weight:600;color:var(--ink-2);cursor:pointer;}
+.reg-mon-period button.on{background:var(--accent-50);border-color:var(--accent-100);color:var(--accent-700);}
+.reg-mon-funnel{display:flex;flex-direction:column;gap:7px;margin-top:10px;}
+.reg-mon-funnel-row{display:grid;grid-template-columns:230px 1fr 70px 46px;align-items:center;gap:10px;font-size:13px;}
+.reg-mon-funnel-row .lbl{color:var(--ink-2);}
+.reg-mon-funnel-row .bar{height:9px;background:var(--surface-3);border-radius:5px;overflow:hidden;}
+.reg-mon-funnel-row .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-700));border-radius:5px;}
+.reg-mon-funnel-row b{text-align:right;font-variant-numeric:tabular-nums;}
+.reg-mon-funnel-row .pct{color:var(--ink-3);font-size:12px;text-align:right;}
+.reg-mon-biz-cols{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:18px;align-items:start;}
+.reg-mon-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px;}
+.reg-mon-chips .reg-mchip{background:var(--surface-3);border-radius:7px;padding:4px 10px;font-size:12.5px;}
+@media (max-width:1100px){.reg-mon-biz-cols{grid-template-columns:1fr;}.reg-mon-funnel-row{grid-template-columns:150px 1fr 60px 40px;}}
