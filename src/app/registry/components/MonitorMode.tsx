@@ -26,6 +26,17 @@ interface Data { kpi: Kpi; users: Users; subs: Subs; byOrg: OrgRow[]; reviewers:
 
 const n = (v: number | null | undefined) => Number(v || 0).toLocaleString("ru");
 const dt = (s: string | null) => (s ? new Date(s).toLocaleString("ru", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—");
+interface BizStats {
+  days: number;
+  kpi: { visitors: number; visits: number; events: number; since: string | null };
+  funnel: { visit: number; bin_lookup: number; activity_pick: number; report_view: number; conclusion: number; pdf: number };
+  byDay: { day: string; visitors: number; visits: number; reports: number }[];
+  tops: { title: string; n: number }[];
+  langs: { lang: string; n: number }[];
+  devices: { device: string; n: number }[];
+  refs: { ref_host: string; n: number }[];
+}
+
 const day = (s: string | null) => (s ? new Date(s).toLocaleDateString("ru", { day: "2-digit", month: "2-digit", year: "2-digit" }) : "—");
 
 function Stat({ v, label, tone }: { v: string; label: string; tone?: "ok" | "warn" | "bad" }) {
@@ -40,7 +51,15 @@ export default function MonitorMode({ lang = "ru" }: { lang?: Lang }) {
   const t = MDICT[lang];
   const [d, setD] = useState<Data | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [tab, setTab] = useState<"orgs" | "people" | "npa">("orgs");
+  const [tab, setTab] = useState<"orgs" | "people" | "npa" | "biz">("orgs");
+  const [biz, setBiz] = useState<BizStats | null>(null);
+  const [bizDays, setBizDays] = useState(30);
+  useEffect(() => {
+    if (tab !== "biz") return;
+    setBiz(null);
+    fetch(`/api/admin/biz-stats?days=${bizDays}`).then((r) => r.json()).then(setBiz).catch(() => {});
+  }, [tab, bizDays]);
+
   const [q, setQ] = useState("");
 
   useEffect(() => {
@@ -108,6 +127,7 @@ export default function MonitorMode({ lang = "ru" }: { lang?: Lang }) {
         <button className={tab === "orgs" ? "on" : ""} onClick={() => setTab("orgs")}>{t.mmTabOrgs}</button>
         <button className={tab === "people" ? "on" : ""} onClick={() => setTab("people")}>{t.mmTabPeople}</button>
         <button className={tab === "npa" ? "on" : ""} onClick={() => setTab("npa")}>{t.mmTabNpa}</button>
+        <button className={tab === "biz" ? "on" : ""} onClick={() => setTab("biz")}>{t.mmTabBiz}</button>
         <div className="reg-search reg-mon-search">
           <I.search />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t.mmSearchPh} />
@@ -227,6 +247,90 @@ export default function MonitorMode({ lang = "ru" }: { lang?: Lang }) {
           </div>
           {subsFiltered.length === 0 && <div className="reg-empty">{t.mmNothing}</div>}
         </>
+      )}
+
+      {/* Посещаемость бизнес-навигатора (business.rot.kz) */}
+      {tab === "biz" && (
+        <div className="reg-mon-biz">
+          <div className="reg-mon-period">
+            {[7, 30, 90].map((dd) => (
+              <button key={dd} className={bizDays === dd ? "on" : ""} onClick={() => setBizDays(dd)}>{t.mmBizDays(dd)}</button>
+            ))}
+          </div>
+          {!biz ? <div className="reg-empty">{t.mmLoading}</div> : (
+            <>
+              <div className="reg-mon-stats" style={{ marginTop: 12 }}>
+                <Stat v={n(biz.kpi.visitors)} label={t.mmBizVisitors} />
+                <Stat v={n(biz.kpi.visits)} label={t.mmBizVisits} />
+                <Stat v={n(biz.funnel.report_view)} label={t.mmBizReports} />
+                <Stat v={n(biz.funnel.conclusion)} label={t.mmBizConclusions} />
+                <Stat v={n(biz.funnel.pdf)} label={t.mmBizPdf} />
+                <Stat v={n(biz.funnel.bin_lookup)} label={t.mmBizBin} />
+              </div>
+
+              <div className="reg-biz-blockh" style={{ marginTop: 18 }}>{t.mmBizFunnel}</div>
+              <div className="reg-mon-funnel">
+                {([["visit", t.mmBizFVisit], ["activity_pick", t.mmBizFPick], ["report_view", t.mmBizFReport],
+                   ["conclusion", t.mmBizFConcl], ["pdf", t.mmBizFPdf]] as [keyof BizStats["funnel"], string][])
+                  .map(([k, label]) => {
+                    const v = biz.funnel[k] || 0;
+                    const base = biz.funnel.visit || 1;
+                    return (
+                      <div key={k} className="reg-mon-funnel-row">
+                        <span className="lbl">{label}</span>
+                        <span className="bar"><i style={{ width: `${Math.min(100, (v / base) * 100)}%` }} /></span>
+                        <b>{n(v)}</b>
+                        <span className="pct">{Math.round((v / base) * 100)}%</span>
+                      </div>
+                    );
+                  })}
+              </div>
+
+              <div className="reg-mon-biz-cols">
+                <div>
+                  <div className="reg-biz-blockh">{t.mmBizTops}</div>
+                  <table className="reg-mon-table">
+                    <thead><tr><th style={{ textAlign: "left" }}>{t.mmBizActivity}</th><th>{t.mmBizVisits}</th></tr></thead>
+                    <tbody>{biz.tops.map((x, i) => (
+                      <tr key={i}><td style={{ textAlign: "left" }}>{x.title}</td><td className="num b">{n(x.n)}</td></tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+                <div>
+                  <div className="reg-biz-blockh">{t.mmBizByDay}</div>
+                  <table className="reg-mon-table">
+                    <thead><tr><th>{t.mmThDate}</th><th>{t.mmBizVisitors}</th><th>{t.mmBizVisits}</th><th>{t.mmBizReports}</th></tr></thead>
+                    <tbody>{biz.byDay.map((x) => (
+                      <tr key={x.day}><td>{day(x.day)}</td><td className="num b">{n(x.visitors)}</td><td className="num">{n(x.visits)}</td><td className="num">{n(x.reports)}</td></tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="reg-mon-biz-cols" style={{ marginTop: 16 }}>
+                <div>
+                  <div className="reg-biz-blockh">{t.mmBizLang}</div>
+                  <div className="reg-mon-chips">{biz.langs.map((x) => (
+                    <span key={x.lang} className="reg-mchip">{x.lang === "kk" ? "ҚАЗ" : "РУС"}: <b>{n(x.n)}</b></span>
+                  ))}</div>
+                  <div className="reg-biz-blockh" style={{ marginTop: 14 }}>{t.mmBizDevice}</div>
+                  <div className="reg-mon-chips">{biz.devices.map((x) => (
+                    <span key={x.device} className="reg-mchip">{x.device === "mobile" ? t.mmBizMobile : x.device === "tablet" ? t.mmBizTablet : t.mmBizDesktop}: <b>{n(x.n)}</b></span>
+                  ))}</div>
+                </div>
+                <div>
+                  <div className="reg-biz-blockh">{t.mmBizRefs}</div>
+                  {biz.refs.length ? (
+                    <div className="reg-mon-chips">{biz.refs.map((x) => (
+                      <span key={x.ref_host} className="reg-mchip">{x.ref_host}: <b>{n(x.n)}</b></span>
+                    ))}</div>
+                  ) : <div className="reg-rev-m">{t.mmBizNoRefs}</div>}
+                </div>
+              </div>
+              <div className="reg-rev-m" style={{ marginTop: 16 }}>{t.mmBizPrivacy}</div>
+            </>
+          )}
+        </div>
       )}
     </div>
   );
