@@ -264,7 +264,7 @@ export default function RegistryPage() {
       ) : mode === "units" ? (
         <OrgUnitsMode me={me} lang={lang} />
       ) : mode === "monitor" ? (
-        <MonitorMode lang={lang} />
+        <MonitorMode lang={lang} role={me?.role} />
       ) : mode === "zanwatch" ? (
         <ZanMonitorMode lang={lang} />
       ) : mode === "ara" ? (
