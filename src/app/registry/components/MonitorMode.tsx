@@ -47,7 +47,8 @@ function Stat({ v, label, tone }: { v: string; label: string; tone?: "ok" | "war
   );
 }
 
-export default function MonitorMode({ lang = "ru" }: { lang?: Lang }) {
+export default function MonitorMode({ lang = "ru", role }: { lang?: Lang; role?: string }) {
+  const isAdmin = role === "admin";   // посещаемость бизнес-навигатора — только администратору
   const t = MDICT[lang];
   const [d, setD] = useState<Data | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -55,7 +56,7 @@ export default function MonitorMode({ lang = "ru" }: { lang?: Lang }) {
   const [biz, setBiz] = useState<BizStats | null>(null);
   const [bizDays, setBizDays] = useState(30);
   useEffect(() => {
-    if (tab !== "biz") return;
+    if (tab !== "biz" || !isAdmin) return;
     setBiz(null);
     fetch(`/api/admin/biz-stats?days=${bizDays}`).then((r) => r.json()).then(setBiz).catch(() => {});
   }, [tab, bizDays]);
@@ -127,7 +128,7 @@ export default function MonitorMode({ lang = "ru" }: { lang?: Lang }) {
         <button className={tab === "orgs" ? "on" : ""} onClick={() => setTab("orgs")}>{t.mmTabOrgs}</button>
         <button className={tab === "people" ? "on" : ""} onClick={() => setTab("people")}>{t.mmTabPeople}</button>
         <button className={tab === "npa" ? "on" : ""} onClick={() => setTab("npa")}>{t.mmTabNpa}</button>
-        <button className={tab === "biz" ? "on" : ""} onClick={() => setTab("biz")}>{t.mmTabBiz}</button>
+        {isAdmin && <button className={tab === "biz" ? "on" : ""} onClick={() => setTab("biz")}>{t.mmTabBiz}</button>}
         <div className="reg-search reg-mon-search">
           <I.search />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t.mmSearchPh} />
@@ -250,7 +251,7 @@ export default function MonitorMode({ lang = "ru" }: { lang?: Lang }) {
       )}
 
       {/* Посещаемость бизнес-навигатора (business.rot.kz) */}
-      {tab === "biz" && (
+      {tab === "biz" && isAdmin && (
         <div className="reg-mon-biz">
           <div className="reg-mon-period">
             {[7, 30, 90].map((dd) => (
