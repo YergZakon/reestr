@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
      RETURNING id`,
     [ngr, npaTitle, b.article.slice(0, 60),
      `${b.subject}: ${b.action}`.slice(0, 200), b.action, b.subject, b.action.slice(0, 400),
-     b.condition || null, `https://adilet.zan.kz/rus/docs/${ngr}`, org.code, org.name_ru]);
+     b.condition || null, `https://old.adilet.zan.kz/rus/docs/${ngr}`, org.code, org.name_ru]);
 
   await query("INSERT INTO activity_log (user_id, action, details) VALUES ($1,'manual_card',$2)",
     [user.id, JSON.stringify({ registry_id: ins.rows[0].id, ngr, org: org.code })]);

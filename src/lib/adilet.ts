@@ -1,13 +1,17 @@
-// Общий клиент adilet.zan.kz (превью + облачный воркер).
+// Общий клиент Әділет (превью + облачный воркер).
+// 2026-09-11: портал сменил адрес — документы переехали на old.adilet.zan.kz,
+// прежний хост перестал отвечать (проверено: соединение не устанавливается).
 // adilet не отдаёт промежуточный сертификат цепочки → штатный fetch (undici, Mozilla CA)
 // падает UNABLE_TO_VERIFY_LEAF_SIGNATURE. Python-контур работает так же (verify=False).
 // TODO Б6 (docs/architecture/09): закреплённый CA-bundle вместо отключения проверки.
 import { request as httpsRequest } from "node:https";
 
+export const ADILET_HOST = "old.adilet.zan.kz";
+
 export function fetchAdilet(path: string, timeoutMs = 20000, depth = 0): Promise<string> {
   return new Promise((resolve, reject) => {
     const req = httpsRequest({
-      hostname: "adilet.zan.kz", path, method: "GET",
+      hostname: ADILET_HOST, path, method: "GET",
       headers: { "User-Agent": "Mozilla/5.0 (reestr-preview)" },
       rejectUnauthorized: false,
       timeout: timeoutMs,

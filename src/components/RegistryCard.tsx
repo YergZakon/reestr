@@ -38,7 +38,7 @@ export default function RegistryCard({
 
   const heading = item.title || `${item.subject || ""} ${item.action ? "→ " + item.action : ""}`.trim();
   const body = savedText ?? (item.canon_text || item.legal_text || "");
-  const adiletUrl = item.ngr ? `https://adilet.zan.kz/rus/docs/${item.ngr}` : null;
+  const adiletUrl = item.ngr ? `https://old.adilet.zan.kz/rus/docs/${item.ngr}` : null;
 
   async function save() {
     setBusy(true);
