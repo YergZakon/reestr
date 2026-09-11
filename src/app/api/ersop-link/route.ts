@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
        SET ngr=$1, npa_title=$2, article=$3, norm_url=$4, ersop_confirmed=true
        WHERE id=$5`,
       [n.ngr, n.npa_title, l.article || n.article,
-       n.ngr ? `https://adilet.zan.kz/rus/docs/${n.ngr}` : null, l.ersop_card_id]);
+       n.ngr ? `https://old.adilet.zan.kz/rus/docs/${n.ngr}` : null, l.ersop_card_id]);
     if (["confirmed", "edited"].includes(n.review_status) && (!e.review_status || e.review_status === "pending")) {
       await cl.query(
         `UPDATE requirement_registry

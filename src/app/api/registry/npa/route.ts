@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
             to_char(max(nr.date_revision), 'DD.MM.YYYY') AS date_revision,
             to_char(max(nr.review_deadline), 'DD.MM.YYYY') AS review_deadline,
             (max(nr.review_deadline) IS NOT NULL AND max(nr.review_deadline) < now()) AS overdue,
-            COALESCE(max(nr.adilet_url), 'https://adilet.zan.kz/rus/docs/' || rr.ngr) AS adilet_url,
+            COALESCE(max(nr.adilet_url), 'https://old.adilet.zan.kz/rus/docs/' || rr.ngr) AS adilet_url,
             max(rr.authority_code) AS owner_code
      FROM requirement_registry rr
      LEFT JOIN npa_registry nr ON nr.ngr = rr.ngr

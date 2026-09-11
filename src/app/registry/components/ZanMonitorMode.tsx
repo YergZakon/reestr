@@ -95,7 +95,7 @@ export default function ZanMonitorMode({ lang = "ru" }: { lang?: Lang }) {
                 {(e.npa_title || e.ngr).slice(0, 130)}
               </div>
               <div className="reg-rev-m">
-                <a className="reg-d-link" href={`https://adilet.zan.kz/rus/docs/${e.ngr}`} target="_blank" rel="noreferrer">{e.ngr}</a>
+                <a className="reg-d-link" href={`https://old.adilet.zan.kz/rus/docs/${e.ngr}`} target="_blank" rel="noreferrer">{e.ngr}</a>
                 {" · "}{e.authority_name || e.authority_code}
                 {t.zmDetected(dt(e.detected_at))}
                 {e.status !== "new" && <> · {e.status === "acked" ? t.zmAckedLc : t.zmProcessedLc} {e.status_by_name ? `(${e.status_by_name})` : ""}{e.status_note ? ` — ${e.status_note}` : ""}</>}
@@ -114,7 +114,7 @@ export default function ZanMonitorMode({ lang = "ru" }: { lang?: Lang }) {
               {e.event_type === "repealed" && !!e.details?.successor_ngr && (
                 <div className="reg-rev-m" style={{ marginTop: 2 }}>
                   {t.zmSuccessor}{" "}
-                  <a className="reg-d-link" href={`https://adilet.zan.kz/rus/docs/${String(e.details.successor_ngr)}`} target="_blank" rel="noreferrer">
+                  <a className="reg-d-link" href={`https://old.adilet.zan.kz/rus/docs/${String(e.details.successor_ngr)}`} target="_blank" rel="noreferrer">
                     {String(e.details.successor_title || e.details.successor_ngr).slice(0, 110)}
                   </a>
                   {Number(e.details.successor_in_registry) > 0

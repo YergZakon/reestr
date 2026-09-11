@@ -235,7 +235,7 @@ export default function MonitorMode({ lang = "ru", role }: { lang?: Lang; role?:
                 {subsFiltered.map((s) => (
                   <tr key={s.id}>
                     <td className="nowrap">{day(s.created_at)}</td>
-                    <td className="nowrap"><a className="reg-d-link" href={`https://adilet.zan.kz/rus/docs/${s.ngr}`} target="_blank" rel="noreferrer">{s.ngr}</a></td>
+                    <td className="nowrap"><a className="reg-d-link" href={`https://old.adilet.zan.kz/rus/docs/${s.ngr}`} target="_blank" rel="noreferrer">{s.ngr}</a></td>
                     <td className="t-title">{(s.npa_title || "—").replace(/&quot;/g, "«").slice(0, 110)}</td>
                     <td className="nowrap">{s.submitted_by || "—"}</td>
                     <td>{s.root_name || s.org_name || "—"}</td>

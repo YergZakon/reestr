@@ -149,7 +149,7 @@ export default function AraMode({ lang = "ru", role }: { lang?: Lang; role?: str
                   <div className="reg-rev-main">
                     <div className="reg-rev-t">{(k.npa_title || k.ngr || "—").slice(0, 130)}</div>
                     <div className="reg-rev-m">
-                      {k.ngr && <a className="reg-d-link" href={`https://adilet.zan.kz/rus/docs/${k.ngr}`} target="_blank" rel="noreferrer">{k.ngr}</a>}
+                      {k.ngr && <a className="reg-d-link" href={`https://old.adilet.zan.kz/rus/docs/${k.ngr}`} target="_blank" rel="noreferrer">{k.ngr}</a>}
                       {" · "}{t.arDeadline} <b>{dt(k.deadline)}</b>
                       {k.due_date && <> · {t.arDue} <b>{dt(k.due_date)}</b></>}
                       {k.assigned_by_name && <> · {t.arFrom} {k.assigned_by_name}</>}
@@ -226,7 +226,7 @@ export default function AraMode({ lang = "ru", role }: { lang?: Lang; role?: str
                         <div className="reg-rev-t">{(a.npa_title || a.ngr || a.ext_ref || "—").slice(0, 130)}</div>
                         <div className="reg-rev-m">
                           {a.ngr
-                            ? <a className="reg-d-link" href={`https://adilet.zan.kz/rus/docs/${a.ngr}`} target="_blank" rel="noreferrer">{a.ngr}</a>
+                            ? <a className="reg-d-link" href={`https://old.adilet.zan.kz/rus/docs/${a.ngr}`} target="_blank" rel="noreferrer">{a.ngr}</a>
                             : <span title={a.ext_ref || ""}>{t.arNoNgr}</span>}
                           {" · "}{a.authority_short || a.authority_name || a.authority_code || t.arOrgUnmatched}
                           {" · "}{a.npa_kind === "code" ? t.arKindCode : a.npa_kind === "law" ? t.arKindLaw : t.arKindBylaw}

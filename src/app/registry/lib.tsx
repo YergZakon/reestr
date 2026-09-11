@@ -140,7 +140,7 @@ export function ErsopLinkBlock({ r, onSaved, lang = "ru" }: { r: Req; onSaved: (
         <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 6 }}>
           {tt.eSimilarity} {link.cosine != null ? Math.round(link.cosine * 100) + " %" : "—"}
           {link.llm_confidence != null ? ` · ${tt.eLlmConf} ${Math.round(link.llm_confidence * 100)} %` : ""}
-          {link.ngr && <> · <a className="reg-d-link" href={`https://adilet.zan.kz/rus/docs/${link.ngr}`} target="_blank" rel="noreferrer">adilet →</a></>}
+          {link.ngr && <> · <a className="reg-d-link" href={`https://old.adilet.zan.kz/rus/docs/${link.ngr}`} target="_blank" rel="noreferrer">adilet →</a></>}
         </div>
         {skeptic && skeptic !== (link.reason || "").trim() && (
           <div style={{ fontSize: 12, color: "#A32D2D", marginTop: 6 }}>{tt.eDiff} {skeptic}</div>
@@ -218,7 +218,7 @@ export function Drawer({ r, onClose, onSaved, role, lang = "ru" }: { r: Req; onC
     window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h);
   }, [onClose]);
   const heading = r.title || `${r.subject || ""}${r.action ? " → " + r.action : ""}`.trim();
-  const adilet = r.norm_url || (r.ngr ? `https://adilet.zan.kz/rus/docs/${r.ngr}` : null);
+  const adilet = r.norm_url || (r.ngr ? `https://old.adilet.zan.kz/rus/docs/${r.ngr}` : null);
   async function save() {
     setBusy(true);
     try {
